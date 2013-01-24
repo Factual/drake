@@ -1,0 +1,10 @@
+If you are not a UNIX adept, you may need a little explanation, but not much, to understand this pipeline of processes. The plan is easy:
+
+* Make one-word lines by transliterating the complement (-c) of the alphabet into newlines (note the quoted newline), and squeezing out (-s) multiple newlines.
+* Transliterate upper case to lower case.
+* Sort to bring identical words together.
+* Replace each run of duplicate words with a single representative and include a count (-c).
+* Sort in reverse (-r) numeric (-n) order.
+* Pass through a stream editor; quit (q) after printing the number of lines designated by the script’s first parameter (${1}).
+
+http://www.leancrew.com/all-this/2011/12/more-shell-less-egg/
