@@ -216,11 +216,22 @@
                                  row)) "\n"))
           :header?     false}})
 
+(defn chop-branch-name
+  "Given a file extension, removes the Drake branch name if there is one.
+      .txt => .txt
+      .txt#MYBRANCH => .txt"
+  [ext]
+  (if (.contains ext "#")
+    (apply str (butlast (str/split ext #"#")))
+    ext))
+
 (defn actual-ext
-  "Determines the effective extension of file, considering that file may be a partial file
-   named like 'my-out.txt~partial'."
+  "Determines the effective extension of file. Considerations:
+   * the file may be a partial file, e.g.: 'my-out.txt~partial'
+   * the file may have a branch name appended, e.g.: 'my-out.txt#MYBRANCH'"
   [file]
   (let [ext   (fs/extension file)
+        ext   (chop-branch-name ext)
         ext   (if (.endsWith ext "~partial")
                 (subs ext 0 (- (count ext) 8))
                 ext)]
