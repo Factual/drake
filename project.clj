@@ -12,7 +12,7 @@
                  [org.clojure/tools.logging "0.2.3"]
                  [clj-logging-config "1.9.6"]
                  [fs "1.3.2"]
-                 [jlk/time "0.1-20120814.085452-4"]
+                 [factual/jlk-time "0.1"]
                  [digest "1.4.0"]
                  [slingshot "0.10.2"]
                  [factual/fnparse "2.3.0"]
