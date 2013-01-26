@@ -365,7 +365,7 @@
           (map (:steps parse-tree) (map :index steps-to-run)))))
 
 (defn run
-  "Runs d with the specified parse-tree and an array of target
+  "Runs Drake with the specified parse-tree and an array of target
    selection expressions."
   [parse-tree targets]
   (let [steps (parse-tree :steps)
@@ -394,12 +394,13 @@
     (.endsWith java-cmd "nailgun.NGServer")))
 
 (defn- shutdown [exit-code]
-  (if (running-under-nailgun?)
-    (debug "core/shutdown: Running under Nailgun; not calling (shutdown-agents)")
-    (do
-      (debug "core/shutdown: Running standalone; calling (shutdown-agents)")
-      (shutdown-agents)))
-  (System/exit exit-code))
+  (when-not (:repl *options*)
+    (if (running-under-nailgun?)
+      (debug "core/shutdown: Running under Nailgun; not calling (shutdown-agents)")
+      (do
+        (debug "core/shutdown: Running standalone; calling (shutdown-agents)")
+        (shutdown-agents)))
+    (System/exit exit-code)))
 
 (defn parse-cli-vars [vars-str]
   (when-not (empty? vars-str)
@@ -499,6 +500,8 @@
   ["-v" "--vars"
    "Add workflow variable definitions"
    :default ""]
+  ["-r" "--repl" "Supports REPL based running of Drake; foregoes JVM shutdown, et. al."
+   :default false :flag true]
   ["-h" "--help"
    "Show help"
    :default false :flag true]])
@@ -601,7 +604,20 @@
   (or (:help options) (:version options)))
 
 (defn -main
-  "Runs Drake's CLI."
+  "Runs Drake's CLI.
+
+   This can be called from the REPL for development purposes. You should include
+   the following options:
+     --repl (otherwise your REPL will likely be killed by Drake's exit)
+     --auto (otherwise the interactive user confirmation will hang on you)
+   You don't need --auto if you use --preview.
+
+   Examples:
+     (-main \"--repl\" \"--version\")
+     (-main \"--repl\" \"--preview\" \"-w\" \"demos/factual\" \"+...\")
+     (-main \"--repl\" \"--auto\" \"-w\" \"some/workflow.d\" drake \"+...\" \"-^D\" \"-=B\")
+
+   TODO: log messages don't show up on the REPL (but printlns do). Can this be fixed?"
   [& args]
   (let [[opts targets] (split-command-line (into [] args))
         [options _ banner]
@@ -647,10 +663,28 @@
            (error (stack-trace-str e))
            (shutdown 1)))))))
 
-(defn run-workflow-file-auto
-  "Runs Drake on the workflow file wf, without asking for user confirmation.
-   Handy for REPL-based ad-hoc testing."
-  [wf]
-  (set-options {:workflow wf
-                :auto true})
-  (with-workflow-file #(run % ["=..."])))
+(defn run-workflow
+  "This can be called from the REPL or Clojure code as a way of
+   using this ns as a library. Runs in auto mode, meaning there
+   won't be an interactive user confirmation before running steps.
+
+   Specify an empty targetv to get the same result as running Drake
+   with no targets.
+
+   Examples:
+     (run-workflow \"demos/factual\" [])
+     (run-workflow \"demos/factual\" [\"+...\"])
+     (run-workflow \"demos/factual\" [\"+...\"] :branch \"MYBRANCH\")
+     (run-workflow \"some/workflow.d\" [\"+...\" \"-^D\" \"-=B\"]
+                   :branch \"MYBRANCH\" :preview true)
+
+   TODO: log messages don't show up on the REPL (but printlns do). Can this be fixed?"
+  [workflow targetv & {:as opts}]
+  (set-options
+   (merge opts
+          {:workflow workflow
+           ;; Prevent interactive user confirmation. We can later
+           ;; refactor the run function to be more library-like,
+           ;; rather than cli-like.
+           :auto true}))
+  (with-workflow-file #(run % targetv)))
