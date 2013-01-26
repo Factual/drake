@@ -583,6 +583,15 @@
               (.mv fs (path-filename from) (path-filename to))))
           (println "Done."))))))
 
+(defn stop-options
+  "Handles options that imply this isn't a workflow related run of
+   Drake, e.g. --help and --version. If such options exist, handles
+   them and returns truthy, otherwise returns falsy."
+  [options banner]
+  (when (:help options) (println banner))
+  (when (:version options) (println "Drake Version" VERSION))
+  (or (:help options) (:version options)))
+
 (defn -main
   "Runs Drake's CLI."
   [& args]
@@ -604,8 +613,7 @@
                              "everything except '" target
                              "' run:\n  drake ... -" target)))
                     (cli-fail-with-message nil)))))]
-    (if (:help options)
-      (println banner)
+    (when-not (stop-options options banner)
       (let [targets (if (empty? targets) ["=..."] targets)]
         (set-options options)
         (configure-logging)
@@ -614,8 +622,6 @@
         (debug "parsed options:" options)
         (debug "parsed targets:" targets)
         (debug "Clojure version:" *clojure-version*)
-        (when (:version options)
-          (println "Drake Version" VERSION))
 
         (try+
          (if-not (empty? (:merge-branch options))
