@@ -17,7 +17,7 @@ Note that Drake has been tested under Linux and Mac OS X. We've not tested it on
 
 ### Download or build the uberjar
 
-You can build Drake from source, which is the preferred way to run the most up-to-date version, or you can [download a prebuilt uberjar](https://docs.google.com/file/d/0B2xtKcFEL6wwOGNYSWRnMGc3b1k/edit), which may not be the most recent version of Drake.
+You can build Drake from source, which is the preferred way to run the most up-to-date version, or you can [download a prebuilt uberjar](https://docs.google.com/uc?export=download&confirm=no_antivirus&id=0B2xtKcFEL6wwOGNYSWRnMGc3b1k), which may not be the most recent version of Drake.
 
 Following are instructions for building from source. Drake is a Clojure project, so to build Drake from source you will need to have [leiningen](https://github.com/technomancy/leiningen).
 
