@@ -11,18 +11,24 @@ Drake is similar to _GNU Make_, but designed especially for data workflow manage
 
 ## Installation
 
-Drake is a Clojure project, so to build Drake you will need to have [leiningen](https://github.com/technomancy/leiningen).
+You will need to have a JVM installed.
 
 Note that Drake has been tested under Linux and Mac OS X. We've not tested it on Windows.
 
-### Clone the project:
+### Download or build the uberjar
+
+You can build Drake from source, which is the preferred way to run the most up-to-date version, or you can [download a prebuilt uberjar](https://docs.google.com/file/d/0B2xtKcFEL6wwOGNYSWRnMGc3b1k/edit), which may not be the most recent version of Drake.
+
+Following are instructions for building from source. Drake is a Clojure project, so to build Drake from source you will need to have [leiningen](https://github.com/technomancy/leiningen).
+
+#### Clone the project:
 
 ```bash
 $ git clone git@github.com:Factual/drake.git
 $ cd drake
 ```
 
-### Build the uberjar:
+#### Build the uberjar:
 
 ```bash
 $ lein uberjar
@@ -30,7 +36,7 @@ $ lein uberjar
 
 ### Run Drake from the jar
 
-Once you've built the uberjar, you can run Drake like this:
+Once you've built or downloaded the uberjar, you can run Drake like this:
 
 ```bash
 $ java -jar drake.jar
