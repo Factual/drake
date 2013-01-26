@@ -1,26 +1,17 @@
 (ns drake.protocol-c4
-  "c4 is a drake protocol that provides a DSL for dealing with data files on a line
-   by line basis.
-
-   c4 also includes convenient wiring into Factual's public API.
-
-   c4 also includes the wiring between a drake step and executing the c4 code
-   defined in that step.
-
-   TODO(aaron): Rich Hickey would accuse c4 of complecting these concepts,
-   which is a fair point.
-   Perhaps someday c4 should be exploded into separate projects."
-  (:require [drake.c4.core :as c4]
+  "Implements a c4 protocol for Drake steps. Sexy.
+   https://github.com/Factual/c4"
+  (:require [c4.core :as c4]
             [clojure.string :as str]
             [clojure.java.io :as io]
             [cemerick.pomegranate :as pom]
             [sosueme.conf :as conf]
             [fs.core :as fs]
             [factql.core :as factql]
-            [drake.foursquare :as foursquare]
-            [drake.facebook :as facebook]
-            [drake.yelp :as yelp]
-            [drake.google :as google]
+            [c4.apis.foursquare :as foursquare]
+            [c4.apis.facebook :as facebook]
+            [c4.apis.yelp :as yelp]
+            [c4.apis.google :as google]
             [sosueme.conf :as conf]
             [fs.core :as fs]
             [retry.core :as retry])
