@@ -22,15 +22,13 @@ If you like screencasts, check out this [Drake walk-through video](http://www.yo
 
 ## Installation
 
-You will need to have a JVM installed.
-
-Note that Drake has been tested under Linux and Mac OS X. We've not tested it on Windows.
+You will need to have a JVM installed. Drake has been tested under Linux and Mac OS X. We've not tested it on Windows.
 
 ### Download or build the uberjar
 
 You can build Drake from source, which is the preferred way to run the most up-to-date version, or you can [download a prebuilt uberjar](https://docs.google.com/uc?export=download&confirm=no_antivirus&id=0B2xtKcFEL6wwOGNYSWRnMGc3b1k), which may not be the most recent version of Drake.
 
-Following are instructions for building from source. Drake is a Clojure project, so to build Drake from source you will need to have [leiningen](https://github.com/technomancy/leiningen).
+Following are instructions for building from source. Drake is a Clojure project, so you will need to have [leiningen](https://github.com/technomancy/leiningen).
 
 #### Clone the project:
 
@@ -45,7 +43,7 @@ $ cd drake
 $ lein uberjar
 ```
 
-### Run Drake from the jar
+### Run Drake from the uberjar
 
 Once you've built or downloaded the uberjar, you can run Drake like this:
 
@@ -61,16 +59,22 @@ $ java -jar drake.jar --version
 
 ### A nicer way to run Drake
 
-We recommend you "install" Drake in your environment so that you can run it by just typing "drake". For example, you could have an executable script called `drake`, like this on your path:
+We recommend you "install" Drake in your environment so that you can run it by just typing "drake". Here's a convenience script you can put on your path:
 
 ```bash
 #!/bin/bash
 java -cp $(dirname $0)/drake.jar drake.core $@
 ```
 
-Drake documentation refers to running Drake as "drake". If you are instead running the uberjar, just replace "drake" with "java -jar drake.jar" in the examples.
+Save that as `drake`, then do `chmod 755 drake`. Move the uberjar to be in the same directory. Now you can just type `drake` to run Drake from anywhere.
+
+### Faster startup time
+
+The JVM startup time can be a nuisance. To reduce startup time, we recommend using the way cool [Drip](https://github.com/flatland/drip). Please see the [Drake with Drip](https://github.com/Factual/drake/wiki/Faster-startup:-Drake-with-Drip) wiki page.
 
 ## Basic Usage
+
+Drake documentation refers to running Drake as "drake". If you are instead running the uberjar, just replace "drake" with "java -jar drake.jar" in the examples.
 
 The [wiki](https://github.com/Factual/drake/wiki) is the home for Drake's documentation, but here are simple notes on usage:
 
