@@ -9,6 +9,17 @@ Drake is a simple-to-use, extensible, text-based data workflow tool that organiz
 
 Drake is similar to _GNU Make_, but designed especially for data workflow management. It has HDFS support, allows multiple inputs and outputs, and includes a host of features designed to help you bring sanity to your otherwise chaotic data processing workflows.
 
+## Drake walk-through
+
+
+
+If you like screencasts, check out this [Drake walk-through video](http://www.youtube.com/watch?v=BUgxmvpuKAs) recorded by Artem, Drake's primary designer:
+
+<a href="http://www.youtube.com/watch?v=BUgxmvpuKAs">
+  <img src="https://lh6.googleusercontent.com/-wOmqvTkHHk0/UQBnQaVcXJI/AAAAAAAAAC4/apFtmcPXCPQ/s800/Screen%2520Shot%25202013-01-23%2520at%25202.41.43%2520PM.png" width="320" height="195"/>
+</a>
+
+
 ## Installation
 
 You will need to have a JVM installed.
@@ -128,12 +139,6 @@ A lot of work went into designing and specifying Drake. To prove it, here's [the
 There are annotated workflow examples in the demos directory.
 
 There's a [Google Group for Drake](https://groups.google.com/forum/?fromgroups#!forum/drake-workflow)
-
-If you like screencasts, check out this [Drake walk-through video](http://www.youtube.com/watch?v=BUgxmvpuKAs) recorded by Artem, Drake's primary designer:
-
-<a href="http://www.youtube.com/watch?v=BUgxmvpuKAs">
-  <img src="https://lh6.googleusercontent.com/-wOmqvTkHHk0/UQBnQaVcXJI/AAAAAAAAAC4/apFtmcPXCPQ/s800/Screen%2520Shot%25202013-01-23%2520at%25202.41.43%2520PM.png" width="320" height="195"/>
-</a>
 
 ## HDFS Compatibility
 
