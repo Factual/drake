@@ -242,6 +242,32 @@
            [[] {}]
            target-steps)))
 
+(defn steps-report
+  "Returns a report of steps-to-run suitable for cli printing."
+  [parse-tree steps-to-run]
+  (str "The following steps will be run, in order:\n"
+       (join "\n"
+             (for [[i {:keys [index cause]}]
+                   (keep-indexed vector steps-to-run)]
+               ;; TODO(artem)
+               ;; Optimize for repeated BASE prefixes (we can't just show it
+               ;; without base, since it can be ambiguous)
+               ;; also in (step-string), (step-dirnname)
+               ;;
+               ;; If the cause is "projected timestamped", meaning that we will
+               ;; also run one or more targets this one depends on, we will
+               ;; assume they all will generate data in the branch and add
+               ;; branch suffix to all inputs, otherwise behave as the data
+               ;; dictates
+               (format "  %d: %s [%s]"
+                       (inc i)
+                       (step-string (branch-adjust-step
+                                     ((parse-tree :steps) index)
+                                     (contains? #{"projected timestamped"
+                                                  "forced"}
+                                                cause)))
+                       cause)))))
+
 ;; TODO(artem):
 ;; Let's also write how many, something like
 ;; targets will be built
@@ -257,27 +283,7 @@
   (if (*options* :auto)
     true
     (do
-      (println "The following steps will be run, in order:")
-      (doseq [[i {:keys [index cause]}]
-              (keep-indexed vector steps-to-run)]
-        ;; TODO(artem)
-        ;; Optimize for repeated BASE prefixes (we can't just show it
-        ;; without base, since it can be ambiguous)
-        ;; also in (step-string), (step-dirnname)
-        ;;
-        ;; If the cause is "projected timestamped", meaning that we will
-        ;; also run one or more targets this one depends on, we will
-        ;; assume they all will generate data in the branch and add
-        ;; branch suffix to all inputs, otherwise behave as the data
-        ;; dictates
-        (println (format "  %d: %s [%s]"
-                         (inc i)
-                         (step-string (branch-adjust-step
-                                       ((parse-tree :steps) index)
-                                       (contains? #{"projected timestamped"
-                                                    "forced"}
-                                                  cause)))
-                         cause)))
+      (println (steps-report parse-tree steps-to-run))
       (user-confirms?))))
 
 (defn- spit-step-vars [{:keys [vars] :as step}]
@@ -372,12 +378,11 @@
     (debug (with-out-str (clojure.pprint/pprint target-steps)))
     (debug "-------------------")
     (let [steps-to-run (predict-steps parse-tree target-steps)]
-      (if (empty? steps-to-run)
-        (info "Nothing to do.")
-        (if (:print *options*)
-          (print-steps parse-tree steps-to-run)
-          (if (confirm-run parse-tree steps-to-run)
-            (run-steps parse-tree steps-to-run)))))))
+      (cond
+        (empty? steps-to-run) (info "Nothing to do.")
+        (:print *options*)    (print-steps parse-tree steps-to-run)
+        (:preview *options*)  (println (steps-report parse-tree steps-to-run))
+        :else (run-steps parse-tree steps-to-run)))))
 
 (defn- running-under-nailgun?
   "Returns truthy if and only if this JVM process is running under a
@@ -471,6 +476,8 @@
    :default false :flag true]
   ["-q" "--quiet"
    "Suppress all Drake's output"
+   :default false :flag true]
+  ["-P" "--preview" "Prints the steps that would run, then stops"
    :default false :flag true]
   ["-p" "--print"
    (str "Runs Drake in \"print\" mode. Instead of executing steps, Drake just\n"
