@@ -382,7 +382,8 @@
         (empty? steps-to-run) (info "Nothing to do.")
         (:print *options*)    (print-steps parse-tree steps-to-run)
         (:preview *options*)  (println (steps-report parse-tree steps-to-run))
-        :else (run-steps parse-tree steps-to-run)))))
+        :else (if (confirm-run parse-tree steps-to-run)
+                (run-steps parse-tree steps-to-run))))))
 
 (defn- running-under-nailgun?
   "Returns truthy if and only if this JVM process is running under a
