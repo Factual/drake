@@ -150,6 +150,10 @@ Drake provides HDFS support by allowing you to specify inputs and outputs like `
 
 If you plan to use Drake with HDFS, please see the [wiki doc on HDFS Compatibility](https://github.com/Factual/drake/wiki/HDFS-Compatibility).
 
+## Drake on the REPL
+
+You can use Drake from your Clojure REPL, via `drake.core/run-workflow`. Please see the [Drake on the REPL wiki page](https://github.com/Factual/drake/wiki/Drake-on-the-REPL) for more details.
+
 ## License
 
 Source Copyright © 2012-2013 Factual, Inc.
