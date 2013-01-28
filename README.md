@@ -142,7 +142,7 @@ A lot of work went into designing and specifying Drake. To prove it, here's [the
 
 There are annotated workflow examples in the demos directory.
 
-There's a [Google Group for Drake](https://groups.google.com/forum/?fromgroups#!forum/drake-workflow) where you can ask questions. And if you found a bug or want to submit a feature request, go to [Drake's GitHub issues page].(https://github.com/Factual/drake/issues?sort=created&state=open).
+There's a [Google Group for Drake](https://groups.google.com/forum/?fromgroups#!forum/drake-workflow) where you can ask questions. And if you found a bug or want to submit a feature request, go to [Drake's GitHub issues page](https://github.com/Factual/drake/issues?sort=created&state=open).
 
 ## HDFS Compatibility
 
