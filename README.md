@@ -138,11 +138,11 @@ Use `drake --help` for the full list of options.
 
 The [wiki](https://github.com/Factual/drake/wiki) is the home for Drake's documentation.
 
-A lot of work went into designing and specifying Drake. To prove it, here's [the 60 page specification document](https://docs.google.com/document/d/1bF-OKNLIG10v_lMes_m4yyaJtAaJKtdK0Jizvi_MNsg/edit). It can be downloaded as a PDF and treated like a user manual.
+A lot of work went into designing and specifying Drake. To prove it, here's [the 60 page specification and user manual](https://docs.google.com/document/d/1bF-OKNLIG10v_lMes_m4yyaJtAaJKtdK0Jizvi_MNsg/edit). It's stored in Google Docs, and we encourage everyone to use its superb commenting feature to provide feedback. Just select the text you want to comment on, and click Insert -> Comment (Ctrl + Alt + M on Windows, Cmd + Option + M on Mac). It can also be downloaded as a PDF.
 
 There are annotated workflow examples in the demos directory.
 
-There's a [Google Group for Drake](https://groups.google.com/forum/?fromgroups#!forum/drake-workflow)
+There's a [Google Group for Drake](https://groups.google.com/forum/?fromgroups#!forum/drake-workflow) where you can ask questions. And if you found a bug or want to submit a feature request, go to [Drake's GitHub issues page].(https://github.com/Factual/drake/issues?sort=created&state=open).
 
 ## HDFS Compatibility
 
