@@ -485,7 +485,7 @@
    (str "Runs Drake in \"print\" mode. Instead of executing steps, Drake just\n"
         "\t\t\t\t\tprints inputs, outputs and tags of each step that is scheduled to run\n"
         "\t\t\t\t\tto stdout. This is useful if some outside actions need to be taken\n"
-        "\t\t\t\t\tbefore or after running Drake. Standard target matching rules, apply.\n"
+        "\t\t\t\t\tbefore or after running Drake. Standard target matching rules apply.\n"
         "\t\t\t\t\tInputs are prepended by I, outputs by O, and input and output tags\n"
         "\t\t\t\t\tby %I and %O respectively. It also outputs \"S\" to signify\n"
         "\t\t\t\t\tbeginning of each step.")
