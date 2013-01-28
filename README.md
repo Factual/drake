@@ -13,7 +13,7 @@ Drake is similar to _GNU Make_, but designed especially for data workflow manage
 
 
 
-If you like screencasts, check out this [Drake walk-through video](http://www.youtube.com/watch?v=BUgxmvpuKAs) recorded by Artem, Drake's primary designer:
+If you like screencasts, check out this [Drake walk-through video](http://www.youtube.com/watch?v=BUgxmvpuKAs) recorded by Artem Boytsov, Drake's primary designer:
 
 <a href="http://www.youtube.com/watch?v=BUgxmvpuKAs">
   <img src="https://lh6.googleusercontent.com/-wOmqvTkHHk0/UQBnQaVcXJI/AAAAAAAAAC4/apFtmcPXCPQ/s800/Screen%2520Shot%25202013-01-23%2520at%25202.41.43%2520PM.png" width="320" height="195"/>
