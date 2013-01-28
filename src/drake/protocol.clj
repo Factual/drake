@@ -49,7 +49,7 @@
     ;; we need to use fs.core/file here, since fs.core/with-cwd only changes the
     ;; working directory for fs.core namespace
     (if-not (fs/exists? filename)
-      (spit (fs/file filename) (str/join "\n" cmds)))
+      (spit (fs/file filename) (str (str/join "\n" cmds) "\n")))
     filename))
 
 (defn log-file
