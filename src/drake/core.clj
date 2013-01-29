@@ -594,14 +594,17 @@
               (.mv fs (path-filename from) (path-filename to))))
           (println "Done."))))))
 
-(defn stop-options
+(defn stopts!?
   "Handles options that imply this isn't a workflow related run of
    Drake, e.g. --help and --version. If such options exist, handles
-   them and returns truthy, otherwise returns falsy."
-  [options banner]
-  (when (:help options) (println banner))
-  (when (:version options) (println "Drake Version" VERSION))
-  (or (:help options) (:version options)))
+   the highest precedence option and returns truthy, otherwise
+   returns falsy."
+  [opts banner]
+  (let [;; stop options, in order of precedence highest to lowest
+        stops [[:help #(println banner)]
+               [:version #(println "Drake Version" VERSION)]]]
+    (when-let [[_ f] (first (filter #(opts (first %)) stops))]
+      (do (f) true))))
 
 (defn -main
   "Runs Drake's CLI.
@@ -637,7 +640,7 @@
                              "everything except '" target
                              "' run:\n  drake ... -" target)))
                     (cli-fail-with-message nil)))))]
-    (when-not (stop-options options banner)
+    (when-not (stopts!? options banner)
       (let [targets (if (empty? targets) ["=..."] targets)]
         (set-options options)
         (configure-logging)
