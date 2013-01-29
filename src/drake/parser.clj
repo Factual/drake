@@ -82,7 +82,7 @@
 ;;
 
 (def file-name-chars
-  (p/alt alphanumeric underscore hyphen period))
+  (p/alt alphanumeric underscore hyphen period equal-sign))
 (def var-name-chars
   (p/alt alphanumeric underscore hyphen))
 (def value-chars
