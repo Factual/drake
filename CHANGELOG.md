@@ -9,3 +9,6 @@
  * Added ```--preview``` command-line option, which prints the same report of targets predicted to be built, but immediately exits afterwards instead of asking for user confirmation.
  * You can now [use Drake from Clojure REPL](https://github.com/Factual/drake/wiki/Drake-on-the-REPL) by calling ```run-workflow``` function.
  
+## develop
+
+ * '=' are now allowed in filenames
