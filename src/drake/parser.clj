@@ -81,13 +81,21 @@
 ;; Drake-specific grammar rules
 ;;
 
-(def file-name-chars
-  (p/alt alphanumeric underscore hyphen period equal-sign))
 (def var-name-chars
   (p/alt alphanumeric underscore hyphen))
-(def value-chars
+;; TODO(artem)
+;; 1. Var values can be also represented as string literals ("value")
+;; Make sure string substitution works there
+;; 2. colon is enabled here? what about option values?
+(def var-value-chars
   (p/alt alphanumeric underscore hyphen period colon forward-slash))
-
+;; TODO(artem)
+;; 1. Need to provide escaping for filenames to treat whitespace etc.
+;; 2. Need to make sure filenames cannot _start_ with =, -, + and ^ unless
+;; escaped.
+;; 3. Maybe allow using string literals for filenames as well ("filename")?
+(def filename-chars
+  (p/alt alphanumeric underscore hyphen period colon forward-slash equal-sign))
 
 (def inline-comment
   (p/conc semicolon (p/rep* non-line-break)))
@@ -162,8 +170,9 @@
      (shell prod :die true :use-shell true :out [cmd-out])
      (s/trim-newline (str cmd-out)))))
 
-(def value-word
-  (p/semantics (p/rep+ (p/alt (var-sub true true) command-sub value-chars))
+(defn string-substitution
+  [chars]
+  (p/semantics (p/rep+ (p/alt (var-sub true true) command-sub chars))
                apply-str))
 
 (def option-true-bool
@@ -184,9 +193,11 @@
   "input: option of form: option_name:option_value
    output: {option_name:option_value}"
   (p/complex [option (p/rep+ var-name-chars)
-              value (p/opt (p/conc colon (p/alt keyword-lit
-                                                value-word
-                                                string-lit)))]
+              value (p/opt
+                     (p/conc colon
+                             (p/alt keyword-lit
+                                    (string-substitution var-value-chars)
+                                    string-lit)))]
              (let [opt-name (apply-str option)]
                (if (empty? value)
                  [:protocol opt-name]
@@ -240,7 +251,7 @@
 (def file-name
   (p/complex [sign (p/opt
                     (p/alt exclamation-mark percent-sign question-mark caret))
-              name value-word
+              name (string-substitution filename-chars)
               end-marker (p/opt dollar-sign)]
              (str sign name end-marker)))
 
@@ -493,7 +504,7 @@
    [var-name (p/rep+ var-name-chars)
     has-colon (p/opt colon)
     _ equal-sign
-    var-value (p/alt value-word string-lit)
+    var-value (p/alt (string-substitution var-value-chars) string-lit)
     _ (p/opt inline-ws)
     _ (p/opt inline-comment)
     _ (p/failpoint line-break (illegal-syntax-error-fn "variable definition"))
