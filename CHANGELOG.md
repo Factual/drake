@@ -24,4 +24,4 @@
 
 ## feature/filenames
 
- * ':' are now allowed in filenames (Drake will default to local file system instead of issuing "invalid filesystem" error, i.e. bad:name -> file:bad:name)
+ * ```:``` are now allowed in filenames (Drake will default to local file system instead of issuing "invalid filesystem" error, i.e. ```bad:name``` -> ```file:bad:name```)
