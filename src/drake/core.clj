@@ -1,14 +1,14 @@
 (ns drake.core
   (:refer-clojure :exclude [file-seq])
   (:require [clojure.set :as set]
+            [clojure.string :as str]
             [clj-logging-config.log4j :as log4j]
             [fs.core :as fs]
             ;; register protocols
             drake.protocol_interpreters
             drake.protocol_c4
             drake.protocol_eval)
-  (:use [clojure.string :only [split join trim]]
-        [clojure.tools.logging :only [info debug trace error]]
+  (:use [clojure.tools.logging :only [info debug trace error]]
         [slingshot.slingshot :only [try+ throw+]]
         clojopts.core
         sosueme.throwables
@@ -34,11 +34,11 @@
 (defn- step-string
   "Returns step's symbolic representation for printing."
   [step]
-  (str (join ", " (concat (map #(str "%" %) (step :output-tags))
-                          (step :outputs)))
+  (str (str/join ", " (concat (map #(str "%" %) (step :output-tags))
+                              (step :outputs)))
        " <- "
-       (join ", " (concat (map #(str "%" %) (step :input-tags))
-                          (step :inputs)))))
+       (str/join ", " (concat (map #(str "%" %) (step :input-tags))
+                              (step :inputs)))))
 
 (defn- user-confirms?
   "Returns true if the user enters 'Y', otherwise returns false."
@@ -176,7 +176,7 @@
     (trace "should-build? no-outputs: " no-outputs)
     (if (and (not (empty? empty-inputs)) (or fail-on-empty (not triggered)))
       (throw+ {:msg (str "no input data found in locations: "
-                         (join ", " empty-inputs))})
+                         (str/join ", " empty-inputs))})
       ;; check that all output files are present
       (cond
        forced (str "forced" (if (not= match-type :output)
@@ -236,27 +236,27 @@
   "Returns a report of steps-to-run suitable for cli printing."
   [parse-tree steps-to-run]
   (str "The following steps will be run, in order:\n"
-       (join "\n"
-             (for [[i {:keys [index cause]}]
-                   (keep-indexed vector steps-to-run)]
-               ;; TODO(artem)
-               ;; Optimize for repeated BASE prefixes (we can't just show it
-               ;; without base, since it can be ambiguous)
-               ;; also in (step-string), (step-dirnname)
-               ;;
-               ;; If the cause is "projected timestamped", meaning that we will
-               ;; also run one or more targets this one depends on, we will
-               ;; assume they all will generate data in the branch and add
-               ;; branch suffix to all inputs, otherwise behave as the data
-               ;; dictates
-               (format "  %d: %s [%s]"
-                       (inc i)
-                       (step-string (branch-adjust-step
-                                     ((parse-tree :steps) index)
-                                     (contains? #{"projected timestamped"
-                                                  "forced"}
-                                                cause)))
-                       cause)))))
+       (str/join "\n"
+         (for [[i {:keys [index cause]}]
+               (keep-indexed vector steps-to-run)]
+           ;; TODO(artem)
+           ;; Optimize for repeated BASE prefixes (we can't just show it
+           ;; without base, since it can be ambiguous)
+           ;; also in (step-string), (step-dirnname)
+           ;;
+           ;; If the cause is "projected timestamped", meaning that we will
+           ;; also run one or more targets this one depends on, we will
+           ;; assume they all will generate data in the branch and add
+           ;; branch suffix to all inputs, otherwise behave as the data
+           ;; dictates
+           (format "  %d: %s [%s]"
+                   (inc i)
+                   (step-string (branch-adjust-step
+                                 ((parse-tree :steps) index)
+                                 (contains? #{"projected timestamped"
+                                              "forced"}
+                                            cause)))
+                   cause)))))
 
 ;; TODO(artem):
 ;; Let's also write how many, something like
@@ -275,17 +275,17 @@
       (println (steps-report parse-tree steps-to-run))
       (user-confirms?))))
 
-(defn- spit-step-vars [{:keys [vars] :as step}]
-  (let [dirname (str ".drake/" (step-dirname step))
-        filename (str dirname "/vars-" start-time-filename)
+(defn- spit-step-vars [{:keys [vars dir] :as step}]
+  (let [filename (str dir "/vars-" start-time-filename)
         contents (apply str
                         "Environment vars set by Drake:\n\n"
                         (map #(str (key %) "=" (val %) "\n") vars))]
-    (if-not (fs/exists? dirname)
-      (fs/mkdirs dirname))
+    (if-not (fs/exists? dir)
+      (fs/mkdirs dir))
     ;; we need to use fs.core/file here, since fs.core/with-cwd only changes the
     ;; working directory for fs.core namespace
-    (spit (fs/file filename) contents)))
+    (spit (fs/file filename) contents)
+    (debug "step's vars saved to" (relative-path filename))))
 
 (defn- run-step
   "Runs one step performing all necessary checks, returns
@@ -398,15 +398,15 @@
 
 (defn parse-cli-vars [vars-str]
   (when-not (empty? vars-str)
-    (let [pairs (split vars-str #",")]
+    (let [pairs (str/split vars-str #",")]
       (reduce
        (fn [acc pair]
-         (let [spl (split pair #"=" -1)]
+         (let [spl (str/split pair #"=" -1)]
            (if (not= (count spl) 2)
              (do
                (println "Invalid variable definition in -v or --vars:" pair)
                (shutdown -1)))
-           (conj acc (split pair #"="))))
+           (conj acc (str/split pair #"="))))
          {}
        pairs))))
 
@@ -478,9 +478,9 @@
   (let [level-map {:debug :debug
                    :trace :trace
                    :quiet :error}
-        loglevel (if-let [level (first (set/intersection
-                                        (into #{} (keys level-map))
-                                        (into #{} *options*)))]
+        loglevel (if-let [level (first (apply set/intersection
+                                              (map #(into #{} (keys %))
+                                                   [level-map *options*])))]
                    (level-map level)
                    :info)
         logfile (:logfile *options*)
@@ -543,7 +543,7 @@
                 #{:branch :merge-branch}
                 #{:debug :trace :quiet}]
         crossovers [[#{:quiet :step-delay} #{:print :preview}]]
-        option-list (fn [opts] (join ", " (map #(str "--" (name %)) opts)))
+        option-list (fn [opts] (str/join ", " (map #(str "--" (name %)) opts)))
         complain (fn [msg]
                    (println msg)
                    (println "use --help for documentation")

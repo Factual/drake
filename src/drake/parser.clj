@@ -2,7 +2,7 @@
   (:use [clojure.tools.logging :only [warn]]
         [slingshot.slingshot :only [throw+]]
         drake.shell
-        [drake.steps :only [add-dependencies]]
+        [drake.steps :only [add-dependencies calc-step-dirs]]
         drake.utils
         drake.parser_utils)
   (:require [name.choi.joshua.fnparse :as p]
@@ -36,6 +36,9 @@
       ;; all available variable context for this particular step
     :vars           {'BASE' '/tmp/base/'
                      'MYVAR' 'myvalue'}
+      ;; directory for step's intermediate files and logs
+      ;; based on output files and output tags, created under .drake/
+    :dir            'A_B_use-files'
    }
 
    At this stage, no string substitution have been performed except in
@@ -586,13 +589,15 @@
 ;; The functions below uses the rules to parse workflows.
 
 (defn parse-state  [state]
-  (add-dependencies
+  (->
    (p/rule-match workflow
                  #((illegal-syntax-error-fn "start of workflow")
-                   (:remainder %2) %2)   ;; fail
+                   (:remainder %2) %2) ;; fail
                  #((illegal-syntax-error-fn "workflow")
-                   (:remainder %2) %2)   ;; incomplete match
-                 state)))
+                   (:remainder %2) %2) ;; incomplete match
+                 state)
+   add-dependencies
+   calc-step-dirs))
 
 (defn parse-str [tokens vars]
   (parse-state (struct state-s

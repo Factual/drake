@@ -15,7 +15,8 @@
   (:use [slingshot.slingshot :only [throw+]]
         drake.utils
         [drake.fs :only [remove-extra-slashes normalized-path]])
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [fs.core :as fs]))
 
 (defn step-str
   "Returns a string representation of the step as a comma-separated
@@ -86,6 +87,43 @@
                                     (map input-tags-map
                                          (% :output-tags)))))
               steps))))
+
+;; No way to get to MAX_PATH from Jaca
+;; Leave some characters for unique suffixes and for files inside
+(def ^:private MAX_PATH 200)
+
+(defn calc-step-dirs
+  "Given the parse-tree, calculate each step's directory for keeping
+   log and temporary files. Ensures that directory names are not too
+   long and unique.
+
+   Returns the parse tree with added :dir to each step."
+  [{:keys [steps] :as parse-tree}]
+  (let [drake-dir (fs/absolute-path ".drake")]
+    (if (> (count drake-dir) (dec MAX_PATH))
+      (throw+ {:msg (format "workflow directory name %s is too long."
+                            drake-dir)}))
+    (let [cut #(.substring % 0 (min (count %) MAX_PATH))
+          dirs (map (fn [{:keys [raw-outputs output-tags] :as step}]
+                      (cut (str drake-dir "/"
+                                ;; e.g. "output1,dir1_dir2_output2,tag1"
+                                (str/join "," (map #(str/replace % #"/" "_")
+                                                   (concat raw-outputs
+                                                           output-tags))))))
+                    steps)
+          ;; { "dir1" [0] "dir2" [1 2] }
+          dir-indexed (reverse-multimap (map-indexed vector (map vector dirs)))
+          ]
+      (reduce (fn [tree [dir steps]]
+                ;; add .0, .1, etc. but only if needed,
+                ;; i.e. more than 1 directory with the same name
+                (let [single (= 1 (count steps))]
+                  (reduce (fn [tree [count step-index]]
+                            (assoc-in tree [:steps step-index :dir]
+                                      (str dir (if-not single
+                                                 (format ".%d" count) ""))))
+                          tree (map-indexed vector steps))))
+              parse-tree dir-indexed))))
 
 ;; TODO(artem): Templates are not supported now
 (defn- find-target-steps

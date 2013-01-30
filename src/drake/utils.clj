@@ -1,6 +1,7 @@
 (ns drake.utils
   (:require [jlk.time.core :as time]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [fs.core :as fs])
   (:use ordered.set))
 
 ;; TODO(artem)
@@ -70,11 +71,7 @@
 
 (def start-time-filename (now-filename))
 
-;; TODO(artem)
-;; Optimize for repeated BASE prefixes (we can't just show it
-;; without base, since it can be ambiguous)
-;; also in (step-string), (confirm)
-(defn step-dirname
-  "Returns step's log directory."
-  [step]
-  (str/join "," (map #(str/replace % #"/" "_") (step :outputs))))
+(defn relative-path
+  [file]
+  (.substring (.getAbsolutePath (fs/file file))
+              (inc (count (.getAbsolutePath fs/*cwd*)))))
