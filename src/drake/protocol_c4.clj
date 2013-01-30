@@ -15,7 +15,7 @@
             [sosueme.conf :as conf]
             [fs.core :as fs]
             [retry.core :as retry])
-  (:use [clojure.tools.logging :only (debug)]
+  (:use [clojure.tools.logging :only [debug]]
         factql.core
         drake.protocol))
 
