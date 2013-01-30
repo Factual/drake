@@ -89,7 +89,7 @@ method_redef() [test]
     ;; variable scope
     (test-targets data "%scope_test1" "methods_var")
     (test-targets data "%scope_test2" "workflow_var")
-    (is (thrown-with-msg? Exception #"Variable \"UNDEFINED_VAR\" undefined"
+    (is (thrown-with-msg? Exception #"undefined"
           (run-targets data "%scope_test3")))
     (test-targets data "%scope_test4" "defined_now")
     ;; extendable methods, method with empty body

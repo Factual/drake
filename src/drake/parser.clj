@@ -1,5 +1,6 @@
 (ns drake.parser
   (:use [clojure.tools.logging :only [warn]]
+        [slingshot.slingshot :only [throw+]]
         drake.shell
         [drake.steps :only [add-dependencies]]
         drake.utils
@@ -133,9 +134,8 @@
              ;; (unless it's a method in which case
              ;; we just don't know what variables will be available)
              (if (and var-check (not (contains? vars var-name)))
-               (throw (IllegalArgumentException.
-                       (format "Variable \"%s\" undefined at this point."
-                               var-name)))
+               (throw+ {:msg (format "variable \"%s\" undefined at this point."
+                                     var-name)})
                (if-not substitute-value
                  #{var-name}
                  (get vars var-name)))))
@@ -228,7 +228,7 @@
                          vals
                          (throw-parse-error
                           p/get-state
-                          (format "Option \"%s\" cannot have multiple values."
+                          (format "option \"%s\" cannot have multiple values."
                                   (name key))
                           nil)))]) val-vectors))))
 
@@ -405,9 +405,9 @@
                (or (vector? l-val) (seq? l-val) (list? l-val))
                  (concat l-val r-val)
                :else
-               (throw (IllegalStateException.
-                       (str "Joining maps with non-vector and non-map values"
-                            l-val " " r-val)))))
+               (throw+ {:msg
+                        (str "joining maps with non-vector and non-map values"
+                             l-val " " r-val)})))
             %1 %2)
           nil
           vector-of-maps))
@@ -436,12 +436,12 @@
          method-mode (get-in step-def-product [:opts :method-mode])]
      (cond
       (not (or (empty? method) (methods method)))
-      (throw-parse-error state (format "Method '%s' undefined at this point."
+      (throw-parse-error state (format "method '%s' undefined at this point."
                                        method)
                          nil)
 
       (not (or (empty? method-mode) (#{"use" "append" "replace"} method-mode)))
-      (throw-parse-error state (str "Invalid method-mode, valid values are: "
+      (throw-parse-error state (str "invalid method-mode, valid values are: "
                                     "use (default), append, and replace.")
                          nil)
 
@@ -453,7 +453,7 @@
       (and method (not (#{"append" "replace"} method-mode))
            (not (empty? commands)))
       (throw-parse-error state
-                         (str "Commands not allowed for method calls "
+                         (str "commands not allowed for method calls "
                               "(use method-mode:append or method-mode:replace "
                               "to allow)") nil)
 

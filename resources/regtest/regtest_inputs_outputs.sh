@@ -10,7 +10,7 @@ run() {
 check_missing_input() {
   if run =missing_input_output ||
      grep -qF "should not happen" $(dirname $0)/missing_input_output ||
-     ! grep -qF "No input data found in locations" $(dirname $0)/drake.log; then
+     ! grep -qF "no input data found in locations" $(dirname $0)/drake.log; then
     echo "FAILED"
     exit -1
   else

@@ -15,7 +15,7 @@
 (deftype ProtocolUnsupported []
   Protocol
   (run [_ _]
-    (throw+ {:msg "Unsupported protocol"})))
+    (throw+ {:msg "unsupported protocol"})))
 
 (def ^:private ^:dynamic *protocols*
   {"clojure" (ProtocolUnsupported.)})
@@ -30,7 +30,7 @@
   (let [name (get-protocol-name step)
         protocol (*protocols* name)]
     (if-not protocol
-      (throw+ {:msg (str "Unknown protocol: " name)})
+      (throw+ {:msg (str "unknown protocol: " name)})
       protocol)))
 
 (defn create-cmd-file

@@ -40,15 +40,6 @@
        (join ", " (concat (map #(str "%" %) (step :input-tags))
                           (step :inputs)))))
 
-(defn- show-err [{:keys [linev msg err]}]
-  (let [[lineno txt] linev]
-    (error (str (if-not lineno "" (str "Syntax error at line" lineno ": "))
-                msg))
-    (if err
-      (do (error "stderr:")
-          (error err)))
-    (if txt (error (format "Line: \"%s\"" txt)))))
-
 (defn- user-confirms?
   "Returns true if the user enters 'Y', otherwise returns false."
   []
@@ -138,16 +129,16 @@
                          (let [var-name (first %)]
                            (if (contains? vars var-name)
                              (vars var-name)
-                             (throw
-                              (IllegalArgumentException.
-                               (format "Variable \"%s\" undefined at this point."
-                                       var-name))))))
+                             (throw+
+                              {:msg (format
+                                     "variable \"%s\" undefined at this point."
+                                     var-name)}))))
         cmds (despace-cmds (map #(apply str (map substitute-var %)) cmds))]
     (if (and (empty? cmds) (.cmds-required? (get-protocol step)))
-      (throw (IllegalArgumentException.
-              (format "Protocol '%s' requires non-empty commands, for step: %s "
-                      (get-protocol-name step)
-                      (step-string step)))))
+      (throw+ {:msg
+               (format "protocol '%s' requires non-empty commands, for step: %s "
+                       (get-protocol-name step)
+                       (step-string step))}))
     (assoc step
       :inputs normalized-inputs
       :outputs normalized-outputs
@@ -184,7 +175,7 @@
     (trace "should-build? empty inputs: " empty-inputs)
     (trace "should-build? no-outputs: " no-outputs)
     (if (and (not (empty? empty-inputs)) (or fail-on-empty (not triggered)))
-      (throw+ {:msg (str "No input data found in locations: "
+      (throw+ {:msg (str "no input data found in locations: "
                          (join ", " empty-inputs))})
       ;; check that all output files are present
       (cond
@@ -310,7 +301,7 @@
     ;; (used in debugging and log files names) should not vary.
     ;; For now just check that none of the input files is optional.
     (if (some #(= \? (first %)) inputs)
-      (throw+ {:msg (str "Optional input files are not supported yet: "
+      (throw+ {:msg (str "optional input files are not supported yet: "
                          inputs)}))
     (let [step-descr (step-string (branch-adjust-step step false))
           step (prepare-step-for-run step parse-tree)
@@ -437,7 +428,7 @@
                      (println "Checking for" workflow-file)
                      workflow-file))]
     (if-not (fs/exists? filename)
-      (throw+ {:msg (str "Cannot find file or directory: " filename
+      (throw+ {:msg (str "cannot find file or directory: " filename
                          " (use --help for documentation)")})
       ;; Drake will execute all commands in the same directory where
       ;; the workflow file is located in, but preserve the current
@@ -672,7 +663,7 @@
          (with-workflow-file #(fn % targets)))
        (shutdown 0)
        (catch map? m
-         (show-err m)
+         (error (str "drake: " (m :msg)))
          (shutdown (or (get m :exit) 1)))
        (catch Exception e
          (.printStackTrace e)

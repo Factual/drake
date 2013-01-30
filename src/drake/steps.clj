@@ -122,7 +122,7 @@
                                     (parse-tree map-to-use-regexp))))))]
     (if-not (empty? targets)
       targets
-      (throw+ {:msg (str "Target not found: " name)}))))
+      (throw+ {:msg (str "target not found: " name)}))))
 
 (defn- expand-step-recur
   "The recursive function used in expand-step (see below).
@@ -137,7 +137,7 @@
   (let [step (tree-steps index)
         current-chain-and-me (conj current-chain index)]
     (if (not= -1 (.indexOf current-chain index))
-      (throw+ {:msg (str "Cycle dependency detected: "
+      (throw+ {:msg (str "cycle dependency detected: "
                          (str/join " -> " (map #(step-str (tree-steps %))
                                                current-chain-and-me)))}))
     (let [all-but-me (mapcat #(expand-step-recur tree-steps %
@@ -295,7 +295,7 @@
    Returns the steps given or throws an exception."
   [parse-tree steps]
   (reduce #(if (%1 %2)
-             (throw+ {:msg (str "Duplicated output: " %2)})
+             (throw+ {:msg (str "duplicated output: " %2)})
              (conj %1 %2))
           #{}
           (map normalized-path

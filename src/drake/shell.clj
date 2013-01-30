@@ -125,6 +125,6 @@
         ;; now we can wait for its completion
         (.join stdin)
         (if (and (not= 0 exit-code) die)
-          (throw+ {:msg (str "Shell command failed with exit code " exit-code)
+          (throw+ {:msg (str "shell command failed with exit code " exit-code)
                    :args args
                    :exit exit-code}))))))
