@@ -21,3 +21,7 @@
  * Help is now printed nicely
  * Added --step-delay to specify the amount of time, in milliseconds, to wait after each step. Should help with [desynchronized filesystems](https://github.com/Factual/drake/issues/15).
  * Added checking for conflicting options (i.e. --preview vs --print).
+
+## feature/filenames
+
+ * ':' are now allowed in filenames (Drake will default to local file system instead of issuing "invalid filesystem" error, i.e. bad:name -> file:bad:name)
