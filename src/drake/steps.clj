@@ -88,14 +88,14 @@
                                          (% :output-tags)))))
               steps))))
 
-;; No way to get to MAX_PATH from Jaca
+;; No way to get to MAX_PATH from Java
 ;; Leave some characters for unique suffixes and for files inside
 (def ^:private MAX_PATH 200)
 
 (defn calc-step-dirs
   "Given the parse-tree, calculate each step's directory for keeping
-   log and temporary files. Ensures that directory names are not too
-   long and unique.
+   log and temporary files. Ensures that directory names are unique
+   and not too long.
 
    Returns the parse tree with added :dir to each step."
   [{:keys [steps] :as parse-tree}]
