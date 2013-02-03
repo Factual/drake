@@ -20,7 +20,7 @@
         drake.utils)
   (:gen-class))
 
-(def VERSION "0.1.1")
+(def VERSION "0.1.2")
 
 (def ^:dynamic *options* {})
 (defn set-options [opts]
