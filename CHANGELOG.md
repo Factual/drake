@@ -11,18 +11,13 @@
  
 ## develop
 
- * '=' are now allowed in filenames
-
-## feature/vvv
-
- * Command-line is now getopt-compliant (i.e. one could do ```drake -aw my-workflow.d```)
- * -d doesn't work any more for debugging info: only --debug (-d reserved for future use)
- * --debug prints much less info now, --trace added for more verbose output
- * Help is now printed nicely
- * Added --step-delay to specify the amount of time, in milliseconds, to wait after each step. Should help with [desynchronized filesystems](https://github.com/Factual/drake/issues/15).
- * Added checking for conflicting options (i.e. --preview vs --print).
-
-## feature/filenames
-
+ * ```=``` are now allowed in filenames
  * ```:``` are now allowed in filenames (Drake will default to local file system instead of issuing "invalid filesystem" error, i.e. ```bad:name``` -> ```file:bad:name```)
+ * CLI changes:
+  * CLI is now getopt-compliant (i.e. one could do ```drake -aw my-workflow.d```)
+  * -d doesn't work any more for debugging info: only --debug (-d reserved for future use)
+  * --debug prints much less info now, --trace added for more verbose output
+  * Added checking for conflicting options (i.e. --preview vs --print).
+  * Help is now printed nicely
+ * Added --step-delay to specify the amount of time, in milliseconds, to wait after each step. Should help with [desynchronized filesystems](https://github.com/Factual/drake/issues/15).
  * bugfixes: [34](https://github.com/Factual/drake/issues/34)
