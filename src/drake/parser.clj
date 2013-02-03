@@ -1,7 +1,8 @@
 (ns drake.parser
   (:use [clojure.tools.logging :only [warn]]
+        [slingshot.slingshot :only [throw+]]
         drake.shell
-        [drake.steps :only [add-dependencies]]
+        [drake.steps :only [add-dependencies calc-step-dirs]]
         drake.utils
         drake.parser_utils)
   (:require [name.choi.joshua.fnparse :as p]
@@ -35,6 +36,9 @@
       ;; all available variable context for this particular step
     :vars           {'BASE' '/tmp/base/'
                      'MYVAR' 'myvalue'}
+      ;; directory for step's intermediate files and logs
+      ;; based on output files and output tags, created under .drake/
+    :dir            'A_B_use-files'
    }
 
    At this stage, no string substitution have been performed except in
@@ -81,13 +85,21 @@
 ;; Drake-specific grammar rules
 ;;
 
-(def file-name-chars
-  (p/alt alphanumeric underscore hyphen period))
 (def var-name-chars
   (p/alt alphanumeric underscore hyphen))
-(def value-chars
+;; TODO(artem)
+;; 1. Var values can be also represented as string literals ("value")
+;; Make sure string substitution works there
+;; 2. colon is enabled here? what about option values?
+(def var-value-chars
   (p/alt alphanumeric underscore hyphen period colon forward-slash))
-
+;; TODO(artem)
+;; 1. Need to provide escaping for filenames to treat whitespace etc.
+;; 2. Need to make sure filenames cannot _start_ with =, -, + and ^ unless
+;; escaped.
+;; 3. Maybe allow using string literals for filenames as well ("filename")?
+(def filename-chars
+  (p/alt alphanumeric underscore hyphen period colon forward-slash equal-sign))
 
 (def inline-comment
   (p/conc semicolon (p/rep* non-line-break)))
@@ -125,9 +137,8 @@
              ;; (unless it's a method in which case
              ;; we just don't know what variables will be available)
              (if (and var-check (not (contains? vars var-name)))
-               (throw (IllegalArgumentException.
-                       (format "Variable \"%s\" undefined at this point."
-                               var-name)))
+               (throw+ {:msg (format "variable \"%s\" undefined at this point."
+                                     var-name)})
                (if-not substitute-value
                  #{var-name}
                  (get vars var-name)))))
@@ -162,8 +173,9 @@
      (shell prod :die true :use-shell true :out [cmd-out])
      (s/trim-newline (str cmd-out)))))
 
-(def value-word
-  (p/semantics (p/rep+ (p/alt (var-sub true true) command-sub value-chars))
+(defn string-substitution
+  [chars]
+  (p/semantics (p/rep+ (p/alt (var-sub true true) command-sub chars))
                apply-str))
 
 (def option-true-bool
@@ -184,9 +196,11 @@
   "input: option of form: option_name:option_value
    output: {option_name:option_value}"
   (p/complex [option (p/rep+ var-name-chars)
-              value (p/opt (p/conc colon (p/alt keyword-lit
-                                                value-word
-                                                string-lit)))]
+              value (p/opt
+                     (p/conc colon
+                             (p/alt keyword-lit
+                                    (string-substitution var-value-chars)
+                                    string-lit)))]
              (let [opt-name (apply-str option)]
                (if (empty? value)
                  [:protocol opt-name]
@@ -217,7 +231,7 @@
                          vals
                          (throw-parse-error
                           p/get-state
-                          (format "Option \"%s\" cannot have multiple values."
+                          (format "option \"%s\" cannot have multiple values."
                                   (name key))
                           nil)))]) val-vectors))))
 
@@ -240,7 +254,7 @@
 (def file-name
   (p/complex [sign (p/opt
                     (p/alt exclamation-mark percent-sign question-mark caret))
-              name value-word
+              name (string-substitution filename-chars)
               end-marker (p/opt dollar-sign)]
              (str sign name end-marker)))
 
@@ -394,9 +408,9 @@
                (or (vector? l-val) (seq? l-val) (list? l-val))
                  (concat l-val r-val)
                :else
-               (throw (IllegalStateException.
-                       (str "Joining maps with non-vector and non-map values"
-                            l-val " " r-val)))))
+               (throw+ {:msg
+                        (str "joining maps with non-vector and non-map values"
+                             l-val " " r-val)})))
             %1 %2)
           nil
           vector-of-maps))
@@ -425,12 +439,12 @@
          method-mode (get-in step-def-product [:opts :method-mode])]
      (cond
       (not (or (empty? method) (methods method)))
-      (throw-parse-error state (format "Method '%s' undefined at this point."
+      (throw-parse-error state (format "method '%s' undefined at this point."
                                        method)
                          nil)
 
       (not (or (empty? method-mode) (#{"use" "append" "replace"} method-mode)))
-      (throw-parse-error state (str "Invalid method-mode, valid values are: "
+      (throw-parse-error state (str "invalid method-mode, valid values are: "
                                     "use (default), append, and replace.")
                          nil)
 
@@ -442,7 +456,7 @@
       (and method (not (#{"append" "replace"} method-mode))
            (not (empty? commands)))
       (throw-parse-error state
-                         (str "Commands not allowed for method calls "
+                         (str "commands not allowed for method calls "
                               "(use method-mode:append or method-mode:replace "
                               "to allow)") nil)
 
@@ -493,7 +507,7 @@
    [var-name (p/rep+ var-name-chars)
     has-colon (p/opt colon)
     _ equal-sign
-    var-value (p/alt value-word string-lit)
+    var-value (p/alt (string-substitution var-value-chars) string-lit)
     _ (p/opt inline-ws)
     _ (p/opt inline-comment)
     _ (p/failpoint line-break (illegal-syntax-error-fn "variable definition"))
@@ -575,13 +589,15 @@
 ;; The functions below uses the rules to parse workflows.
 
 (defn parse-state  [state]
-  (add-dependencies
+  (->
    (p/rule-match workflow
                  #((illegal-syntax-error-fn "start of workflow")
-                   (:remainder %2) %2)   ;; fail
+                   (:remainder %2) %2) ;; fail
                  #((illegal-syntax-error-fn "workflow")
-                   (:remainder %2) %2)   ;; incomplete match
-                 state)))
+                   (:remainder %2) %2) ;; incomplete match
+                 state)
+   add-dependencies
+   calc-step-dirs))
 
 (defn parse-str [tokens vars]
   (parse-state (struct state-s

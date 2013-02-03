@@ -5,6 +5,23 @@
 
 source $(dirname $0)/regtest_utils.sh
 
+# do we have access to a working HDFS?
+if hadoop fs -ls / >/dev/null 2>&1; then
+  echo Hadoop binary detected. Including HDFS tests...
+  export prefix="hdfs:"
+  export hadoop_cat="hadoop fs -cat"
+  export hadoop_rm="hadoop fs -rmr"
+  export hadoop_cp="hadoop fs -copyFromLocal"
+  export hadoop_mkdir="hadoop fs -mkdir"
+else
+  echo Hadoop binary not found. Skipping HDFS tests...
+  export prefix=""
+  export hadoop_cat=cat
+  export hadoop_rm="rm -r"
+  export hadoop_cp=cp
+  export hadoop_mkdir=mkdir
+fi
+
 HADOOP_TEST_DIR=/tmp/drake-test
 
 create_local_file_full_path() {
@@ -16,10 +33,10 @@ create_local_file() {
 }
 
 create_hdfs_file() {
-  hadoop fs -rmr "$1" >/dev/null 2>/dev/null
-  TMPFILE="$(mktemp)"
+  $hadoop_rm "$1" >/dev/null 2>/dev/null
+  TMPFILE="$(mktemp -t tmp)"
   create_local_file_full_path $TMPFILE "$2"
-  hadoop fs -copyFromLocal $TMPFILE "$1" 2>/dev/null
+  $hadoop_cp $TMPFILE "$1" 2>/dev/null
 }
 
 check_local() {
@@ -27,7 +44,7 @@ check_local() {
 }
 
 check_hdfs() {
-  check "$(hadoop fs -cat $1 2>/dev/null)" "$2"
+  check "$($hadoop_cat $1 2>/dev/null)" "$2"
 }
 
 check_targets() {
@@ -35,7 +52,11 @@ check_targets() {
 }
 
 run_targets() {
-  run_d regtest_fs.d -a $@
+  # TODO(artem)
+  # On my system (Mac OS X) a steep step delay is needed for this test
+  # to reliably pass. We seem to be using 1s timestamp resolution, at least
+  # on Mac OS. We should switch to 1ms, if possible.
+  run_d regtest_fs.d -a --step-delay=1000 $@
 }
 
 run() {
@@ -46,11 +67,11 @@ run() {
 echo Setting up...
 
 # Delete
-hadoop fs -rmr $HADOOP_TEST_DIR >/dev/null 2>/dev/null
+$hadoop_rm $HADOOP_TEST_DIR >/dev/null 2>/dev/null
 rm local_1 local_2 merged_local merged 2>/dev/null
 
 # Create
-if ! hadoop fs -mkdir $HADOOP_TEST_DIR 2>/dev/null; then
+if ! $hadoop_mkdir $HADOOP_TEST_DIR 2>/dev/null; then
   echo "Cannot create HDFS directory"
   exit 1
 fi

@@ -65,10 +65,10 @@
   ;; "protocol" and some other (TODO:artem which? add them here) options
   ;; cannot be specified multiple times
   (is (thrown-with-msg? Exception
-        #"Option \"protocol\" cannot have multiple values."
+        #"cannot have multiple values"
         (d/options (make-state "[protocol:shell shell]"))))
   (is (thrown-with-msg? Exception
-        #"Option \"this_is_for_test_only_no_use\" cannot have multiple values."
+        #"cannot have multiple values"
         (d/options (make-state "[+this_is_for_test_only_no_use
                                  -this_is_for_test_only_no_use]"))))
   )
@@ -184,18 +184,18 @@
 
 (deftest errors-test
   (is (thrown-with-msg? Exception
-        #"Variable .* undefined at this point."
+        #"variable .* undefined at this point."
         (d/parse-str "a <- b\n  $[INPUT1]\n" nil)))
   (is (thrown-with-msg? Exception
-        #"drake parse error at line 1, column 12: Illegal syntax starting with \"\^efg\" for variable definition"
+        #"illegal syntax starting with .* for variable definition"
         (d/parse-str "VARNAME=abc^efg" nil)))
   (is (thrown-with-msg? Exception
-        #"bad_nested.d, drake parse error"
+        #"illegal syntax starting with .* for variable"
         (d/parse-str (str  "%include "
                            (System/getProperty "user.dir")
                            "/test/drake/test/resources/bad_nested.d\n") nil)))
   (is (thrown-with-msg? Exception
-        #"Commands not allowed for method calls"
+        #"commands not allowed for method calls"
         (d/parse-str
          "a()\n  echo\n\nA <- B [method:a]\n  commands\n"
          nil)))
@@ -205,12 +205,12 @@
          "A <- B [method-mode:replace]\n"
          nil)))
   (is (thrown-with-msg? Exception
-        #"Invalid method-mode"
+        #"invalid method-mode"
         (d/parse-str
          "a()\nA <- B [method:a method-mode:invalid]\n"
          nil)))
   (is (thrown-with-msg? Exception
-        #"Method 'future' undefined at this point."
+        #"method 'future' undefined at this point."
         (d/parse-str
          "A <- B [method:future]\nfuture()\n  cmd\n"
          nil)))

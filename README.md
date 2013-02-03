@@ -13,7 +13,7 @@ Drake is similar to _GNU Make_, but designed especially for data workflow manage
 
 
 
-If you like screencasts, check out this [Drake walk-through video](http://www.youtube.com/watch?v=BUgxmvpuKAs) recorded by Artem, Drake's primary designer:
+If you like screencasts, check out this [Drake walk-through video](http://www.youtube.com/watch?v=BUgxmvpuKAs) recorded by Artem Boytsov, Drake's primary designer:
 
 <a href="http://www.youtube.com/watch?v=BUgxmvpuKAs">
   <img src="https://lh6.googleusercontent.com/-wOmqvTkHHk0/UQBnQaVcXJI/AAAAAAAAAC4/apFtmcPXCPQ/s800/Screen%2520Shot%25202013-01-23%2520at%25202.41.43%2520PM.png" width="320" height="195"/>
@@ -22,15 +22,13 @@ If you like screencasts, check out this [Drake walk-through video](http://www.yo
 
 ## Installation
 
-You will need to have a JVM installed.
-
-Note that Drake has been tested under Linux and Mac OS X. We've not tested it on Windows.
+You will need to have a JVM installed. Drake has been tested under Linux and Mac OS X. We've not tested it on Windows.
 
 ### Download or build the uberjar
 
 You can build Drake from source, which is the preferred way to run the most up-to-date version, or you can [download a prebuilt uberjar](https://docs.google.com/uc?export=download&confirm=no_antivirus&id=0B2xtKcFEL6wwOGNYSWRnMGc3b1k), which may not be the most recent version of Drake.
 
-Following are instructions for building from source. Drake is a Clojure project, so to build Drake from source you will need to have [leiningen](https://github.com/technomancy/leiningen).
+Following are instructions for building from source. Drake is a Clojure project, so you will need to have [leiningen](https://github.com/technomancy/leiningen).
 
 #### Clone the project:
 
@@ -45,7 +43,7 @@ $ cd drake
 $ lein uberjar
 ```
 
-### Run Drake from the jar
+### Run Drake from the uberjar
 
 Once you've built or downloaded the uberjar, you can run Drake like this:
 
@@ -61,16 +59,22 @@ $ java -jar drake.jar --version
 
 ### A nicer way to run Drake
 
-We recommend you "install" Drake in your environment so that you can run it by just typing "drake". For example, you could have an executable script called `drake`, like this on your path:
+We recommend you "install" Drake in your environment so that you can run it by just typing "drake". Here's a convenience script you can put on your path:
 
 ```bash
 #!/bin/bash
 java -cp $(dirname $0)/drake.jar drake.core $@
 ```
 
-Drake documentation refers to running Drake as "drake". If you are instead running the uberjar, just replace "drake" with "java -jar drake.jar" in the examples.
+Save that as `drake`, then do `chmod 755 drake`. Move the uberjar to be in the same directory. Now you can just type `drake` to run Drake from anywhere.
+
+### Faster startup time
+
+The JVM startup time can be a nuisance. To reduce startup time, we recommend using the way cool [Drip](https://github.com/flatland/drip). Please see the [Drake with Drip](https://github.com/Factual/drake/wiki/Faster-startup:-Drake-with-Drip) wiki page.
 
 ## Basic Usage
+
+Drake documentation refers to running Drake as "drake". If you are instead running the uberjar, just replace "drake" with "java -jar drake.jar" in the examples.
 
 The [wiki](https://github.com/Factual/drake/wiki) is the home for Drake's documentation, but here are simple notes on usage:
 
@@ -134,17 +138,28 @@ Use `drake --help` for the full list of options.
 
 The [wiki](https://github.com/Factual/drake/wiki) is the home for Drake's documentation.
 
-A lot of work went into designing and specifying Drake. To prove it, here's [the 60 page specification document](https://docs.google.com/document/d/1bF-OKNLIG10v_lMes_m4yyaJtAaJKtdK0Jizvi_MNsg/edit). It can be downloaded as a PDF and treated like a user manual.
+A lot of work went into designing and specifying Drake. To prove it, here's [the 60 page specification and user manual](https://docs.google.com/document/d/1bF-OKNLIG10v_lMes_m4yyaJtAaJKtdK0Jizvi_MNsg/edit). It's stored in Google Docs, and we encourage everyone to use its superb commenting feature to provide feedback. Just select the text you want to comment on, and click Insert -> Comment (Ctrl + Alt + M on Windows, Cmd + Option + M on Mac). It can also be downloaded as a PDF.
 
 There are annotated workflow examples in the demos directory.
 
-There's a [Google Group for Drake](https://groups.google.com/forum/?fromgroups#!forum/drake-workflow)
+There's a [Google Group for Drake](https://groups.google.com/forum/?fromgroups#!forum/drake-workflow) where you can ask questions. And if you found a bug or want to submit a feature request, go to [Drake's GitHub issues page](https://github.com/Factual/drake/issues?sort=created&state=open).
 
 ## HDFS Compatibility
 
 Drake provides HDFS support by allowing you to specify inputs and outputs like `hdfs://my/big_file.txt`.
 
 If you plan to use Drake with HDFS, please see the [wiki doc on HDFS Compatibility](https://github.com/Factual/drake/wiki/HDFS-Compatibility).
+
+## Drake on the REPL
+
+You can use Drake from your Clojure REPL, via `drake.core/run-workflow`. Please see the [Drake on the REPL wiki page](https://github.com/Factual/drake/wiki/Drake-on-the-REPL) for more details.
+
+## Stuff outside this repo
+
+Thanks to [Lars Yencken](https://github.com/larsyencken), we now have [Vim syntax support](https://bitbucket.org/larsyencken/vim-drake-syntax) for Drake:
+
+
+<img src="https://lh3.googleusercontent.com/-mqNpFqf7P0k/UQoXkpAqr1I/AAAAAAAAADU/U5zrvozVmzE/s400/image.png"/>
 
 ## License
 

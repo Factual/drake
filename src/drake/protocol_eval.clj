@@ -15,6 +15,7 @@
       (run-interpreter (-> (assoc-in step [:vars "CODE"]
                                      (str/join "\n" (rest cmds)))
                            (assoc :cmds (take 1 cmds)))
-                       (get (System/getenv) "SHELL")))))
+                       (get (System/getenv) "SHELL")
+                       []))))
 
 (register-protocols! "eval" (ProtocolEval.))
