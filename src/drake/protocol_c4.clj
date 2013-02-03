@@ -16,6 +16,7 @@
             [fs.core :as fs]
             [retry.core :as retry])
   (:use [clojure.tools.logging :only [debug]]
+        [slingshot.slingshot :only [throw+]]
         factql.core
         drake.protocol))
 
@@ -81,9 +82,9 @@
   (let [input-cnt (vars "INPUTN")
         output-cnt (vars "OUTPUTN")]
     (when (not= input-cnt 1)
-      (throw (Exception. "c4: your c4 steps need exactly 1 input")))
+      (throw+ {:msg "c4: your c4 steps need exactly 1 input"}))
     (when (not= output-cnt 1)
-      (throw (Exception. "c4: your c4 steps need exactly 1 output")))))
+      (throw+ {:msg "c4: your c4 steps need exactly 1 output"}))))
 
 (defn dot-factual-file [name]
   (-> (fs/home)

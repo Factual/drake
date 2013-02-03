@@ -8,16 +8,16 @@
   (:import org.apache.hadoop.conf.Configuration
            org.apache.hadoop.fs.Path))
 
-(def drake-ignore "Names of files or directories to be ignored by Drake" #{"_logs"})
+(def drake-ignore "Names of files or directories to be ignored by Drake"
+  #{"_logs"})
 
 (defn split-path
   "Returns a tuple: prefix (possibly empty) and path."
   [path]
   (let [splt (split path #":" -1)]
-    (condp = (count splt)
-        1 ["file" (first splt)]
-        2 splt
-        (throw+ {:msg (str "Invalid filename: " path)}))))
+    (if (= (count splt) 1)
+      ["file" (first splt)]
+      [(first splt) (join ":" (rest splt))])))
 
 (defn make-path
   "The reverse of split-path"
@@ -40,7 +40,7 @@
 (defn assert-files-exist [fs files]
   (doseq [f files]
     (when (not (.exists? fs f))
-      (throw+ {:msg (str "File not found: " f)}))))
+      (throw+ {:msg (str "file not found: " f)}))))
 
 (defn remove-extra-slashes
   "Removes duplicate and trailing slashes from the filename."
@@ -198,7 +198,7 @@
     ;; (println fs-data)
     ;; (println "--")
     (if-not (.exists? this path)
-      (throw+ {:msg (str "File not found: " path)})
+      (throw+ {:msg (str "file not found: " path)})
       (condp = (:mod-time (fs-data path))
           :pre (Long/MIN_VALUE)
           :now (System/currentTimeMillis)
@@ -247,29 +247,27 @@
    "test" (MockFileSystem. MOCK-FILESYSTEM-DATA)})
 
 (defn get-fs
-  "Determines the filesystem by prefix, throws an exception if can't be
-   identified. Returns the filesystem object and the filename free of the
-   prefix."
+  "Determines the filesystem by prefix, defaults to the local filesystem
+   if the prefix is unknown."
   [path]
   (let [[prefix filename] (split-path path)
         filesystem (FILESYSTEMS prefix)]
     (if (nil? filesystem)
-      (throw+ {:msg (str "Invalid filesystem prefix: " prefix)})
-      [filesystem filename])))
+      [(FILESYSTEMS "file") "file" path]
+      [filesystem prefix filename])))
 
 (defn fs
   "Automatically determines the filesystem from the filename and dispatched
    the call to fn."
   [fn filename]
-  (let [[system name] (get-fs filename)]
+  (let [[system _ name] (get-fs filename)]
     (fn system name)))
 
 (defn normalized-path
-  "Returns absolute path preserving the prefix.
-   Even though we're using fs.core here, it will work for all filesystems."
+  "Returns absolute path preserving the prefix."
   [path]
-  (let [[prefix filename] (split-path path)]
-    (make-path prefix (fs normalized-filename path))))
+  (let [[filesystem prefix filename] (get-fs path)]
+    (make-path prefix (.normalized-filename filesystem filename))))
 
 (defn pick-by-mod-time
   "Traverses the full directory tree starting at path, applies given

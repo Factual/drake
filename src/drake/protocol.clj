@@ -15,7 +15,7 @@
 (deftype ProtocolUnsupported []
   Protocol
   (run [_ _]
-    (throw+ {:msg "Unsupported protocol"})))
+    (throw+ {:msg "unsupported protocol"})))
 
 (def ^:private ^:dynamic *protocols*
   {"clojure" (ProtocolUnsupported.)})
@@ -30,7 +30,7 @@
   (let [name (get-protocol-name step)
         protocol (*protocols* name)]
     (if-not protocol
-      (throw+ {:msg (str "Unknown protocol: " name)})
+      (throw+ {:msg (str "unknown protocol: " name)})
       protocol)))
 
 (defn create-cmd-file
@@ -55,13 +55,12 @@
 (defn log-file
   "Given a step, returns the log file for stdout or stderr (prefix) for the
    child process."
-  [step prefix]
-  (let [log-dirname (str ".drake/" (step-dirname step))]
-    (if-not (fs/exists? log-dirname)
-      (fs/mkdirs log-dirname))
-    ;; we need to use fs.core/file here, since fs.core/with-cwd only changes the
-    ;; working directory for fs.core namespace
-    (fs/file (str log-dirname "/" prefix "-" start-time-filename))))
+  [{:keys [dir]} prefix]
+  (if-not (fs/exists? dir)
+    (fs/mkdirs dir))
+  ;; we need to use fs.core/file here, since fs.core/with-cwd only changes the
+  ;; working directory for fs.core namespace
+  (fs/file (str dir "/" prefix "-" start-time-filename)))
 
 (defn run-interpreter
   "Common implementation for most of interpreter protocols, that is, when
@@ -71,12 +70,16 @@
    Caches the script file using MD5, and intercepts and stores child process'
    stdout and stderr in the standard location."
   [{:keys [vars] :as step} interpreter args]
-  (let [script-filename (create-cmd-file step)]
+  (let [script-filename (create-cmd-file step)
+        stdout (log-file step "stdout")
+        stderr (log-file step "stderr")]
     (apply shell (concat [interpreter]
                          args
                          [script-filename
                           :env vars
                           :die true
-                          :out [System/out (writer (log-file step "stdout"))]
-                          :err [System/err (writer (log-file step "stderr"))]]))
-    (debug "run-interpreter: finished running " script-filename)))
+                          :out [System/out (writer stdout)]
+                          :err [System/err (writer stderr)]]))
+    (debug "run-interpreter: finished running" (relative-path script-filename))
+    (debug "run-interpreter: stdout saved to" (relative-path stdout))
+    (debug "run-interpreter: stderr saved to" (relative-path stderr))))
