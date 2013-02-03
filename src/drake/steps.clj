@@ -12,8 +12,7 @@
   Then this final big list of steps is processed one-by-one to make sure
   dependants are always run after their dependencies, as well as process
   exclusions (see add-step function)."
-  (:use [clojure.tools.logging :only [warn info debug error]]
-        [slingshot.slingshot :only [throw+]]
+  (:use [slingshot.slingshot :only [throw+]]
         drake.utils
         [drake.fs :only [remove-extra-slashes normalized-path]])
   (:require [clojure.string :as str]))
@@ -121,7 +120,6 @@
                       (sort (mapcat (fn [[output index]]
                                       (if (or dots (re-find re output)) index))
                                     (parse-tree map-to-use-regexp))))))]
-    (debug "find-target-steps, targets: " targets)
     (if-not (empty? targets)
       targets
       (throw+ {:msg (str "Target not found: " name)}))))
