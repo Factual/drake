@@ -2,7 +2,7 @@
   (:use [clojure.tools.logging :only [warn debug trace]]
         [slingshot.slingshot :only [throw+]]
         drake.shell
-        [drake.steps :only [add-dependencies calc-step-dirs]]
+        [drake.steps :only [add-dependencies calc-step-dirs add-deps-func]]
         drake.utils
         drake.parser_utils)
   (:require [name.choi.joshua.fnparse :as p]
@@ -597,7 +597,8 @@
                    (:remainder %2) %2) ;; incomplete match
                  state)
    add-dependencies
-   calc-step-dirs))
+   calc-step-dirs
+   add-deps-func))
 
 (defn parse-str [tokens vars]
   (trace "Parsing started...")

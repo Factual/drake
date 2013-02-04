@@ -201,11 +201,6 @@
     [index]
     (expand-step-recur (parse-tree :steps) index (nil? tree-mode) [])))
 
-(def all-dependencies
-  "A memoized function to expand the step and all its dependencies
-   downwards."
-  (memoize #(into #{} (expand-step %1 %2 :down))))
-
 (defn- clip-only
   [str charset]
   "Removes the first character from the string, iff it is present
@@ -283,6 +278,13 @@
                  (expand-step parse-tree index tree)))
           targets))
 
+(defn add-deps-func
+  "Adds a function to the parse tree which will return the memoized
+   dependencies of a given step."
+  [parse-tree]
+  (assoc parse-tree :deps-func
+                    (memoize #(into #{} (expand-step parse-tree % :down)))))
+
 (defn- add-step
   "We will be creating a list of steps by starting with an empty list
    and adding steps to it one by one. current-steps-map represents the
@@ -323,7 +325,7 @@
       (if exclusion
         ;; if it's exclusion, safe to ignore
         [current-steps-map (inc pos)]
-        (let [dependencies (all-dependencies parse-tree index)
+        (let [dependencies ((:deps-func parse-tree) index)
               ;; dependencies of the current step already specified
               used-dependencies (set/intersection
                                    dependencies
