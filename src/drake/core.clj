@@ -314,20 +314,18 @@
                       (format "Running (%s)" should-build)
                       "Skipped (up-to-date)")
                     step-descr))
-      (if should-build
-        (do
-          ;; save all variable values in .drake directory
-          (spit-step-vars step)
-          (let [start (.getTime (java.util.Date.))]
-            (.run (get-protocol step) step)
-            (let [elapsed (- (.getTime (java.util.Date.)) start)
-                  wait (- (*options* :step-delay 0) elapsed)]
-              (info (format "--- done in %.2fs%s"
-                            (/ elapsed 1000.0)
-                            (if-not (> wait 0)
-                              ""
-                              (do (. Thread (sleep wait))
-                                  (format " + waited %dms" wait)))))))))
+      (when should-build
+        ;; save all variable values in .drake directory
+        (spit-step-vars step)
+        (with-time-elapsed
+          #(let [wait (- (*options* :step-delay 0) %)]
+             (info (format "--- done in %.2fs%s"
+                           (/ % 1000.0)
+                           (if-not (> wait 0)
+                             ""
+                             (do (. Thread (sleep wait))
+                                 (format " + waited %dms" wait))))))
+          (.run (get-protocol step) step)))
       should-build)))
 
 (defn- run-steps [parse-tree steps]

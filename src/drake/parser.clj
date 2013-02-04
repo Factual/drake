@@ -1,5 +1,5 @@
 (ns drake.parser
-  (:use [clojure.tools.logging :only [warn]]
+  (:use [clojure.tools.logging :only [warn debug trace]]
         [slingshot.slingshot :only [throw+]]
         drake.shell
         [drake.steps :only [add-dependencies calc-step-dirs]]
@@ -600,11 +600,14 @@
    calc-step-dirs))
 
 (defn parse-str [tokens vars]
-  (parse-state (struct state-s
-                       (if (.endsWith tokens "\n") tokens (str tokens "\n"))
-                       (merge vars {"BASE" default-base})
-                       #{}
-                       1 1)))
+  (trace "Parsing started...")
+  (with-time-elapsed
+    (in-ms debug "Parsing")
+    (parse-state (struct state-s
+                         (if (.endsWith tokens "\n") tokens (str tokens "\n"))
+                         (merge vars {"BASE" default-base})
+                         #{}
+                         1 1))))
 
 (defn parse-file [file vars]
   (parse-str (slurp file) vars))
