@@ -18,7 +18,7 @@
         [drake.protocol :only [get-protocol-name get-protocol]]
         drake.parser
         drake.utils)
-  (:gen-class))
+  (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]]))
 
 (def VERSION "0.1.2")
 
@@ -670,7 +670,23 @@
          (error (stack-trace-str e))
          (shutdown 1))))))
 
+(defn run-opts [opts]
+  (let [opts (merge {:auto true} opts)]
+    (set-options opts)
+    (with-workflow-file #(run % (:targetv opts)))))
+
+(defn -run_opts
+  "Explicitly for use from Java"
+  [opts]
+  (run-opts (into {} (for [[k v] opts] [(keyword k) v]))))
+
 (defn run-workflow
+  ([workflow & {:as opts}]
+     (run-opts (merge opts {:workflow workflow})))
+   ([]
+    (run-opts {})))
+
+#_(defn run-workflow
   "This can be called from the REPL or Clojure code as a way of
    using this ns as a library. Runs in auto mode, meaning there
    won't be an interactive user confirmation before running steps.
