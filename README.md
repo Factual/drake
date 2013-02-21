@@ -120,7 +120,7 @@ To exclude targets:
 $ drake ... -sometarget -anothertarget
 ```
 
-By default, Drake will look for `./workflow.d`. The simplest way to run your workflow is to name your workflow file `workflow.d`, and make sure you're in the same directory. Then, simply:
+By default, Drake will look for `./Drakefile`. The simplest way to run your workflow is to name your workflow file `Drakefile`, and make sure you're in the same directory. Then, simply:
 
 ```bash
 $ drake
@@ -129,7 +129,7 @@ $ drake
 To specify the workflow file explicitly, use `-w` or `--workflow`. E.g.:
 
 ```bash
-$ drake -w /myworkflow/my-fav-workflow.d
+$ drake -w /myworkflow/my-workflow.drake
 ```
 
 Use `drake --help` for the full list of options.

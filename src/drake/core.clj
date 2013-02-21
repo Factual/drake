@@ -422,7 +422,7 @@
                    filename
                    (let [workflow-file (str filename
                                             (if (not= (last filename) \/) "/")
-                                            "workflow.d")]
+                                            "Drakefile")]
                      (println "Checking for" workflow-file)
                      workflow-file))]
     (if-not (fs/exists? filename)
@@ -576,7 +576,7 @@
      (-main \"--repl\" \"--version\")
      (-main \"--repl\" \"--preview\" \"-w\" \"demos/factual\" \"+...\")
      (-main \"--repl\" \"--auto\" \"-w\"
-            \"some/workflow.d\" drake \"+...\" \"-^D\" \"-=B\")
+            \"some/workflow-file.drake\" drake \"+...\" \"-^D\" \"-=B\")
 
    TODO: log messages don't show up on the REPL (but printlns do).
          Can this be fixed?"
@@ -589,7 +589,7 @@
                    "drake"
                    opts
                    (with-arg workflow w
-                     "Name of the workflow file to execute; if a directory, look for workflow.d there."
+                     "Name of the workflow file to execute; if a directory, look for Drakefile there."
                      :type :str
                      :user-name "file-or-dir-name")
                    (no-arg auto a
@@ -638,7 +638,7 @@
         ;; if a flag is specified, clojopts adds the corresponding key
         ;; to the option map with nil value. here we convert them to true.
         ;; also, the defaults are specified here.
-        options (into {:workflow "./workflow.d"
+        options (into {:workflow "./Drakefile"
                        :logfile "drake.log"}
                       (for [[k v] options] [k (if (nil? v) true v)]))]
     (flush)    ;; we need to do it for help to always print out
@@ -680,7 +680,7 @@
      (run-workflow \"demos/factual\" [])
      (run-workflow \"demos/factual\" [\"+...\"])
      (run-workflow \"demos/factual\" [\"+...\"] :branch \"MYBRANCH\")
-     (run-workflow \"some/workflow.d\" [\"+...\" \"-^D\" \"-=B\"]
+     (run-workflow \"some/workflow-file.drake\" [\"+...\" \"-^D\" \"-=B\"]
                    :branch \"MYBRANCH\" :preview true)
 
    TODO: log messages don't show up on the REPL (but printlns do).
