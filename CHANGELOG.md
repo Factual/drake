@@ -21,3 +21,7 @@
   * Help is now printed nicely
  * Added --step-delay to specify the amount of time, in milliseconds, to wait after each step. Should help with [desynchronized filesystems](https://github.com/Factual/drake/issues/15).
  * bugfixes: [34](https://github.com/Factual/drake/issues/34)
+
+## develop
+
+ * Default workflow filename changed from workflow.d to Drakefile
