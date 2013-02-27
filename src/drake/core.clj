@@ -412,7 +412,7 @@
   (merge
    (into {} (System/getenv))
    (parse-cli-vars (*options* :vars))
-   (when-let [base (*options* :vars)]
+   (when-let [base (*options* :base)]
      {"BASE" base})))
 
 (defn- with-workflow-file
