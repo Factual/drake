@@ -512,8 +512,8 @@
     _ (p/opt inline-comment)
     _ (p/failpoint line-break (illegal-syntax-error-fn "variable definition"))
     vars (p/get-info :vars)
-    _ (if (and has-colon (get vars (apply-str var-name)))
-        p/emptiness  ;do nothing if var exists and using := assignment
+    _ (if (and has-colon (not (empty? (get vars (apply-str var-name)))))
+        p/emptiness  ; nothing if := assignment but the var is not empty
         (p/update-info :vars
                      #(assoc % (apply-str var-name) var-value)))]
    nil))

@@ -409,9 +409,12 @@
        pairs))))
 
 (defn build-vars []
-  (merge
-   (into {} (System/getenv))
-   (parse-cli-vars (*options* :vars))))
+  (let [vars (merge
+              (into {} (System/getenv))
+              (parse-cli-vars (*options* :vars)))]
+    (if (empty? (*options* :base))
+      vars
+      (assoc vars "BASE" (*options* :base)))))
 
 (defn- with-workflow-file
   "Reads the workflow file from command-line options, parses it,
@@ -455,7 +458,7 @@
    Returns a tuple of vectors."
   [args]
   (let [non-flag-long #{"--workflow" "--branch" "--merge-branch"
-                        "--logfile" "--vars"}
+                        "--logfile" "--vars" "--base"}
         non-flag-short #{\w \b \l \v}]
     (loop [i 0]
       (if (>= i (count args))
@@ -595,7 +598,11 @@
                    (no-arg auto a
                      "Do not ask for user confirmation before running steps.")
                    (no-arg preview P
-                     "Prints the steps that would run, then stops.")
+                           "Prints the steps that would run, then stops.")
+                   (with-arg base
+                     "Specifies BASE directory. Takes precedence over environment."
+                     :type :str
+                     :user-name "dir-name")
                    (with-arg vars v
                      "Add workflow variable definitions. For example -v X=1,Y=2,FILE=a.csv"
                      :type :str
