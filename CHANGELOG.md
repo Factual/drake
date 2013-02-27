@@ -25,3 +25,4 @@
 ## develop
 
  * Default workflow filename changed from workflow.d to Drakefile
+ * Bugfix: BASE wasn't being picked up if set through environment
