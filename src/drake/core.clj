@@ -20,7 +20,7 @@
         drake.utils)
   (:gen-class))
 
-(def VERSION "0.1.2")
+(def VERSION "0.1.3-SNAPSHOT")
 
 (def ^:dynamic *options* {})
 (defn set-options [opts]
@@ -409,12 +409,11 @@
        pairs))))
 
 (defn build-vars []
-  (let [vars (merge
-              (into {} (System/getenv))
-              (parse-cli-vars (*options* :vars)))]
-    (if (empty? (*options* :base))
-      vars
-      (assoc vars "BASE" (*options* :base)))))
+  (merge
+   (into {} (System/getenv))
+   (parse-cli-vars (*options* :vars))
+   (when-let [base (*options* :vars)]
+     {"BASE" base})))
 
 (defn- with-workflow-file
   "Reads the workflow file from command-line options, parses it,
