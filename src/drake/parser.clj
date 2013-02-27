@@ -606,7 +606,7 @@
     (in-ms debug "Parsing")
     (parse-state (struct state-s
                          (if (.endsWith tokens "\n") tokens (str tokens "\n"))
-                         (merge vars {"BASE" default-base})
+                         (merge {"BASE" default-base} vars)
                          #{}
                          1 1))))
 
