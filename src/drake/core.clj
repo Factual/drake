@@ -385,7 +385,7 @@
     (.endsWith java-cmd "nailgun.NGServer")))
 
 (defn- shutdown [exit-code]
-  (when-not (:repl *options*)
+  (when (not (true? (:repl *options*)))
     (if (running-under-nailgun?)
       (debug (str "core/shutdown: Running under Nailgun; "
                   "not calling (shutdown-agents)"))
