@@ -278,12 +278,17 @@
                  (expand-step parse-tree index tree)))
           targets))
 
-(defn add-deps-func
-  "Adds a function to the parse tree which will return the memoized
-   dependencies of a given step."
-  [parse-tree]
-  (assoc parse-tree :deps-func
-                    (memoize #(into #{} (expand-step parse-tree % :down)))))
+(def all-dependencies-func
+  (memoize (fn [parse-tree]
+             (memoize #(into #{} (expand-step parse-tree % :down))))))
+
+(defn all-dependencies
+  "Expands the step and all its dependencies downwards.
+   Uses two-level memoization in order to avoid iterating
+   over the whole parse-tree to calculate its hash every time.
+   The resulted function takes two arguments: parse-tree and step's index."
+  [parse-tree step]
+  ((all-dependencies-func parse-tree) step))
 
 (defn- add-step
   "We will be creating a list of steps by starting with an empty list
@@ -325,7 +330,7 @@
       (if exclusion
         ;; if it's exclusion, safe to ignore
         [current-steps-map (inc pos)]
-        (let [dependencies ((:deps-func parse-tree) index)
+        (let [dependencies (all-dependencies parse-tree index)
               ;; dependencies of the current step already specified
               used-dependencies (set/intersection
                                    dependencies

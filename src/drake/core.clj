@@ -228,7 +228,7 @@
                  [new-target-steps triggered-deps]
                  [(conj new-target-steps (assoc step :cause cause))
                   (set/union triggered-deps
-                             ((:deps-func parse-tree) index))])))
+                             (all-dependencies parse-tree index))])))
            [[] {}]
            target-steps)))
 
