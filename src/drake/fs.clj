@@ -262,8 +262,10 @@
 					    (:bucket bkt-key)
 					    {:prefix (:key bkt-key)})))) 
        ;; not a directory 
-       ( list (.file-info this path) )
-       ))
+       (if (.exists? this path )
+	   ( list (.file-info this path))
+	   []
+       )))
   (data-in? [this path]
     (data-in?-impl this path))
   (normalized-filename [_ path]
