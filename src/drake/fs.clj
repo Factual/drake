@@ -1,7 +1,8 @@
 (ns drake.fs
   (:refer-clojure :exclude [file-seq])
   (:require [fs.core :as fs]
-            [hdfs.core :as hdfs])
+            [hdfs.core :as hdfs]
+            [aws.sdk.s3 :as s3])
   (:use [slingshot.slingshot :only [throw+]]
         [clojure.string :only [join split]]
         drake.shell)
@@ -134,7 +135,7 @@
 
 (defn- hdfs-file-info [status]
   {:path (remove-hdfs-prefix (.toString (.getPath status)))
-   :mod-time (.getModificationTime status)
+   :mod-time (:last-modified status)
    :directory (.isDir status)})
 
 (defn- hdfs-filesystem [path]
@@ -146,6 +147,7 @@
 (defn- hdfs-list-status [path]
   (map hdfs-file-info (.listStatus (hdfs-filesystem path)
                                    (hdfs/make-path path))))
+
 
 (deftype HDFS []
   FileSystem
@@ -183,6 +185,115 @@
     ;; TODO(artem)
     ;; This is dirty, we probably should reimplement this using Hadoop API
     (shell "hadoop" "fs" "-mv" from to :use-shell true :die true)))
+
+
+
+
+;; -------- S3 -----------
+;; TODO(howech) put s3 creds somewhere better
+;; The credentials file should look like:
+;;    { :access-key "ADFADASDFASd", 
+;;      :secret-key "SECRETSDAFASDFASDFSDF" 
+;;    }
+;;
+
+(def ^:private s3-credentials
+  (memoize #(load-file "/home/chris/creds.clj")))
+
+(defn- s3-bucket-key 
+  "Returns a struct-map containing the bucket and key for a path"
+  [path]
+  ( let [ bkt-key
+	  (split
+	   (.substring path (count (re-find #"^/*" path)))
+	   #"/"
+	   2 )]
+    { :bucket (first bkt-key)
+         :key (second bkt-key)
+	 }
+    )
+  )
+
+(defn- s3-object-to-info
+  "Converts the elements of the objects results from s3/list-objects
+  into filesystem info objects"
+  [object]
+  { :path      (join "/" (list "" (:bucket object) (:key object))) 
+    :directory (.endsWith (:key object) "/")
+    :mod-time  (.getTime (:last-modified (:metadata object) ) )
+  }
+)
+
+(deftype S3 []
+  FileSystem
+  (exists? [_ path]
+	   (let [bkt-key (s3-bucket-key path)]
+		(s3/object-exists? (s3-credentials)  (:bucket bkt-key) (:key bkt-key))))
+  (directory? [this path]
+	      (if (.endsWith path "/")
+		  ;; This may or may not be right. Directories in
+		  ;; S3 are not terribly well defined
+		  (.exists? this path)
+		  false
+		  )
+	      )
+  (mod-time [_ path]
+	    (let [bkt-key (s3-bucket-key path)]
+	      (.getTime (:last-modified (s3/get-object-metadata (s3-credentials)  (:bucket bkt-key) (:key bkt-key))))))
+  ;; S3 list-object api call by default will give 
+  ;; us everything to fill out the file-info-seq
+  ;; call. This one calls that one and strips out the
+  ;; extra data
+  (file-seq [this path]
+    (map :path (.file-info-seq this path)))
+  ;; Using the impl here
+  (file-info [this path]
+    (file-info-impl this path))
+  ;; Not using the impl here as it would result in an
+  ;; excessive number of api calls. We get all that we
+  ;; need rom list-objects anyway.
+  (file-info-seq [this path]
+     (if (.directory? this path)
+       ;; its a directory and it exists, so
+       ;; we should go do a list-object call
+       (let [bkt-key (s3-bucket-key path) ]
+            (map s3-object-to-info 
+                 (:objects (s3/list-objects (s3-credentials)
+					    (:bucket bkt-key)
+					    {:prefix (:key bkt-key)})))) 
+       ;; not a directory 
+       ( list (.file-info this path) )
+       ))
+  (data-in? [this path]
+    (data-in?-impl this path))
+  (normalized-filename [_ path]
+    (remove-extra-slashes path))
+  (rm [_ path]
+      (let [bkt-key (s3-bucket-key path) ]
+	(s3/delete-object (s3-credentials) 
+			  (:bucket bkt-key) 
+			  (:key bkt-key)))) 
+  (mv [_ from to]
+      (let [from-bkt-key (s3-bucket-key from) 
+	    to-bkt-key (s3-bucket-key to) ]
+	;; ensure that moving to/from the same name
+	;; is a null operation
+       (if (not (and (= (:bucket from-bkt-key) (:bucket to-bkt-key))
+		     (= (:key from-bkt-key) (:key to-bkt-key))))
+	   (if (= (:bucket from-bkt-key) (:bucket to-bkt-key))
+	       (s3/copy-object (s3-credentials)
+			       (:bucket from-bkt-key)
+			       (:key from-bkt-key)
+			       (:key to-bkt-key))
+	       (s3/copy-object (s3-credentials)
+			       (:bucket from-bkt-key)
+			       (:key from-bkt-key)
+			       (:bucket to-bkt-key)
+			       (:key to-bkt-key)))
+	   (s3/delete-object (s3-credentials) 
+			     (:bucket from-bkt-key)
+			     (:key from-bkt-key)
+			     )))))
 
 ;; ----- Mock FS --------
 ;; Mock file system does not support drake-ignore
@@ -244,6 +355,7 @@
 (def ^:private FILESYSTEMS
   {"file" (LocalFileSystem.)
    "hdfs" (HDFS.)
+   "s3" (S3.)
    "test" (MockFileSystem. MOCK-FILESYSTEM-DATA)})
 
 (defn get-fs
