@@ -268,8 +268,15 @@
        )))
   (data-in? [this path]
     (data-in?-impl this path))
+  ;; Normalize file names for s3 objects need to look like
+  ;; s3://bucket/path/to/object for compatibility for tools
+  ;; like s3cmd. 
+  ;;
+  ;; TODO(howech)
+  ;; remove-extra-slashes is probably doing some other things
+  ;; that could potentially be wrong in S3.
   (normalized-filename [_ path]
-    (remove-extra-slashes path))
+    (join "/" (list "" (remove-extra-slashes path))))
   (rm [_ path]
       (let [bkt-key (s3-bucket-key path) ]
 	(s3/delete-object (s3-credentials) 
@@ -282,20 +289,27 @@
 	;; is a null operation
        (if (not (and (= (:bucket from-bkt-key) (:bucket to-bkt-key))
 		     (= (:key from-bkt-key) (:key to-bkt-key))))
-	   (if (= (:bucket from-bkt-key) (:bucket to-bkt-key))
-	       (s3/copy-object (s3-credentials)
-			       (:bucket from-bkt-key)
-			       (:key from-bkt-key)
-			       (:key to-bkt-key))
-	       (s3/copy-object (s3-credentials)
-			       (:bucket from-bkt-key)
-			       (:key from-bkt-key)
-			       (:bucket to-bkt-key)
-			       (:key to-bkt-key)))
-	   (s3/delete-object (s3-credentials) 
-			     (:bucket from-bkt-key)
-			     (:key from-bkt-key)
-			     )))))
+	   ;; There are two flavors of the move command - one for
+	   ;; in the same bucket, the other for different buckets.
+	   ;; Might not be necessary to do this, but we try to call
+	   ;; the right one	   
+	   (do (if (= (:bucket from-bkt-key) (:bucket to-bkt-key))
+		   (s3/copy-object (s3-credentials)
+				   (:bucket from-bkt-key)
+				   (:key from-bkt-key)
+				   (:key to-bkt-key))
+		   (s3/copy-object (s3-credentials)
+				   (:bucket from-bkt-key)
+				   (:key from-bkt-key)
+				   (:bucket to-bkt-key)
+				   (:key to-bkt-key)))
+	       (s3/delete-object (s3-credentials) 
+				 (:bucket from-bkt-key)
+				 (:key from-bkt-key)
+				 )
+	     )
+	   )))
+  )
 
 ;; ----- Mock FS --------
 ;; Mock file system does not support drake-ignore
