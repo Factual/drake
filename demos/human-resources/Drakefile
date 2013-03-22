@@ -24,7 +24,7 @@
 ;   Vinnie Pepi,+86-310-400-0000
 ;   Will Lao,+86-310-600-0000
 ;
-people <- hdfs://peeps/everyone
+people <- hdfs:/peeps/everyone
   grep 310 $INPUT | sort > $OUTPUT
 
 ;

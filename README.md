@@ -146,7 +146,7 @@ There's a [Google Group for Drake](https://groups.google.com/forum/?fromgroups#!
 
 ## HDFS Compatibility
 
-Drake provides HDFS support by allowing you to specify inputs and outputs like `hdfs://my/big_file.txt`.
+Drake provides HDFS support by allowing you to specify inputs and outputs like `hdfs:/my/big_file.txt`.
 
 If you plan to use Drake with HDFS, please see the [wiki doc on HDFS Compatibility](https://github.com/Factual/drake/wiki/HDFS-Compatibility).
 
