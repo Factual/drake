@@ -218,10 +218,13 @@
   "Converts the elements of the objects results from s3/list-objects
   into filesystem info objects"
   [object]
-  { :path      (join "/" (list "" (:bucket object) (:key object))) 
-    :directory (.endsWith (:key object) "/")
-    :mod-time  (.getTime (:last-modified (:metadata object) ) )
-  }
+  ( if (should-ignore? (:key object) )
+       nil
+       { :path      (join "/" (list "" (:bucket object) (:key object))) 
+         :directory (.endsWith (:key object) "/")
+         :mod-time  (.getTime (:last-modified (:metadata object) ) )
+       }
+  )
 )
 
 (deftype S3 []
@@ -233,7 +236,7 @@
 	      (if (.endsWith path "/")
 		  ;; This may or may not be right. Directories in
 		  ;; S3 are not terribly well defined
-		  (.exists? this path)
+		  true ;(.exists? this path)
 		  false
 		  )
 	      )
@@ -253,19 +256,25 @@
   ;; excessive number of api calls. We get all that we
   ;; need rom list-objects anyway.
   (file-info-seq [this path]
+    (if (should-ignore? path) []
      (if (.directory? this path)
        ;; its a directory and it exists, so
        ;; we should go do a list-object call
        (let [bkt-key (s3-bucket-key path) ]
+	 (filter #(not (nil? %))
             (map s3-object-to-info 
                  (:objects (s3/list-objects (s3-credentials)
 					    (:bucket bkt-key)
-					    {:prefix (:key bkt-key)})))) 
+					    {:prefix (:key bkt-key)})))))
        ;; not a directory 
        (if (.exists? this path )
 	   ( list (.file-info this path))
-	   []
-       )))
+	   ;; S3 is funny about directories - they dont really exist
+	   ;; so if we are looking to list the contents of a file
+	   ;; that does not seem to exists, we need to explicity try
+	   ;; adding a separator character to it and listing those.
+	   ( file-info-seq this (str path "/") )
+       ))))
   (data-in? [this path]
     (data-in?-impl this path))
   ;; Normalize file names for s3 objects need to look like
