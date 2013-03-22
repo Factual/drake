@@ -1,9 +1,12 @@
 (ns drake.test.fs
   (:refer-clojure :exclude [file-seq])
-  (:require [fs.core :as fs])
-  (:import [drake.fs MockFileSystem LocalFileSystem HDFS])
+  (:require [fs.core :as fs]
+            [aws.sdk.s3 :as s3])
+
+  (:import [drake.fs MockFileSystem LocalFileSystem HDFS S3])
   (:use [drake.fs]
-        [clojure.test]))
+        [clojure.test]
+        [clojure.string :only [join split]]))
 
 ;; TODO(aaron)
 ;; Tests that modify local file system are strictly speaking not unittests,
@@ -11,6 +14,50 @@
 ;; "lein test"
 
 (def DIR "/tmp/drake-test-fs")
+
+(def S3-BUCKET "civ-test-drake")
+(def S3-PREFIX "test")
+
+(def ^:private s3-test-credentials
+  (memoize #(load-file "/home/chris/creds.clj")))
+
+(defn setup-s3
+  "Initializes a s3 filesystem in particular order mod for testing:
+
+  [DIR]
+    ├── A       1
+    └── Y       (implicit)
+      ├── A     2
+      ├── B     3
+      ├── C     4
+      └── _logs 5"
+  []
+  
+  (let [A (join "/" (list S3-PREFIX "A"))
+        Y (join "/" (list S3-PREFIX "Y"))
+        YA (join "/" (list S3-PREFIX "Y" "A"))
+        YB (join "/" (list S3-PREFIX "Y" "B"))
+        YC (join "/" (list S3-PREFIX "Y" "C"))
+        ;; should be ignored
+        _logs (join "/" (list S3-PREFIX "Y" "_logs"))]
+
+    (s3/delete-object (s3-test-credentials) S3-BUCKET A)
+    (s3/delete-object (s3-test-credentials) S3-BUCKET Y)
+    (s3/delete-object (s3-test-credentials) S3-BUCKET YA)
+    (s3/delete-object (s3-test-credentials) S3-BUCKET YB)
+    (s3/delete-object (s3-test-credentials) S3-BUCKET YC)
+    (s3/delete-object (s3-test-credentials) S3-BUCKET _logs)
+
+    (s3/put-object (s3-test-credentials) S3-BUCKET A  "A"  )
+    (. Thread (sleep 100))
+    (s3/put-object (s3-test-credentials) S3-BUCKET YA "YA" )
+    (. Thread (sleep 100))
+    (s3/put-object (s3-test-credentials) S3-BUCKET YB "YB" )
+    (. Thread (sleep 100))
+    (s3/put-object (s3-test-credentials) S3-BUCKET YC "YC" )
+    (. Thread (sleep 100))
+    (s3/put-object (s3-test-credentials) S3-BUCKET _logs "_logs")
+    ))
 
 (defn setup-local
   "Initializes a local filesystem with specific mod times for testing:
@@ -67,3 +114,13 @@
   (setup-local)
   (is (= "/tmp/drake-test-fs/Y/C"
          (:path (newest-in "/tmp/drake-test-fs")))))
+
+(deftest test-s3-oldest-in
+  (setup-s3)
+  (is (= (str "/" (join "/" (list  S3-BUCKET S3-PREFIX "A")))
+         (:path (oldest-in (join "/" (list "s3:/" S3-BUCKET S3-PREFIX)))))))
+
+(deftest test-s3-newest-in
+  (setup-local)
+  (is (= (str "/" (join "/" (list S3-BUCKET S3-PREFIX "Y" "C")))
+         (:path (newest-in (join "/" (list "s3:/" S3-BUCKET S3-PREFIX)))))))
