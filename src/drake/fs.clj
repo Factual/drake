@@ -5,7 +5,8 @@
             [aws.sdk.s3 :as s3])
   (:use [slingshot.slingshot :only [throw+]]
         [clojure.string :only [join split]]
-        drake.shell)
+        drake.shell
+        drake.options)
   (:import org.apache.hadoop.conf.Configuration
            org.apache.hadoop.fs.Path))
 
@@ -190,15 +191,24 @@
 
 
 ;; -------- S3 -----------
-;; TODO(howech) put s3 creds somewhere better
-;; The credentials file should look like:
-;;    { :access-key "ADFADASDFASd", 
-;;      :secret-key "SECRETSDAFASDFASDFSDF" 
-;;    }
-;;
+;; TODO(howech)
+;; document AWS credentials varables
+
 
 (def ^:private s3-credentials
-  (memoize #(load-file "/home/chris/creds.clj")))
+  (memoize #(load-file (*options* :aws-credentials))))
+
+;; The following doesnt work because environment variables
+;; are stored on the step, but the fs object has no idea
+;; of the step it is on.
+;;
+;;(defn ^:private s3-credentials
+;;   []
+;;   { :access-key (get-var "AWS_ACCESS_ID"  "") 
+;;    :secret-key (get-var "AWS_SECRET_KEY" "") 
+;;   }
+;;)
+
 
 (defn- s3-bucket-key 
   "Returns a struct-map containing the bucket and key for a path"
