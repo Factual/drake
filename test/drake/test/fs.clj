@@ -21,49 +21,60 @@
 (def S3-BUCKET "civ-test-drake")
 (def S3-PREFIX "test")
 
-(def ^:private s3-test-credentials
-  (memoize #(load-file "/home/chris/creds.clj")))
 
-(defn setup-s3
-  "Initializes a s3 filesystem in particular order mod for testing:
-
-  [DIR]
-    ├── A       1
-    └── Y       (implicit)
-      ├── A     2
-      ├── B     3
-      ├── C     4
-      └── _logs 5"
-  []
-  
-  (let [A (join "/" (list S3-PREFIX "A"))
-        Y (join "/" (list S3-PREFIX "Y"))
-        YA (join "/" (list S3-PREFIX "Y" "A"))
-        YB (join "/" (list S3-PREFIX "Y" "B"))
-        YC (join "/" (list S3-PREFIX "Y" "C"))
-        ;; should be ignored
-        _logs (join "/" (list S3-PREFIX "Y" "_logs"))
-        delay 300]
-    
-    (set-options (into *options* { :aws-credentials "/home/chris/.s3cfg" } ))
-
-    (s3/delete-object (s3-test-credentials) S3-BUCKET A)
-    (s3/delete-object (s3-test-credentials) S3-BUCKET Y)
-    (s3/delete-object (s3-test-credentials) S3-BUCKET YA)
-    (s3/delete-object (s3-test-credentials) S3-BUCKET YB)
-    (s3/delete-object (s3-test-credentials) S3-BUCKET YC)
-    (s3/delete-object (s3-test-credentials) S3-BUCKET _logs)
-
-    (s3/put-object (s3-test-credentials) S3-BUCKET A  "A"  )
-    (. Thread (sleep delay))
-    (s3/put-object (s3-test-credentials) S3-BUCKET YA "YA" )
-    (. Thread (sleep delay))
-    (s3/put-object (s3-test-credentials) S3-BUCKET YB "YB" )
-    (. Thread (sleep delay))
-    (s3/put-object (s3-test-credentials) S3-BUCKET YC "YC" )
-    (. Thread (sleep delay))
-    (s3/put-object (s3-test-credentials) S3-BUCKET _logs "_logs")
-    ))
+;; TODO(howech)
+;; s3 tests require permissions over a particular bucket. To get them to run, you may have to 
+;; fiddle with them a little to get it set up for your bucket and your credentials.
+;;
+;; ;; This is a hack to quicly load credentials. The file loaded should contain something like
+;; ;; the following
+;; ;;  { :access-key "<AWSACCESSKEY>" :secret-key "<AWSSECRETKEY>" }
+;;(def ^:private s3-test-credentials
+;;  (memoize #(load-file "/home/chris/creds.clj")))
+;; 
+;;(defn setup-s3
+;;  "Initializes a s3 filesystem in particular order mod for testing:
+;;
+;;  [DIR]
+;;    ├── A       1
+;;    └── Y       (implicit)
+;;      ├── A     2
+;;      ├── B     3
+;;      ├── C     4
+;;      └── _logs 5"
+;;  []
+;;  
+;;  (let [A (join "/" (list S3-PREFIX "A"))
+;;        Y (join "/" (list S3-PREFIX "Y"))
+;;        YA (join "/" (list S3-PREFIX "Y" "A"))
+;;        YB (join "/" (list S3-PREFIX "Y" "B"))
+;;        YC (join "/" (list S3-PREFIX "Y" "C"))
+;;        ;; should be ignored
+;;        _logs (join "/" (list S3-PREFIX "Y" "_logs"))
+;;        ;; Writing to S3 is somewhat non-deterministic as to exactly when the
+;;        ;; timestamps are dated. The following is fudge factor to delay "long enough"
+;;        ;; between writes to ensure that the writes are in order. 
+;;        delay 300]
+;;    
+;;    (set-options (into *options* { :aws-credentials "/home/chris/.s3cfg" } ))
+;;
+;;    (s3/delete-object (s3-test-credentials) S3-BUCKET A)
+;;    (s3/delete-object (s3-test-credentials) S3-BUCKET Y)
+;;    (s3/delete-object (s3-test-credentials) S3-BUCKET YA)
+;;    (s3/delete-object (s3-test-credentials) S3-BUCKET YB)
+;;    (s3/delete-object (s3-test-credentials) S3-BUCKET YC)
+;;    (s3/delete-object (s3-test-credentials) S3-BUCKET _logs)
+;;
+;;    (s3/put-object (s3-test-credentials) S3-BUCKET A  "A"  )
+;;    (. Thread (sleep delay))
+;;    (s3/put-object (s3-test-credentials) S3-BUCKET YA "YA" )
+;;    (. Thread (sleep delay))
+;;    (s3/put-object (s3-test-credentials) S3-BUCKET YB "YB" )
+;;    (. Thread (sleep delay))
+;;    (s3/put-object (s3-test-credentials) S3-BUCKET YC "YC" )
+;;    (. Thread (sleep delay))
+;;    (s3/put-object (s3-test-credentials) S3-BUCKET _logs "_logs")
+;;    ))
 
 (defn setup-local
   "Initializes a local filesystem with specific mod times for testing:
@@ -121,12 +132,12 @@
   (is (= "/tmp/drake-test-fs/Y/C"
          (:path (newest-in "/tmp/drake-test-fs")))))
 
-(deftest test-s3-oldest-in
-  (setup-s3)
-  (is (= (str "/" (join "/" (list  S3-BUCKET S3-PREFIX "A")))
-         (:path (oldest-in (join "/" (list "s3:/" S3-BUCKET S3-PREFIX)))))))
+;;(deftest test-s3-oldest-in
+;;  (setup-s3)
+;;  (is (= (str "/" (join "/" (list  S3-BUCKET S3-PREFIX "A")))
+;;         (:path (oldest-in (join "/" (list "s3:/" S3-BUCKET S3-PREFIX)))))))
 
-(deftest test-s3-newest-in
-  (setup-local)
-  (is (= (str "/" (join "/" (list S3-BUCKET S3-PREFIX "Y" "C")))
-         (:path (newest-in (join "/" (list "s3:/" S3-BUCKET S3-PREFIX)))))))
+;;(deftest test-s3-newest-in
+;;  (setup-local)
+;;  (is (= (str "/" (join "/" (list S3-BUCKET S3-PREFIX "Y" "C")))
+;;         (:path (newest-in (join "/" (list "s3:/" S3-BUCKET S3-PREFIX)))))))
