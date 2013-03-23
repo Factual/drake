@@ -194,9 +194,16 @@
 ;; TODO(howech)
 ;; document AWS credentials varables
 
+(defn load-props [filename]
+    (let [io (java.io.FileInputStream. filename)
+        prop (java.util.Properties.)]
+    (.load prop io)
+    (into {} prop)))
 
 (def ^:private s3-credentials
-  (memoize #(load-file (*options* :aws-credentials))))
+  (memoize #(let [props (load-props (*options* :aws-credentials))]
+              { :access-key (props "access_key")
+                :secret-key (props "secret_key") })))
 
 ;; The following doesnt work because environment variables
 ;; are stored on the step, but the fs object has no idea

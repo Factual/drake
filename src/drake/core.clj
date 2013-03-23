@@ -630,9 +630,9 @@
                      :type :int
                      :user-name "ms")
                    (with-arg aws-credentials s
-                     "Specifies a file containing aws credentials."
+                     "Specifies a properties file containing aws credentials. The access_id should be in a property named 'access_key', while the secret part of the key should be in a property names 'secret_key'. Other values in the properties file are ignored."
                      :type :str
-                     :user-name "aws-credentials"
+                     :user-name "properties file"
                      )
                    (no-arg quiet q
                      "Suppress all Drake's output.")
