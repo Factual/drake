@@ -1,12 +1,15 @@
 (ns drake.test.fs
   (:refer-clojure :exclude [file-seq])
   (:require [fs.core :as fs]
-            [aws.sdk.s3 :as s3])
+            [aws.sdk.s3 :as s3]
+            )
 
   (:import [drake.fs MockFileSystem LocalFileSystem HDFS S3])
   (:use [drake.fs]
+        drake.options
         [clojure.test]
-        [clojure.string :only [join split]]))
+        [clojure.string :only [join split]])
+        )
 
 ;; TODO(aaron)
 ;; Tests that modify local file system are strictly speaking not unittests,
@@ -39,7 +42,10 @@
         YB (join "/" (list S3-PREFIX "Y" "B"))
         YC (join "/" (list S3-PREFIX "Y" "C"))
         ;; should be ignored
-        _logs (join "/" (list S3-PREFIX "Y" "_logs"))]
+        _logs (join "/" (list S3-PREFIX "Y" "_logs"))
+        delay 300]
+    
+    (set-options (into *options* { :aws-credentials "/home/chris/.s3cfg" } ))
 
     (s3/delete-object (s3-test-credentials) S3-BUCKET A)
     (s3/delete-object (s3-test-credentials) S3-BUCKET Y)
@@ -49,13 +55,13 @@
     (s3/delete-object (s3-test-credentials) S3-BUCKET _logs)
 
     (s3/put-object (s3-test-credentials) S3-BUCKET A  "A"  )
-    (. Thread (sleep 100))
+    (. Thread (sleep delay))
     (s3/put-object (s3-test-credentials) S3-BUCKET YA "YA" )
-    (. Thread (sleep 100))
+    (. Thread (sleep delay))
     (s3/put-object (s3-test-credentials) S3-BUCKET YB "YB" )
-    (. Thread (sleep 100))
+    (. Thread (sleep delay))
     (s3/put-object (s3-test-credentials) S3-BUCKET YC "YC" )
-    (. Thread (sleep 100))
+    (. Thread (sleep delay))
     (s3/put-object (s3-test-credentials) S3-BUCKET _logs "_logs")
     ))
 
