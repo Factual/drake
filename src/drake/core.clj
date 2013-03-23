@@ -17,14 +17,17 @@
         drake.fs
         [drake.protocol :only [get-protocol-name get-protocol]]
         drake.parser
-        drake.utils)
+        drake.utils
+        drake.options)
   (:gen-class))
 
 (def VERSION "0.1.3-SNAPSHOT")
 
-(def ^:dynamic *options* {})
-(defn set-options [opts]
-  (def ^:dynamic *options* opts))
+;(def ^:dynamic *options* {})
+;(defn set-options [opts]
+;  (def ^:dynamic *options* opts))
+;(defn get-option [opt-name]
+;  (*options* opt-name))
 
 ;; TODO(artem)
 ;; Optimize for repeated BASE prefixes (we can't just show it
@@ -626,6 +629,11 @@
                      "Specifies a period of time, in milliseconds, to wait after completion of each step. Some file systems have low timestamp resolution, and small steps can proceed so quickly that outputs of two or more steps can share the same timestamp, and will be re-built on a subsequent run of Drake. Also, if the clocks on HDFS and local filesystem are not perfectly synchronized, timestamped evaluation can break down. Specifying a delay can help in both cases."
                      :type :int
                      :user-name "ms")
+                   (with-arg aws-credentials s
+                     "Specifies a file containing aws credentials."
+                     :type :str
+                     :user-name "aws-credentials"
+                     )
                    (no-arg quiet q
                      "Suppress all Drake's output.")
                    (no-arg debug
