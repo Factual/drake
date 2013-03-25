@@ -1,8 +1,5 @@
 (ns drake.options
-  (:refer-clojure :exclude [file-seq])
-  (:use [clojure.tools.logging :only [info debug trace error]]
-        [slingshot.slingshot :only [try+ throw+]]
-  (:gen-class)))
+  (:refer-clojure :exclude [file-seq]))
 
 (def ^:dynamic *options* {})
 (defn set-options [opts]

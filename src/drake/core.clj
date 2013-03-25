@@ -23,12 +23,6 @@
 
 (def VERSION "0.1.3-SNAPSHOT")
 
-;(def ^:dynamic *options* {})
-;(defn set-options [opts]
-;  (def ^:dynamic *options* opts))
-;(defn get-option [opt-name]
-;  (*options* opt-name))
-
 ;; TODO(artem)
 ;; Optimize for repeated BASE prefixes (we can't just show it
 ;; without base, since it can be ambiguous)
@@ -460,8 +454,9 @@
    Returns a tuple of vectors."
   [args]
   (let [non-flag-long #{"--workflow" "--branch" "--merge-branch"
-                        "--logfile" "--vars" "--base"}
-        non-flag-short #{\w \b \l \v}]
+                        "--logfile" "--vars" "--base" 
+                        "--aws-credentials" "--step-delay"}
+        non-flag-short #{\w \b \l \v \s}]
     (loop [i 0]
       (if (>= i (count args))
         [args []]
@@ -632,8 +627,7 @@
                    (with-arg aws-credentials s
                      "Specifies a properties file containing aws credentials. The access_id should be in a property named 'access_key', while the secret part of the key should be in a property names 'secret_key'. Other values in the properties file are ignored."
                      :type :str
-                     :user-name "properties file"
-                     )
+                     :user-name "properties-file")
                    (no-arg quiet q
                      "Suppress all Drake's output.")
                    (no-arg debug
