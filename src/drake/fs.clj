@@ -199,6 +199,8 @@
 (defn- load-props
   "Loads a java style properties file into a struct map."
   [filename]
+  (when-not (fs/exists? (fs/file filename))
+    (throw+ {:msg (format "unable to locate properties file %s" filename)}))
   (let [io (java.io.FileInputStream. filename)
         prop (java.util.Properties.)]
     (.load prop io)
@@ -206,9 +208,12 @@
 
 ;; Load credentials from a propertis file
 (def ^:private s3-credentials
-  (memoize #(let [props (load-props (*options* :aws-credentials))]
-              { :access-key (props "access_key")
-               :secret-key (props "secret_key") })))
+  (memoize #(if (nil? (*options* :aws-credentials))
+              (throw+
+               {:msg (format "No aws-credentials file. Please specify a properties file containing aws credentials using the -s command line option.")})
+              (let [props (load-props (*options* :aws-credentials))]
+                { :access-key (props "access_key")
+                 :secret-key (props "secret_key") }))))
 
 (defn- s3-bucket-key 
   "Returns a struct-map containing the bucket and key for a path"
