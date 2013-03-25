@@ -41,6 +41,7 @@ create_s3_file() {
   TMPFILE="$(mktemp -p /tmp)"
   create_local_file_full_path $TMPFILE "$2"
   $s3put $TMPFILE "$1" 2>/dev/null
+  rm $TMPFILE
 }
 
 check_local() {
@@ -51,6 +52,7 @@ check_s3() {
   TMPFILE="$(mktemp -p /tmp)"
   $s3get $1 $TMPFILE
   check "$(cat $TMPFILE $1 2>/dev/null)" "$2"
+  rm $TMPFILE
 }
 
 check_targets() {
