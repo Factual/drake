@@ -17,7 +17,9 @@
                  ;; for HDFS support
                  [hdfs-clj "0.1.0"]
                  ;; you may need to change this to be compatible with your cluster
-                 [org.apache.hadoop/hadoop-core "0.20.2"]]
+                 [org.apache.hadoop/hadoop-core "0.20.2"]
+                 ;; for AWS S3 support
+                 [clj-aws-s3 "0.3.3"]]
   :test-selectors {:regression   :regression
                    :default      (complement :regression)
                    :all          (constantly true)}
