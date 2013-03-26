@@ -20,4 +20,13 @@
   * Added checking for conflicting options (i.e. --preview vs --print).
   * Help is now printed nicely
  * Added --step-delay to specify the amount of time, in milliseconds, to wait after each step. Should help with [desynchronized filesystems](https://github.com/Factual/drake/issues/15).
- * bugfixes: [34](https://github.com/Factual/drake/issues/34)
+ * bugfixes: [#34](https://github.com/Factual/drake/issues/34)
+
+## develop
+
+ * Default workflow filename changed from workflow.d to Drakefile
+ * Significant parsing speed up for large files (>x10)
+ * ```BASE``` variable:
+  * bugfix: wasn't being picked up if set through environment
+  * bugfix: wasn't correctly working with ```:=``` ([#14](https://github.com/Factual/drake/issues/14))
+  * ```--base``` command-line flag supported

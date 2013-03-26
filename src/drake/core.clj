@@ -20,7 +20,7 @@
         drake.utils)
   (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]]))
 
-(def VERSION "0.1.2")
+(def VERSION "0.1.3-SNAPSHOT")
 
 (def ^:dynamic *options* {})
 (defn set-options [opts]
@@ -314,20 +314,18 @@
                       (format "Running (%s)" should-build)
                       "Skipped (up-to-date)")
                     step-descr))
-      (if should-build
-        (do
-          ;; save all variable values in .drake directory
-          (spit-step-vars step)
-          (let [start (.getTime (java.util.Date.))]
-            (.run (get-protocol step) step)
-            (let [elapsed (- (.getTime (java.util.Date.)) start)
-                  wait (- (*options* :step-delay 0) elapsed)]
-              (info (format "--- done in %.2fs%s"
-                            (/ elapsed 1000.0)
-                            (if-not (> wait 0)
-                              ""
-                              (do (. Thread (sleep wait))
-                                  (format " + waited %dms" wait)))))))))
+      (when should-build
+        ;; save all variable values in .drake directory
+        (spit-step-vars step)
+        (with-time-elapsed
+          #(let [wait (- (*options* :step-delay 0) %)]
+             (info (format "--- done in %.2fs%s"
+                           (/ % 1000.0)
+                           (if-not (> wait 0)
+                             ""
+                             (do (. Thread (sleep wait))
+                                 (format " + waited %dms" wait))))))
+          (.run (get-protocol step) step)))
       should-build)))
 
 (defn- run-steps [parse-tree steps]
@@ -387,7 +385,7 @@
     (.endsWith java-cmd "nailgun.NGServer")))
 
 (defn- shutdown [exit-code]
-  (when-not (:repl *options*)
+  (when (not (true? (:repl *options*)))
     (if (running-under-nailgun?)
       (debug (str "core/shutdown: Running under Nailgun; "
                   "not calling (shutdown-agents)"))
@@ -413,7 +411,9 @@
 (defn build-vars []
   (merge
    (into {} (System/getenv))
-   (parse-cli-vars (*options* :vars))))
+   (parse-cli-vars (*options* :vars))
+   (when-let [base (*options* :base)]
+     {"BASE" base})))
 
 (defn- with-workflow-file
   "Reads the workflow file from command-line options, parses it,
@@ -424,7 +424,7 @@
                    filename
                    (let [workflow-file (str filename
                                             (if (not= (last filename) \/) "/")
-                                            "workflow.d")]
+                                            "Drakefile")]
                      (println "Checking for" workflow-file)
                      workflow-file))]
     (if-not (fs/exists? filename)
@@ -457,7 +457,7 @@
    Returns a tuple of vectors."
   [args]
   (let [non-flag-long #{"--workflow" "--branch" "--merge-branch"
-                        "--logfile" "--vars"}
+                        "--logfile" "--vars" "--base"}
         non-flag-short #{\w \b \l \v}]
     (loop [i 0]
       (if (>= i (count args))
@@ -578,7 +578,7 @@
      (-main \"--repl\" \"--version\")
      (-main \"--repl\" \"--preview\" \"-w\" \"demos/factual\" \"+...\")
      (-main \"--repl\" \"--auto\" \"-w\"
-            \"some/workflow.d\" drake \"+...\" \"-^D\" \"-=B\")
+            \"some/workflow-file.drake\" drake \"+...\" \"-^D\" \"-=B\")
 
    TODO: log messages don't show up on the REPL (but printlns do).
          Can this be fixed?"
@@ -591,13 +591,17 @@
                    "drake"
                    opts
                    (with-arg workflow w
-                     "Name of the workflow file to execute; if a directory, look for workflow.d there."
+                     "Name of the workflow file to execute; if a directory, look for Drakefile there."
                      :type :str
                      :user-name "file-or-dir-name")
                    (no-arg auto a
                      "Do not ask for user confirmation before running steps.")
                    (no-arg preview P
-                     "Prints the steps that would run, then stops.")
+                           "Prints the steps that would run, then stops.")
+                   (with-arg base
+                     "Specifies BASE directory. Takes precedence over environment."
+                     :type :str
+                     :user-name "dir-name")
                    (with-arg vars v
                      "Add workflow variable definitions. For example -v X=1,Y=2,FILE=a.csv"
                      :type :str
@@ -640,7 +644,7 @@
         ;; if a flag is specified, clojopts adds the corresponding key
         ;; to the option map with nil value. here we convert them to true.
         ;; also, the defaults are specified here.
-        options (into {:workflow "./workflow.d"
+        options (into {:workflow "./Drakefile"
                        :logfile "drake.log"}
                       (for [[k v] options] [k (if (nil? v) true v)]))]
     (flush)    ;; we need to do it for help to always print out
@@ -698,7 +702,7 @@
      (run-workflow \"demos/factual\" [])
      (run-workflow \"demos/factual\" [\"+...\"])
      (run-workflow \"demos/factual\" [\"+...\"] :branch \"MYBRANCH\")
-     (run-workflow \"some/workflow.d\" [\"+...\" \"-^D\" \"-=B\"]
+     (run-workflow \"some/workflow-file.drake\" [\"+...\" \"-^D\" \"-=B\"]
                    :branch \"MYBRANCH\" :preview true)
 
    TODO: log messages don't show up on the REPL (but printlns do).

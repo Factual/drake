@@ -12,10 +12,12 @@
   Then this final big list of steps is processed one-by-one to make sure
   dependants are always run after their dependencies, as well as process
   exclusions (see add-step function)."
-  (:use [slingshot.slingshot :only [throw+]]
+  (:use [clojure.tools.logging :only [debug trace]]
+        [slingshot.slingshot :only [throw+]]
         drake.utils
         [drake.fs :only [remove-extra-slashes normalized-path]])
   (:require [clojure.string :as str]
+            [clojure.set :as set]
             [fs.core :as fs]))
 
 (defn step-str
@@ -35,6 +37,7 @@
    It is in this module since all the functions below heavily depend
    on the state created by it."
   [raw-parse-tree]
+  (trace "Calculating dependency graph...")
   (let [steps (:steps raw-parse-tree)
         ;; goes over steps and maps values returned by function f (a sequence)
         ;; into a lists of step step indexes that have them, for example, if
@@ -99,6 +102,7 @@
 
    Returns the parse tree with added :dir to each step."
   [{:keys [steps] :as parse-tree}]
+  (trace "Naming steps' temporary directories...")
   (let [drake-dir (fs/absolute-path ".drake")]
     (if (> (count drake-dir) (dec MAX_PATH))
       (throw+ {:msg (format "workflow directory name %s is too long."
@@ -197,11 +201,6 @@
     [index]
     (expand-step-recur (parse-tree :steps) index (nil? tree-mode) [])))
 
-(def all-dependencies
-  "A memoized function to expand the step and all its dependencies
-   downwards."
-  (memoize #(into #{} (expand-step %1 %2 :down))))
-
 (defn- clip-only
   [str charset]
   "Removes the first character from the string, iff it is present
@@ -279,54 +278,75 @@
                  (expand-step parse-tree index tree)))
           targets))
 
+(def all-dependencies-func
+  (memoize (fn [parse-tree]
+             (memoize #(into #{} (expand-step parse-tree % :down))))))
+
+(defn all-dependencies
+  "Expands the step and all its dependencies downwards.
+   Uses two-level memoization in order to avoid iterating
+   over the whole parse-tree to calculate its hash every time.
+   The resulted function takes two arguments: parse-tree and step's index."
+  [parse-tree step]
+  ((all-dependencies-func parse-tree) step))
+
 (defn- add-step
   "We will be creating a list of steps by starting with an empty list
-   and adding steps to it one by one. For each step to be added (new-step),
-   we will iterate over the current list and for each step that's
-   already there we will check:
-     1) if new-step is in the exclusion mode (-A), remove the current step
-        if it's the same as the new-step, otherwise:
-     2a) if the current step is a direct or indirect dependant of new-step,
-         new-step has to be inserted in front of it.
-     2b) if the current step is the same as the new-step,
-         set the forced-build mode to be an OR of the two.
+   and adding steps to it one by one. current-steps-map represents the
+   accumualted list of steps so far, and pos is the numeric position of the
+   current step being added (new-step). For each new step:
 
-   This algorithm is N^2, and there are some optimizations that could be
-   done (like keeping a hash-map etc), but since the number of steps is
-   expected to be small, we're not concerned with optimization right now."
-  [parse-tree current-steps new-step]
-  (let [step-count (count current-steps)
-        {:keys [index build match-type]} new-step
-        exclusion (= build :exclude)
-        ;; below is also potentially slow as it's done
-        ;; for every new step to be added, it can be optimized
-        ;; but should do for now
-        dependencies (all-dependencies parse-tree index)]
-    (loop [i 0]
-      (if (= i step-count)     ;; reached the end?
-        (if exclusion
-          current-steps
-          (conj current-steps new-step))
-        (let [{old-index :index old-build :build old-match-type :match-type}
-                (current-steps i)]
-          ;; is it the same step? then adjust the forced-build
-          (if (= index old-index)
-            (if exclusion
-              (delete current-steps i)
-              (assoc current-steps i
-                     {:index index
-                      :build (if (or (= build :forced)
-                                     (= old-build :forced))
-                               :forced)
-                      ;; same logic for tag and methods as for build - if it is
-                      ;; specified directly, the step will be built
-                      ;; (method takes precedence here)
-                      :match-type (some (set [old-match-type match-type])
-                                        [:method :tag :output])}))
-            ;; is it a dependency? then insert in front of it
-            (if (and (not exclusion) (dependencies old-index))
-              (insert current-steps i new-step)
-              (recur (inc i)))))))))
+     1) if new-step is in the exclusion mode (-A), remove the step it refers
+        to from the already processed steps (current-steps-map)
+     2) if new-step refers to a step already existing in the accumulated list,
+        set the forced-build mode to be an OR of the two
+     3) if there's one ore more steps in the accumulated list (current-steps-map)
+        which is a direct or indirect dependant of new-step, find the first
+        such step and insert new-step before it."
+  [parse-tree
+   [current-steps-map pos]
+   {:keys [index build match-type] :as new-step}]
+  (let [exclusion (= build :exclude)]
+    (if-let [existing-step (current-steps-map index)]
+      ;; step already exists
+      (if exclusion
+        ;; exclude, or...
+        [(dissoc current-steps-map index) (inc pos)]
+        ;; ...update
+        (let [{old-build :build old-match-type :match-type} existing-step]
+          [(assoc current-steps-map index
+                  ;; update some fields, but keep :pos as it was
+                  (assoc existing-step
+                         :build (if (or (= build :forced)
+                                        (= old-build :forced))
+                                  :forced)
+                         ;; same logic for tag and methods as for build -
+                         ;; if it's specified directly, the step will be built
+                         ;; (method takes precedence here)
+                         :match-type (some (set [old-match-type match-type])
+                                           [:method :tag :output])))
+           (inc pos)]))
+      ;; step doesn't exist
+      (if exclusion
+        ;; if it's exclusion, safe to ignore
+        [current-steps-map (inc pos)]
+        (let [dependencies (all-dependencies parse-tree index)
+              ;; dependencies of the current step already specified
+              used-dependencies (set/intersection
+                                   dependencies
+                                   (into #{} (keys current-steps-map)))
+              ;; find the very first step which is a dependency (by :pos)
+              ;; and set the position of the new step to be just slightly less
+              insert-position (if (empty? used-dependencies)
+                                pos
+                                ;; this should be enough for a million steps
+                                (- (apply min (map #((current-steps-map %) :pos)
+                                                   used-dependencies))
+                                   0.0000001))]
+          ;; add a new step to the map, with a new field specifying its
+          ;; order (:pos)
+          [(assoc current-steps-map index (assoc new-step :pos insert-position))
+           (inc pos)])))))
 
 (defn- check-output-conflicts
   "Checks that all selected steps have unique outputs.
@@ -344,8 +364,14 @@
   "Given a parse tree and an array of target selection expressions,
    returns an ordered list of step indexes to be run."
   [parse-tree target-names]
-  (let [steps (expand-targets parse-tree
-                (match-target-steps parse-tree
-                  (process-qualifiers target-names)))]
-    (check-output-conflicts parse-tree
-                            (reduce #(add-step parse-tree %1 %2) [] steps))))
+  (with-time-elapsed
+    (in-ms debug "Selecting steps")
+    (let [steps (expand-targets parse-tree
+                                (match-target-steps
+                                  parse-tree
+                                  (process-qualifiers target-names)))]
+      (check-output-conflicts
+       parse-tree
+       (sort-by :pos
+                (vals (first (reduce #(add-step parse-tree %1 %2)
+                                     [{} 0] steps))))))))
