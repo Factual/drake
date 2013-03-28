@@ -1,3 +1,8 @@
+; in source dir run like this
+; $ lein repl
+; (load-file "tree.clj")
+; (drake.tree/main "--workflow" "workflow.d" "--jobs" "2")
+
 (ns drake.tree
   (:use [loom.graph]
         [loom.io]
@@ -5,6 +10,10 @@
         [loom.attr]
         clojopts.core
         )
+
+)
+(import
+  '(java.util.concurrent Semaphore)
 )
 
 ; get labels for each steps (uses :dir for a label)
@@ -91,7 +100,10 @@
 )
 
 
+
 (defn main-options-parsed [options]
+  (def jobs-semaphore (new Semaphore (options :jobs)))
+  (println "number of jobs -j: " jobs-semaphore)
   
   ; parse the file into a graph
   (def g (parse-tree-to-graph (drake.parser/parse-file (options :workflow) {})))
@@ -112,14 +124,24 @@
             (future (do
               ; wait for parent promises to be delivered
               (doseq [i (incoming g n)] (deref (promises i)))
-          
+              
+              ; acquire a semaphore from the --jobs
+              (.acquire jobs-semaphore)
+              
+              
               ; fake a command running
               ; in reality this should fork the real command but not sure how to do it with drake functions
+              ; TODO implement run commands in drake
               (println "runnning" n "depending on"  (incoming g n))
-              (Thread/sleep 100)
-            
+              (Thread/sleep 5000)
+
+              ; releases a semaphore from the --jobs
+              (.release jobs-semaphore)
+              
               ; delivers a promise of 0
               (deliver promise 0)
+
+              
             ))
          )
         ) 
@@ -160,6 +182,8 @@
    
    Examples:
      (-main \"--workflow\" \"workflow.d\")
+     (-main \"--workflow\" \"workflow.d\"  \"--jobs\" \"2\")
+     (-main \"--workflow\" \"workflow.d\"  \"--jobs\" \"16\")
 
    TODO: hook into drake's core code"
   [& args]
@@ -177,15 +201,16 @@
                    (with-arg jobs
                        "Specifies the number of jobs (commands) to run simultaneously. Defaults to 1"
                        :type :int
-                       :user-name "jobs")
+                       :user-name "jobs-num")
                   )
                   (catch IllegalArgumentException e
-                    (println
+                    (println e 
                       (str "\nUnrecognized option: "
                            "did you mean target exclusion?\nto build "
                            "everything except 'target'"
                            " run:\n  drake ... -target"))
-                    (System/exit -1)))
+                    ; (System/exit -1)
+                    ))
            ;; if a flag is specified, clojopts adds the corresponding key
            ;; to the option map with nil value. here we convert them to true.
            ;; also, the defaults are specified here.

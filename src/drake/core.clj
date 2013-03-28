@@ -457,7 +457,7 @@
    Returns a tuple of vectors."
   [args]
   (let [non-flag-long #{"--workflow" "--branch" "--merge-branch"
-                        "--logfile" "--vars" "--base"}
+                        "--logfile" "--vars" "--base" "--jobs"}
         non-flag-short #{\w \b \l \v}]
     (loop [i 0]
       (if (>= i (count args))
