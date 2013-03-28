@@ -17,7 +17,10 @@
                  ;; for HDFS support
                  [hdfs-clj "0.1.0"]
                  ;; you may need to change this to be compatible with your cluster
-                 [org.apache.hadoop/hadoop-core "0.20.2"]]
+                 [org.apache.hadoop/hadoop-core "0.20.2"]
+                 [jkkramer/loom "0.2.0"]
+                 
+                 ]
   :test-selectors {:regression   :regression
                    :default      (complement :regression)
                    :all          (constantly true)}
