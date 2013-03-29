@@ -206,28 +206,28 @@
     (.load prop io)
     (into {} prop)))
 
-;; Load credentials from a propertis file
+;; Load credentials from a properties file
 (def ^:private s3-credentials
-  (memoize #(if (nil? (*options* :aws-credentials))
+  (memoize #(if-not (*options* :aws-credentials)
               (throw+
                {:msg (format "No aws-credentials file. Please specify a properties file containing aws credentials using the -s command line option.")})
               (let [props (load-props (*options* :aws-credentials))]
-                { :access-key (props "access_key")
-                 :secret-key (props "secret_key") }))))
+                {:access-key (props "access_key")
+                 :secret-key (props "secret_key")}))))
 
 (defn- s3-bucket-key 
   "Returns a struct-map containing the bucket and key for a path"
   [path]
-  ( let [ bkt-key (split (last (split path #"^/*"))
+  (let [ bkt-key (split (last (split path #"^/*"))
                          #"/" 2 )]
     { :bucket (first bkt-key)
-     :key (second bkt-key) }))
+     :key (second bkt-key)}))
 
 (defn- s3-object-to-info
   "Converts the elements the results of s3/list-objects
   into filesystem info objects"
   [{bucket :bucket key :key {last-mod :last-modified} :metadata}]
-  {:path     (join "/" ["" bucket key]) 
+  {:path     (join "/" ["" bucket key])
    :directory (.endsWith key "/")
    :mod-time  (.getTime last-mod)})
 
@@ -264,16 +264,16 @@
       (if (.directory? this path)
         ;; it is a directory and it exists, so
         ;; we should go do a list-object call
-        (let [{bucket :bucket key :key} (s3-bucket-key path) ]
+        (let [{bucket :bucket key :key} (s3-bucket-key path)]
           (map s3-object-to-info 
                (remove #(should-ignore? (:key %))
-                       (:objects (s3/list-objects (s3-credentials) 
+                       (:objects (s3/list-objects (s3-credentials)
                                                   bucket
                                                   {:prefix key})))))
         ;; not a directory 
-        (if (.exists? this path )
-          [ (.file-info this path) ]
-          ( file-info-seq this (str path "/"))))))
+        (if (.exists? this path)
+          [(.file-info this path)]
+          (file-info-seq this (str path "/"))))))
   (data-in? [this path]
     (data-in?-impl this path))
   ;; Normalize file names for s3 objects need to look like
@@ -286,23 +286,23 @@
  (normalized-filename [_ path]
     (join "/" ["" (remove-extra-slashes path)]))
   (rm [_ path]
-    (let [{bucket :bucket key :key} (s3-bucket-key path) ]
-      (s3/delete-object (s3-credentials) bucket key))) 
+    (let [{bucket :bucket key :key} (s3-bucket-key path)]
+      (s3/delete-object (s3-credentials) bucket key)))
   (mv [_ from to]
-    (let [{from-bucket :bucket from-key :key} (s3-bucket-key from) 
-          {to-bucket :bucket to-key :key} (s3-bucket-key to) ]
+    (let [{from-bucket :bucket from-key :key} (s3-bucket-key from)
+          {to-bucket :bucket to-key :key} (s3-bucket-key to)]
       ;; ensure that moving to/from the same name
       ;; is a null operation
       (when-not (and (= from-bucket to-bucket)
-                     (= from-key to-key)))
-      ;; There are two flavors of the move command - one for
-      ;; in the same bucket, the other for different buckets.
-      ;; Might not be necessary to do this, but we try to call
-      ;; the right one	   
-      (if (= from-bucket to-bucket)
-        (s3/copy-object (s3-credentials) from-bucket from-key to-key)
-        (s3/copy-object (s3-credentials) from-bucket from-key to-bucket to-key))
-      (s3/delete-object (s3-credentials) from-bucket from-key))))
+                     (= from-key to-key))
+        ;; There are two flavors of the move command - one for
+        ;; in the same bucket, the other for different buckets.
+        ;; Might not be necessary to do this, but we try to call
+        ;; the right one	   
+        (if (= from-bucket to-bucket)
+          (s3/copy-object (s3-credentials) from-bucket from-key to-key)
+          (s3/copy-object (s3-credentials) from-bucket from-key to-bucket to-key))
+        (s3/delete-object (s3-credentials) from-bucket from-key)))))
 ;; ----- Mock FS --------
 ;; Mock file system does not support drake-ignore
 
