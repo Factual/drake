@@ -211,7 +211,7 @@
               (throw+ {:msg (format (str "No aws-credentials file. " 
                                          "Please specify a properties file "
                                          "containing aws credentials using "
-                                         "the -s command line option.")})
+                                         "the -s command line option."))})
               (let [props (load-props (*options* :aws-credentials))]
                 {:access-key (props "access_key")
                  :secret-key (props "secret_key")}))))
