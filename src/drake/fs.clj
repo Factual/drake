@@ -120,11 +120,28 @@
 ;; Support fully qualified filenames in Drake, such as
 ;; hdfs://n01:9000/tmp/drake-test/hdfs_1
 
+(defn get-hadoop-conf-file-or-fail
+  "Returns the full path to Hadoop config as a File, or throws an Exception indicating a
+   problem finding the file.
+
+   Prefers the HADOOP_HOME environment variable to indicate Hadoop's home directory for
+   configuration, in which case the file [HADOOP_HOME]/conf/core-site.xml is verified
+   for existance. If it exists, it's returned as a File. Otherwise an error is thrown.
+
+   If there is no HADOOP_HOME defined, the file /etc/hadoop/conf/core-site.xml is
+   expected to exist. If it exists, it's returned as a File. Otherwise an error is thrown."
+  []
+  (let [hadoop-home (get (System/getenv) "HADOOP_HOME")
+        conf-file (if hadoop-home
+                    (fs/file hadoop-home "conf/core-site.xml")
+                    (fs/file "/etc/hadoop/conf/core-site.xml"))]
+    (if (fs/exists? conf-file)
+      conf-file
+      (throw+ {:msg (format "Hadoop configuration file %s doesn't exist" conf-file)}))))
+
 (def ^:private hdfs-configuration
-  (memoize #(let [configuration (Configuration.)]
-              (.addResource configuration
-                            (Path. "/etc/hadoop/conf/core-site.xml"))
-              configuration)))
+  (memoize #(doto (Configuration.)
+              (.addResource (Path. (str (get-hadoop-conf-file-or-fail)))))))
 
 (defn- remove-hdfs-prefix
   "Removes the prefix HDFS libraries may insert."
