@@ -17,14 +17,11 @@
         drake.fs
         [drake.protocol :only [get-protocol-name get-protocol]]
         drake.parser
+        drake.options
         drake.utils)
   (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]]))
 
 (def VERSION "0.1.3-SNAPSHOT")
-
-(def ^:dynamic *options* {})
-(defn set-options [opts]
-  (def ^:dynamic *options* opts))
 
 ;; TODO(artem)
 ;; Optimize for repeated BASE prefixes (we can't just show it
@@ -457,8 +454,9 @@
    Returns a tuple of vectors."
   [args]
   (let [non-flag-long #{"--workflow" "--branch" "--merge-branch"
-                        "--logfile" "--vars" "--base"}
-        non-flag-short #{\w \b \l \v}]
+                        "--logfile" "--vars" "--base"
+                        "--aws-credentials" "--step-delay"}
+        non-flag-short #{\w \b \l \v \s}]
     (loop [i 0]
       (if (>= i (count args))
         [args []]
@@ -626,6 +624,10 @@
                      "Specifies a period of time, in milliseconds, to wait after completion of each step. Some file systems have low timestamp resolution, and small steps can proceed so quickly that outputs of two or more steps can share the same timestamp, and will be re-built on a subsequent run of Drake. Also, if the clocks on HDFS and local filesystem are not perfectly synchronized, timestamped evaluation can break down. Specifying a delay can help in both cases."
                      :type :int
                      :user-name "ms")
+                   (with-arg aws-credentials s
+                     "Specifies a properties file containing aws credentials. The access_id should be in a property named 'access_key', while the secret part of the key should be in a property names 'secret_key'. Other values in the properties file are ignored."
+                     :type :str
+                     :user-name "properties-file")
                    (no-arg quiet q
                      "Suppress all Drake's output.")
                    (no-arg debug
