@@ -22,7 +22,7 @@
  * Added --step-delay to specify the amount of time, in milliseconds, to wait after each step. Should help with [desynchronized filesystems](https://github.com/Factual/drake/issues/15).
  * bugfixes: [#34](https://github.com/Factual/drake/issues/34)
 
-## develop
+## 0.1.3
 
  * Default workflow filename changed from workflow.d to Drakefile
  * Significant parsing speed up for large files (>x10)
@@ -30,3 +30,5 @@
   * bugfix: wasn't being picked up if set through environment
   * bugfix: wasn't correctly working with ```:=``` ([#14](https://github.com/Factual/drake/issues/14))
   * ```--base``` command-line flag supported
+ * Added preference for getting Hadoop config location from HADOOP_HOME environment variable. Addresses [#35](https://github.com/Factual/drake/issues/35)
+ * Added support for S3 (thanks howech)

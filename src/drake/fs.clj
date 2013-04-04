@@ -205,11 +205,11 @@
 
 
 ;; -------- S3 -----------
-;; Support for Amazon AWS object store 
+;; Support for Amazon AWS object store
 ;;
 ;; AWS credentials should be stored in a properties file
-;; under the property names "access_key" and "access_secret".
-;; The name of the file should be identified by using the 
+;; under the property names "access_key" and "secret_key".
+;; The name of the file should be identified by using the
 ;; --aws-credentials command line option.
 
 ;; Generic code to load a properties file into a struct map
@@ -225,7 +225,7 @@
 ;; Load credentials from a properties file
 (def ^:private s3-credentials
   (memoize #(if-not (*options* :aws-credentials)
-              (throw+ {:msg (format (str "No aws-credentials file. " 
+              (throw+ {:msg (format (str "No aws-credentials file. "
                                          "Please specify a properties file "
                                          "containing aws credentials using "
                                          "the -s command line option."))})
@@ -233,7 +233,7 @@
                 {:access-key (props "access_key")
                  :secret-key (props "secret_key")}))))
 
-(defn- s3-bucket-key 
+(defn- s3-bucket-key
   "Returns a struct-map containing the bucket and key for a path"
   [path]
   (let [ bkt-key (split (last (split path #"^/*"))
@@ -259,7 +259,7 @@
   (mod-time [_ path]
     (let [{bucket :bucket key :key} (s3-bucket-key path)]
       (.getTime (:last-modified (s3/get-object-metadata (s3-credentials) bucket key)))))
-  ;; S3 list-object api call by default will give 
+  ;; S3 list-object api call by default will give
   ;; us everything to fill out the file-info-seq
   ;; call. This one calls that one and strips out the
   ;; extra data
@@ -283,12 +283,12 @@
         ;; it is a directory and it exists, so
         ;; we should go do a list-object call
         (let [{bucket :bucket key :key} (s3-bucket-key path)]
-          (map s3-object-to-info 
+          (map s3-object-to-info
                (remove #(should-ignore? (:key %))
                        (:objects (s3/list-objects (s3-credentials)
                                                   bucket
                                                   {:prefix key})))))
-        ;; not a directory 
+        ;; not a directory
         (if (.exists? this path)
           [(.file-info this path)]
           (file-info-seq this (str path "/"))))))
@@ -296,7 +296,7 @@
     (data-in?-impl this path))
   ;; Normalize file names for s3 objects need to look like
   ;; s3://bucket/path/to/object for compatibility for tools
-  ;; like s3cmd. 
+  ;; like s3cmd.
   ;;
   ;; TODO(howech)
   ;; remove-extra-slashes is probably doing some other things
@@ -316,7 +316,7 @@
         ;; There are two flavors of the move command - one for
         ;; in the same bucket, the other for different buckets.
         ;; Might not be necessary to do this, but we try to call
-        ;; the right one	   
+        ;; the right one
         (if (= from-bucket to-bucket)
           (s3/copy-object (s3-credentials) from-bucket from-key to-key)
           (s3/copy-object (s3-credentials) from-bucket from-key to-bucket to-key))
