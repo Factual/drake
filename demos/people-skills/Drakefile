@@ -4,7 +4,7 @@
 ;
 ; You can run it from project root like so:
 ;
-;   lein run --auto --workflow demos/people-skills/workflow.d
+;   lein run --auto --workflow demos/people-skills
 ;
 ; Or, if you have Drake installed, you can cd to this directory and just run drake.
 ;

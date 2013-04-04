@@ -1,5 +1,5 @@
 (ns drake.parser
-  (:use [clojure.tools.logging :only [warn]]
+  (:use [clojure.tools.logging :only [warn debug trace]]
         [slingshot.slingshot :only [throw+]]
         drake.shell
         [drake.steps :only [add-dependencies calc-step-dirs]]
@@ -512,8 +512,8 @@
     _ (p/opt inline-comment)
     _ (p/failpoint line-break (illegal-syntax-error-fn "variable definition"))
     vars (p/get-info :vars)
-    _ (if (and has-colon (get vars (apply-str var-name)))
-        p/emptiness  ;do nothing if var exists and using := assignment
+    _ (if (and has-colon (not (empty? (get vars (apply-str var-name)))))
+        p/emptiness  ; nothing if := assignment but the var is not empty
         (p/update-info :vars
                      #(assoc % (apply-str var-name) var-value)))]
    nil))
@@ -600,11 +600,14 @@
    calc-step-dirs))
 
 (defn parse-str [tokens vars]
-  (parse-state (struct state-s
-                       (if (.endsWith tokens "\n") tokens (str tokens "\n"))
-                       (merge vars {"BASE" default-base})
-                       #{}
-                       1 1)))
+  (trace "Parsing started...")
+  (with-time-elapsed
+    (in-ms debug "Parsing")
+    (parse-state (struct state-s
+                         (if (.endsWith tokens "\n") tokens (str tokens "\n"))
+                         (merge {"BASE" default-base} vars)
+                         #{}
+                         1 1))))
 
 (defn parse-file [file vars]
   (parse-str (slurp file) vars))

@@ -1,10 +1,12 @@
 (ns drake.fs
   (:refer-clojure :exclude [file-seq])
   (:require [fs.core :as fs]
-            [hdfs.core :as hdfs])
+            [hdfs.core :as hdfs]
+            [aws.sdk.s3 :as s3])
   (:use [slingshot.slingshot :only [throw+]]
         [clojure.string :only [join split]]
-        drake.shell)
+        drake.shell
+        drake.options)
   (:import org.apache.hadoop.conf.Configuration
            org.apache.hadoop.fs.Path))
 
@@ -118,11 +120,28 @@
 ;; Support fully qualified filenames in Drake, such as
 ;; hdfs://n01:9000/tmp/drake-test/hdfs_1
 
+(defn get-hadoop-conf-file-or-fail
+  "Returns the full path to Hadoop config as a File, or throws an Exception indicating a
+   problem finding the file.
+
+   Prefers the HADOOP_HOME environment variable to indicate Hadoop's home directory for
+   configuration, in which case the file [HADOOP_HOME]/conf/core-site.xml is verified
+   for existance. If it exists, it's returned as a File. Otherwise an error is thrown.
+
+   If there is no HADOOP_HOME defined, the file /etc/hadoop/conf/core-site.xml is
+   expected to exist. If it exists, it's returned as a File. Otherwise an error is thrown."
+  []
+  (let [hadoop-home (get (System/getenv) "HADOOP_HOME")
+        conf-file (if hadoop-home
+                    (fs/file hadoop-home "conf/core-site.xml")
+                    (fs/file "/etc/hadoop/conf/core-site.xml"))]
+    (if (fs/exists? conf-file)
+      conf-file
+      (throw+ {:msg (format "Hadoop configuration file %s doesn't exist" conf-file)}))))
+
 (def ^:private hdfs-configuration
-  (memoize #(let [configuration (Configuration.)]
-              (.addResource configuration
-                            (Path. "/etc/hadoop/conf/core-site.xml"))
-              configuration)))
+  (memoize #(doto (Configuration.)
+              (.addResource (Path. (str (get-hadoop-conf-file-or-fail)))))))
 
 (defn- remove-hdfs-prefix
   "Removes the prefix HDFS libraries may insert."
@@ -184,6 +203,124 @@
     ;; This is dirty, we probably should reimplement this using Hadoop API
     (shell "hadoop" "fs" "-mv" from to :use-shell true :die true)))
 
+
+;; -------- S3 -----------
+;; Support for Amazon AWS object store
+;;
+;; AWS credentials should be stored in a properties file
+;; under the property names "access_key" and "secret_key".
+;; The name of the file should be identified by using the
+;; --aws-credentials command line option.
+
+;; Generic code to load a properties file into a struct map
+(defn- load-props
+  "Loads a java style properties file into a struct map."
+  [filename]
+  (when-not (fs/exists? (fs/file filename))
+    (throw+ {:msg (format "unable to locate properties file %s" filename)}))
+  (let [io (java.io.FileInputStream. filename)
+        prop (java.util.Properties.)]
+    (.load prop io)
+    (into {} prop)))
+;; Load credentials from a properties file
+(def ^:private s3-credentials
+  (memoize #(if-not (*options* :aws-credentials)
+              (throw+ {:msg (format (str "No aws-credentials file. "
+                                         "Please specify a properties file "
+                                         "containing aws credentials using "
+                                         "the -s command line option."))})
+              (let [props (load-props (*options* :aws-credentials))]
+                {:access-key (props "access_key")
+                 :secret-key (props "secret_key")}))))
+
+(defn- s3-bucket-key
+  "Returns a struct-map containing the bucket and key for a path"
+  [path]
+  (let [ bkt-key (split (last (split path #"^/*"))
+                         #"/" 2 )]
+    { :bucket (first bkt-key)
+     :key (second bkt-key)}))
+
+(defn- s3-object-to-info
+  "Converts the elements the results of s3/list-objects
+  into filesystem info objects"
+  [{bucket :bucket key :key {last-mod :last-modified} :metadata}]
+  {:path     (join "/" ["" bucket key])
+   :directory (.endsWith key "/")
+   :mod-time  (.getTime last-mod)})
+
+(deftype S3 []
+  FileSystem
+  (exists? [_ path]
+    (let [{bucket :bucket key :key} (s3-bucket-key path)]
+      (s3/object-exists? (s3-credentials) bucket key )))
+  (directory? [this path]
+    (.endsWith path "/"))
+  (mod-time [_ path]
+    (let [{bucket :bucket key :key} (s3-bucket-key path)]
+      (.getTime (:last-modified (s3/get-object-metadata (s3-credentials) bucket key)))))
+  ;; S3 list-object api call by default will give
+  ;; us everything to fill out the file-info-seq
+  ;; call. This one calls that one and strips out the
+  ;; extra data
+  (file-seq [this path]
+    (map :path (.file-info-seq this path)))
+  ;; Using the impl here
+  (file-info [this path]
+    (file-info-impl this path))
+  ;; Not using the impl here as it would result in an
+  ;; excessive number of api calls. We get all that we
+  ;; need from list-objects anyway.
+  (file-info-seq [this path]
+    (if (should-ignore? path)
+      []
+      ;; S3 is funny about directories - they do not really exist
+      ;; so if we are looking to list the contents of a file
+      ;; that does not seem to exist, we need to explicitly try
+      ;; adding a separator character to it and calling s3/list-objects
+      ;; on that.
+      (if (.directory? this path)
+        ;; it is a directory and it exists, so
+        ;; we should go do a list-object call
+        (let [{bucket :bucket key :key} (s3-bucket-key path)]
+          (map s3-object-to-info
+               (remove #(should-ignore? (:key %))
+                       (:objects (s3/list-objects (s3-credentials)
+                                                  bucket
+                                                  {:prefix key})))))
+        ;; not a directory
+        (if (.exists? this path)
+          [(.file-info this path)]
+          (file-info-seq this (str path "/"))))))
+  (data-in? [this path]
+    (data-in?-impl this path))
+  ;; Normalize file names for s3 objects need to look like
+  ;; s3://bucket/path/to/object for compatibility for tools
+  ;; like s3cmd.
+  ;;
+  ;; TODO(howech)
+  ;; remove-extra-slashes is probably doing some other things
+  ;; that could potentially be wrong in S3.
+ (normalized-filename [_ path]
+    (join "/" ["" (remove-extra-slashes path)]))
+  (rm [_ path]
+    (let [{bucket :bucket key :key} (s3-bucket-key path)]
+      (s3/delete-object (s3-credentials) bucket key)))
+  (mv [_ from to]
+    (let [{from-bucket :bucket from-key :key} (s3-bucket-key from)
+          {to-bucket :bucket to-key :key} (s3-bucket-key to)]
+      ;; ensure that moving to/from the same name
+      ;; is a null operation
+      (when-not (and (= from-bucket to-bucket)
+                     (= from-key to-key))
+        ;; There are two flavors of the move command - one for
+        ;; in the same bucket, the other for different buckets.
+        ;; Might not be necessary to do this, but we try to call
+        ;; the right one
+        (if (= from-bucket to-bucket)
+          (s3/copy-object (s3-credentials) from-bucket from-key to-key)
+          (s3/copy-object (s3-credentials) from-bucket from-key to-bucket to-key))
+        (s3/delete-object (s3-credentials) from-bucket from-key)))))
 ;; ----- Mock FS --------
 ;; Mock file system does not support drake-ignore
 
@@ -244,6 +381,7 @@
 (def ^:private FILESYSTEMS
   {"file" (LocalFileSystem.)
    "hdfs" (HDFS.)
+   "s3" (S3.)
    "test" (MockFileSystem. MOCK-FILESYSTEM-DATA)})
 
 (defn get-fs

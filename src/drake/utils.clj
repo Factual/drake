@@ -71,6 +71,29 @@
 
 (def start-time-filename (now-filename))
 
+(defn now
+  "Returns current time in milliseconds"
+  []
+  (.getTime (java.util.Date.)))
+
+(defmacro with-time-elapsed
+  "Runs the given code, calculating how much time it took (in ms),
+   and calls 'func' with this value."
+  [func & body]
+  `(let [start# (now)
+         value# ~@body]
+     (~func (- (now) start#))
+     value#))
+
+(defmacro in-ms
+  "To be used with with-time-elapsed. Returns a function which constructs
+   message of the form 'what' finished in X seconds, and then logs it
+   using 'func' (which can be 'debug', 'info' etc.). This needs to be a macro
+   because debug/info/warn are also macros."
+  [func what]
+  `(fn [elapsed#] (~func (format "%s finished in %.2fs"
+                                 ~what (/ elapsed# 1000.0)))))
+
 (defn relative-path
   [file]
   (.substring (.getAbsolutePath (fs/file file))

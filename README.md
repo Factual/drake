@@ -26,7 +26,7 @@ You will need to have a JVM installed. Drake has been tested under Linux and Mac
 
 ### Download or build the uberjar
 
-You can build Drake from source, which is the preferred way to run the most up-to-date version, or you can [download a prebuilt uberjar](https://docs.google.com/uc?export=download&confirm=no_antivirus&id=0B2xtKcFEL6wwOGNYSWRnMGc3b1k), which may not be the most recent version of Drake.
+You can build Drake from source, which is the preferred way to run the most up-to-date version, or you can [download a prebuilt uberjar](https://docs.google.com/uc?export=download&confirm=no_antivirus&id=0B2xtKcFEL6wwQndXRldiakZKUjg), which may not be the most recent version of Drake.
 
 Following are instructions for building from source. Drake is a Clojure project, so you will need to have [leiningen](https://github.com/technomancy/leiningen).
 
@@ -120,7 +120,7 @@ To exclude targets:
 $ drake ... -sometarget -anothertarget
 ```
 
-By default, Drake will look for `./workflow.d`. The simplest way to run your workflow is to name your workflow file `workflow.d`, and make sure you're in the same directory. Then, simply:
+By default, Drake will look for `./Drakefile`. The simplest way to run your workflow is to name your workflow file `Drakefile`, and make sure you're in the same directory. Then, simply:
 
 ```bash
 $ drake
@@ -129,7 +129,7 @@ $ drake
 To specify the workflow file explicitly, use `-w` or `--workflow`. E.g.:
 
 ```bash
-$ drake -w /myworkflow/my-fav-workflow.d
+$ drake -w /myworkflow/my-workflow.drake
 ```
 
 Use `drake --help` for the full list of options.
@@ -146,9 +146,16 @@ There's a [Google Group for Drake](https://groups.google.com/forum/?fromgroups#!
 
 ## HDFS Compatibility
 
-Drake provides HDFS support by allowing you to specify inputs and outputs like `hdfs://my/big_file.txt`.
+Drake provides HDFS support by allowing you to specify inputs and outputs like `hdfs:/my/big_file.txt`.
 
 If you plan to use Drake with HDFS, please see the [wiki doc on HDFS Compatibility](https://github.com/Factual/drake/wiki/HDFS-Compatibility).
+
+## Amazon S3 Compatibility
+
+Thanks to [Chris Howe](https://github.com/howech), Drake now has basic compatibility with Amazon S3 by allowing you to specify
+inputs and outputs like `s3://bucket/path/to/object`.
+
+If you plan to use Drake with S3, please see the [wiki doc on S3 Compatibility](https://github.com/Factual/drake/wiki/S3-Compatibility).
 
 ## Drake on the REPL
 
