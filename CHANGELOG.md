@@ -7,7 +7,7 @@
   * bugfix: wasn't correctly working with ```:=``` ([#14](https://github.com/Factual/drake/issues/14))
   * ```--base``` command-line flag supported
  * Added preference for getting Hadoop config location from HADOOP_HOME environment variable. Addresses [#35](https://github.com/Factual/drake/issues/35)
- * Added support for S3 (thanks howech)
+ * Added support for S3 (thanks howech) ([#60](https://github.com/Factual/drake/pull/60))
 
 ## 0.1.2
 
