@@ -20,8 +20,14 @@
         drake.options
         drake.utils)
   (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]]))
+(import
+  '(java.util.concurrent Semaphore)
+)
 
 (def VERSION "0.1.3")
+
+(defn set-jobs-semaphore [jobs-num]
+  (def ^:dynamic *jobs-semaphore*  (new Semaphore jobs-num)))
 
 ;; TODO(artem)
 ;; Optimize for repeated BASE prefixes (we can't just show it
@@ -325,6 +331,113 @@
           (.run (get-protocol step) step)))
       should-build)))
 
+
+(defn- assoc-promise [steps]
+  "Associates a promise instance for each step
+  a promise of value 1 is delivered on success
+  a promise of value 0 is delirvered on failure
+  "
+  (map (fn [step] (assoc step :promise (promise)) ) steps)
+)
+
+(defn- assoc-deps [parse-tree steps]
+  "Associates dependencies as set object containing the indexes for each step"
+  (def indexes (into #{} (map (fn [step] (:index step)) steps))) ; contains? does not work on list but works on set
+  (map (fn [step] (assoc step :deps 
+    (->>
+      (expand-step parse-tree (:index step) nil)
+      (into #{}) ; turn into set to remove duplicates
+      (keep #(if (contains? indexes %) %)) ; only keep the step contained in the list of step to execute
+      (keep #(if (not= (:index step) %) %)) ; do not mark the step itself as its dependency
+    )
+  ) ) steps)
+)
+
+
+(defn- future-for-step [parse-tree steps promises-indexed step] 
+  "Returns an anonymous function that can be triggered in its own thread to execute a step
+   the number of concurrent jobs is bound by *jobs-semaphore*
+   each step delivers its own promise. dependent step will block on that promise. "
+  (fn [] 
+     (future (do
+       
+       ; wait for parent promises in the tree promises to be delivered
+       (doseq [i (:deps step)] (deref (promises-indexed i)))
+       
+       ; acquire a semaphore from the --jobs
+       (.acquire *jobs-semaphore*)
+
+       ; run the step (the actual job)
+       (let [step-ran (run-step parse-tree (:pos step) step)]
+       
+         ; releases a semaphore from the --jobs
+         (.release *jobs-semaphore*)
+         (if step-ran 
+            (deliver (:promise step) 1) ; delivers a promise of 1/success
+            (deliver (:promise step) 0) ; delivers a promise of 0/failure
+         )
+       )
+       
+     ))
+  )
+)
+
+(defn- assoc-future [parse-tree steps]
+  "Associates a future (anonymous function) for each step"
+  ; for quickly accessing promises via a map :index => :promise
+  (def promises-indexed (zipmap 
+      (map (fn[step] (:index step)) steps) 
+      (map (fn[step] (:promise step)) steps)
+    )  
+  )
+  ; associate a :future on each step
+  (map (fn [step] (assoc step :future (future-for-step parse-tree steps promises-indexed step))) steps)
+)
+
+
+(defn- trigger-futures [steps]
+  "Triggers future callbacks in each steps"
+  (do
+    (doseq [step steps] (do
+      ((:future step))
+    ))
+  )
+)
+
+
+(defn- await-promises [steps]
+  "waits for all the promises to be fullfilled otherwise 
+   we get an premature exit on the main thread
+   returns the sum of all deref'd promises each 
+   returning either 0/1 for failure/success respectively"
+  (reduce + 
+    (map (fn [step] (deref (:promise step))) steps)
+  )
+)
+
+; this function is interchangeable with run-steps
+(defn- run-steps-async [parse-tree steps]
+  "Runs steps asynchronously"
+  (if (empty? steps)
+    (info "Nothing to do.")
+    (do
+      (info (format "Running %d steps with concurrence of %d..." (count steps) (:jobs *options*)))
+
+      (def steps-async (assoc-promise steps))
+      (def steps-deps (assoc-deps parse-tree steps-async))
+      (def steps-future (assoc-future  parse-tree steps-deps))
+      
+      (trigger-futures steps-future)
+      
+      (let [successful-steps (await-promises steps-future)]
+        (info "")
+        (info (format "Done (%d steps run)." successful-steps))      
+      )
+
+    )
+  )
+)
+              
 (defn- run-steps [parse-tree steps]
   "Runs steps in order given as an array of their indexes"
   (if (empty? steps)
@@ -371,7 +484,7 @@
          (println (steps-report parse-tree steps-to-run))
        :else
          (if (confirm-run parse-tree steps-to-run)
-           (run-steps parse-tree steps-to-run))))))
+           (run-steps-async parse-tree steps-to-run))))))
 
 (defn- running-under-nailgun?
   "Returns truthy if and only if this JVM process is running under a
@@ -592,6 +705,10 @@
                      "Name of the workflow file to execute; if a directory, look for Drakefile there."
                      :type :str
                      :user-name "file-or-dir-name")
+                   (with-arg jobs j
+                       "Specifies the number of jobs (commands) to run simultaneously. Defaults to 1"
+                       :type :int
+                       :user-name "jobs-num")
                    (no-arg auto a
                      "Do not ask for user confirmation before running steps.")
                    (no-arg preview P
@@ -647,7 +764,8 @@
         ;; to the option map with nil value. here we convert them to true.
         ;; also, the defaults are specified here.
         options (into {:workflow "./Drakefile"
-                       :logfile "drake.log"}
+                       :logfile "drake.log"
+                       :jobs 1}
                       (for [[k v] options] [k (if (nil? v) true v)]))]
     (flush)    ;; we need to do it for help to always print out
     (let [targets (if (empty? targets) ["=..."] targets)]
@@ -657,6 +775,8 @@
 
       (check-for-conflicts options)
       (set-options options)
+      (set-jobs-semaphore (:jobs options))
+      
       (configure-logging)
 
       (debug "Drake" VERSION)
