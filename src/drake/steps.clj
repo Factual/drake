@@ -190,7 +190,7 @@
       ;; of the sequence (which is what we need for down-tree)
       (conj (if up-tree (into [] all-but-me) all-but-me) index))))
 
-(defn- expand-step
+(defn expand-step
   "Given a step index, return an ordered list of all steps involved
    into building the given step.
 
