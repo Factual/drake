@@ -1,4 +1,4 @@
-(defproject factual/drake "0.1.3"
+(defproject factual/drake "0.1.4-SNAPSHOT"
   :description "Drake: the data processing workflow tool (a.k.a. 'make for data')"
   :url "https://github.com/Factual/drake"
   :license {:name "Eclipse Public License"
@@ -14,7 +14,7 @@
                  [factual/fnparse "2.3.0"]
                  [commons-codec/commons-codec "1.6"]
                  [factual/sosueme "0.0.15"]
-                 [factual/c4 "0.0.10"]
+                 [factual/c4 "0.1.1"]
                  ;; for HDFS support
                  [hdfs-clj "0.1.0"]
                  ;; you may need to change this to be compatible with your cluster
