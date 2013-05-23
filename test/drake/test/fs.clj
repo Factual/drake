@@ -1,9 +1,15 @@
 (ns drake.test.fs
   (:refer-clojure :exclude [file-seq])
-  (:require [fs.core :as fs])
-  (:import [drake.fs MockFileSystem LocalFileSystem HDFS])
-  (:use [drake.fs]
-        [clojure.test]))
+  (:require [fs.core :as fs]
+            [aws.sdk.s3 :as s3]
+            )
+
+  (:import [drake.fs MockFileSystem LocalFileSystem HDFS S3])
+  (:use drake.fs
+        drake.options
+        clojure.test
+        [clojure.string :only [join split]])
+        )
 
 ;; TODO(aaron)
 ;; Tests that modify local file system are strictly speaking not unittests,
@@ -67,3 +73,4 @@
   (setup-local)
   (is (= "/tmp/drake-test-fs/Y/C"
          (:path (newest-in "/tmp/drake-test-fs")))))
+

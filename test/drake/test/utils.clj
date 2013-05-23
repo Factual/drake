@@ -4,6 +4,7 @@
         [clj-logging-config.log4j :as log4j]
         drake.parser
         drake.core
+        drake.options
         drake.protocol-test))
 
 (defn parse-func [data]
