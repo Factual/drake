@@ -446,7 +446,12 @@
       
       (let [successful-steps (await-promises steps-future)]
         (info "")
-        (info (format "Done (%d steps run)." successful-steps))      
+        (if (= (count steps) successful-steps) 
+          (info (format "Done (%d steps run)." successful-steps))      
+        
+          (throw+ {:msg (format "Error (%d of %d steps run)." successful-steps (count steps))})
+          
+        )
       )
 
     )
