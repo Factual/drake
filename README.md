@@ -63,7 +63,7 @@ We recommend you "install" Drake in your environment so that you can run it by j
 
 ```bash
 #!/bin/bash
-java -cp $(dirname $0)/drake.jar drake.core $@
+java -cp $(dirname $0)/drake.jar drake.core "$@"
 ```
 
 Save that as `drake`, then do `chmod 755 drake`. Move the uberjar to be in the same directory. Now you can just type `drake` to run Drake from anywhere.

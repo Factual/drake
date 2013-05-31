@@ -20,7 +20,7 @@ to achieve, or downright lacking, in many popular tools:
 * methods
 
 Please see [the full Drake specification](https://docs.google.com/document/d/1bF-OKNLIG10v_lMes_m4yyaJtAaJKtdK0Jizvi_MNsg/edit) for a better understanding of the
-feature's we've chosen to focus on.
+features we've chosen to focus on.
 
 All that said, if you've found a tool that is more ideal for your purposes,
 far be it from us to try to make you use Drake. Keep on rockin'!
