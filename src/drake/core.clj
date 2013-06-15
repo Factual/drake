@@ -162,13 +162,18 @@
   [step forced triggered match-type fail-on-empty]
   (trace "should-build? fail-on-empty: " fail-on-empty)
   (let [{:keys [inputs outputs opts]} (branch-adjust-step step false)
-        empty-inputs (filter #(not (fs data-in? %)) inputs)
+        empty-input-dir-valid? (:empty-input-dir-valid *options*)
+        empty-input? (if empty-input-dir-valid? 
+                       #(not (fs data-in? %)) 
+                       #(not (fs exists? %)))
+        empty-inputs (filter empty-input? inputs)
         no-outputs (empty? outputs)]
     (trace "should-build? forced:" forced)
     (trace "should-build? match-type:" match-type)
     (trace "should-build? triggered:" triggered)
     (trace "should-build? inputs: " inputs)
     (trace "should-build? outputs: " outputs)
+    (trace "should-build? empty-input-dir-valid?: " empty-input-dir-valid?)
     (trace "should-build? empty inputs: " empty-inputs)
     (trace "should-build? no-outputs: " no-outputs)
     (if (and (not (empty? empty-inputs)) (or fail-on-empty (not triggered)))
@@ -193,8 +198,12 @@
        ;; no-input steps are always rebuilt
        (empty? inputs) "no-input step"
        :else
+       ;; input-files can be empty if the only input is an empty dir
+       ;; and the empty-input-dir-valid is set
        (let [input-files (mapv newest-in inputs)
-             newest-input (apply max (map :mod-time input-files))
+             newest-input (if (or (nil? input-files) (empty? input-files)) 
+                            0
+                            (apply max (map :mod-time input-files))) 
              output-files (mapv oldest-in (filter #(fs data-in? %) outputs))]
          (let [oldest-output (apply min (map :mod-time output-files))]
            (debug (format "Timestamp checking, inputs: %s, outputs: %s"
@@ -635,7 +644,9 @@
                    (no-arg trace
                      "Turn on even more verbose debugging output.")
                    (no-arg version
-                     "Show version information."))
+                     "Show version information.")
+                   (no-arg empty-input-dir-valid
+                     "Make it so empty input directories are valid input files"))
                   (catch IllegalArgumentException e
                     (println
                       (str "\nUnrecognized option: "
