@@ -341,6 +341,12 @@
   (map (fn [step] (assoc step :promise (promise)) ) steps)
 )
 
+(defn- assoc-order [steps]
+  "Associates an integer which is the order mentionned in the user confirmation (when --auto flag is not passed)"
+  (map-indexed (fn [idx step] (assoc step :order (+ idx 1)) ) steps)
+)
+
+
 (defn- assoc-deps [parse-tree steps]
   "Associates dependencies as set object containing the indexes for each step"
   (def indexes (into #{} (map (fn [step] (:index step)) steps))) ; contains? does not work on list but works on set
@@ -357,10 +363,9 @@
 (defn- attempt-run-step [parse-tree step]
   ; acquire a semaphore from the --jobs
   (.acquire *jobs-semaphore*)
-  
   (try
     ; run the step (the actual job)
-    (let [step-ran (run-step parse-tree (:pos step) step)]
+    (let [step-ran (run-step parse-tree (:order step) step)]
   
       ; releases a semaphore from the --jobs
       (if step-ran 
@@ -369,7 +374,7 @@
       )
     )
     (catch Exception e (do
-      (str "caught exception: " (.getMessage e))
+      (.printStackTrace e)
       (deliver (:promise step) 0) ; delivers a promise of 0/failure
     ))
     (finally
@@ -436,11 +441,12 @@
   (if (empty? steps)
     (info "Nothing to do.")
     (do
-      (info (format "Running %d steps with concurrence of %d..." (count steps) (:jobs *options*)))
+      (info (format "Running %d steps with concurrence of %d (order in report is not guaranteed)..." (count steps) (:jobs *options*)))
 
       (def steps-async (assoc-promise steps))
       (def steps-deps (assoc-deps parse-tree steps-async))
-      (def steps-future (assoc-future  parse-tree steps-deps))
+      (def steps-order (assoc-order steps-deps))
+      (def steps-future (assoc-future  parse-tree steps-order))
       
       (trigger-futures steps-future)
       
@@ -504,7 +510,11 @@
          (println (steps-report parse-tree steps-to-run))
        :else
          (if (confirm-run parse-tree steps-to-run)
-           (run-steps-async parse-tree steps-to-run))))))
+           (if (= (:jobs *options*) 1)
+             (run-steps parse-tree steps-to-run)
+             (run-steps-async parse-tree steps-to-run)
+           )
+         )))))
 
 (defn- running-under-nailgun?
   "Returns truthy if and only if this JVM process is running under a
