@@ -164,8 +164,8 @@
   (let [{:keys [inputs outputs opts]} (branch-adjust-step step false)
         empty-input-dir-valid? (:empty-input-dir-valid *options*)
         empty-input? (if empty-input-dir-valid? 
-                       #(not (fs data-in? %)) 
-                       #(not (fs exists? %)))
+                       #(not (fs exists? %))
+                       #(not (fs data-in? %)))
         empty-inputs (filter empty-input? inputs)
         no-outputs (empty? outputs)]
     (trace "should-build? forced:" forced)
@@ -203,7 +203,7 @@
        (let [input-files (mapv newest-in inputs)
              newest-input (if (or (nil? input-files) (empty? input-files)) 
                             0
-                            (apply max (map :mod-time input-files))) 
+                            (apply max (map :mod-time (remove nil? input-files)))) 
              output-files (mapv oldest-in (filter #(fs data-in? %) outputs))]
          (let [oldest-output (apply min (map :mod-time output-files))]
            (debug (format "Timestamp checking, inputs: %s, outputs: %s"
