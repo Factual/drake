@@ -1,3 +1,13 @@
 #!/bin/bash
 # Runs Drake without Nailgun (needs an uberjar)
-java -cp $(dirname $(dirname $0))/target/drake.jar drake.core "$@"
+DRAKE_HOME=$(dirname $(dirname $0))
+DRAKE_JAR=$DRAKE_HOME/target/drake.jar
+
+if [[ ! -f $DRAKE_JAR ]]; then
+  echo "========= UBERJAR COMPILING ========="
+  cd $DRAKE_HOME
+  lein uberjar
+  echo "========= UBERJAR COMPILED ========="
+fi
+
+java -cp $DRAKE_JAR drake.core "$@"
