@@ -6,3 +6,4 @@ pom.xml
 .lein*
 .classpath
 .project
+drake.log
