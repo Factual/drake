@@ -10,4 +10,9 @@ if [[ ! -f $DRAKE_JAR ]]; then
   echo "========= UBERJAR COMPILED ========="
 fi
 
-java -cp $DRAKE_JAR drake.core "$@"
+if [[ `which drip` ]]; then
+  drip -jar $DRAKE_JAR "$@"
+else
+  java -jar $DRAKE_JAR "$@"
+fi
+
