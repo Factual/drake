@@ -294,7 +294,7 @@
 (defn- run-step
   "Runs one step performing all necessary checks, returns
    true if the step was actually run; false if skipped."
-  [parse-tree step-number {:keys [index build match-type]}]
+  [parse-tree step-number {:keys [index build match-type opts]}]
   (let [step ((parse-tree :steps) index)
         inputs (step :inputs)]
     ;; TODO(artem)
@@ -308,6 +308,7 @@
       (throw+ {:msg (str "optional input files are not supported yet: "
                          inputs)}))
     (let [step-descr (step-string (branch-adjust-step step false))
+          step (update-in step [:opts] #(merge % opts))
           step (prepare-step-for-run step parse-tree)
           should-build (should-build? step (= build :forced)
                                       false match-type true)]
@@ -323,7 +324,9 @@
         (spit-step-vars step)
         (with-time-elapsed
           #(let [wait (- (*options* :step-delay 0) %)]
-             (info (format "--- done in %.2fs%s"
+             (info (format "--- %d: %s -> done in %.2fs%s"
+                           step-number
+                           step-descr
                            (/ % 1000.0)
                            (if-not (> wait 0)
                              ""
@@ -353,6 +356,10 @@
     )
   ) ) steps)
 )
+
+(defn- assoc-no-stdin-opt [steps]
+  "Set :no-stdin option for all steps"
+  (map (fn [step] (assoc-in step [:opts :no-stdin] true)) steps))
 
 (defn- attempt-run-step [parse-tree step]
   ; acquire a semaphore from the --jobs
@@ -384,7 +391,7 @@
    each step delivers its own promise. dependent step will block on that promise. "
   (fn [] 
      (future (do
-       
+
        ; wait for parent promises in the tree promises to be delivered
        ; accumulate successful parent tasks into a sum : successful-parent-steps
        (let [successful-parent-steps (reduce + 0 (map (fn [i] (deref (promises-indexed i)))(:deps step) ))]
@@ -433,26 +440,30 @@
 ; this function is interchangeable with run-steps
 (defn- run-steps-async [parse-tree steps]
   "Runs steps asynchronously"
-  (if (empty? steps)
-    (info "Nothing to do.")
-    (do
-      (info (format "Running %d steps with concurrence of %d..." (count steps) (:jobs *options*)))
+  (let [jobs (:jobs *options*)]
+    (if (empty? steps)
+      (info "Nothing to do.")
+      (do
+        (info (format "Running %d steps with concurrence of %d..." (count steps) jobs))
 
-      (def steps-async (assoc-promise steps))
-      (def steps-deps (assoc-deps parse-tree steps-async))
-      (def steps-future (assoc-future  parse-tree steps-deps))
-      
-      (trigger-futures steps-future)
-      
-      (let [successful-steps (await-promises steps-future)]
-        (info "")
-        (info (format "Done (%d steps run)." successful-steps))      
+        (def steps-flagged (if (> jobs 1) 
+                             (assoc-no-stdin-opt steps)
+                             steps))
+        (def steps-async (assoc-promise steps-flagged))
+        (def steps-deps (assoc-deps parse-tree steps-async))
+        (def steps-future (assoc-future  parse-tree steps-deps))
+
+        (trigger-futures steps-future)
+
+        (let [successful-steps (await-promises steps-future)]
+          (info "")
+          (info (format "Done (%d steps run)." successful-steps))      
+          )
+        )
       )
-
     )
   )
-)
-              
+
 (defn- run-steps [parse-tree steps]
   "Runs steps in order given as an array of their indexes"
   (if (empty? steps)
