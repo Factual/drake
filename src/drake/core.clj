@@ -376,7 +376,7 @@
       )
     )
     (catch Exception e (do
-      (str "caught exception: " (.getMessage e))
+      (error "caught exception: " (.getMessage e))
       (deliver (:promise step) 0) ; delivers a promise of 0/failure
     ))
     (finally
@@ -458,6 +458,8 @@
         (let [successful-steps (await-promises steps-future)]
           (info "")
           (info (format "Done (%d steps run)." successful-steps))      
+          (when (not= successful-steps (count steps))
+            (throw+ {:msg (str "successful-steps (" successful-steps ") does not equal total steps (" (count steps) ")")}))
           )
         )
       )
