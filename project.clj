@@ -26,4 +26,5 @@
                    :all          (constantly true)}
   :main drake.core
   :uberjar-name "drake.jar"
-  :aot :all)
+  :aot :all
+  :jvm-opts ["-Xmx1g"])
