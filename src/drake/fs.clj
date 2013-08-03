@@ -2,7 +2,10 @@
   (:refer-clojure :exclude [file-seq])
   (:require [fs.core :as fs]
             [hdfs.core :as hdfs]
-            [aws.sdk.s3 :as s3])
+            [aws.sdk.s3 :as s3]
+            [clojure.java.jdbc :as jdbc]
+            [clojure.string :as string]
+            [drake.hive :as hive])
   (:use [slingshot.slingshot :only [throw+]]
         [clojure.string :only [join split]]
         drake.shell
@@ -204,6 +207,59 @@
     (shell "hadoop" "fs" "-mv" from to :use-shell true :die true)))
 
 
+;; -------- Hive ---------
+;; hive://server:port/schema.table
+
+(defn- hive-parse-path [path]
+  (let [[[_ host port schema table]]
+        (re-seq #"^//?([^:/]+)(?::(\d+)(?:/(.+?)(?:\.(.+))?)?)?$" path)]
+    {:path path
+     :datasource (hive/datasource :host host :port port)
+     :schema (or schema "default")
+     :table table}))
+
+(defn- hive-mod-time [object]
+  (let [{ds :datasource schema :schema table :table} object
+        {loc :location hive-mod :modified} (hive/table-properties ds schema table)
+        hdfs-mod (.getModificationTime (hdfs/file-status loc))]
+    (min hive-mod hdfs-mod)))
+
+(defn- hive-file-info [object]
+  {:path (:path object)
+   :mod-time (hive-mod-time object)
+   :directory (not (:table object))})
+
+(deftype Hive []
+  FileSystem
+  (exists? [_ path]
+    (let [{ds :datasource schema :schema table :table} (hive-parse-path path)]
+      (if (not table)
+        (hive/schema-exists? ds schema)
+        (hive/table-exists? ds schema table))))
+  (directory? [_ path]
+    (not (:table (hive-parse-path))))
+  (mod-time [_ path]
+    (hive-mod-time (hive-parse-path path)))
+  (file-seq [_ path]
+    (let [{ds :datasource schema :schema table :table} (hive-parse-path path)]
+      (if table
+        [path]
+        (for [{it :table} (hive/list-tables ds schema)]
+          (format "%s.%s" path it)))))
+  (file-info [_ path]
+    (hive-file-info (hive-parse-path path)))
+  (file-info-seq [this path]
+    (map (comp hive-file-info hive-parse-path) (.file-seq this path)))
+  (data-in? [this path]
+    ; TODO: this should actually check if there is any data in HDFS
+    (.exists? this path))
+  (normalized-filename [_ path]
+    (remove-extra-slashes path))
+  (rm [_ path]
+    (throw+ {:msg "not supported"}))
+  (mv [_ from to]
+    (throw+ {:msg "not supported"})))
+
 ;; -------- S3 -----------
 ;; Support for Amazon AWS object store
 ;;
@@ -381,6 +437,7 @@
 (def ^:private FILESYSTEMS
   {"file" (LocalFileSystem.)
    "hdfs" (HDFS.)
+   "hive" (Hive.)
    "s3" (S3.)
    "test" (MockFileSystem. MOCK-FILESYSTEM-DATA)})
 
