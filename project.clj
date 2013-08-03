@@ -4,7 +4,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.4.0"]
-                 [org.clojure/tools.logging "0.2.3"]
+                 [org.clojure/tools.logging "0.2.6"]
                  [clj-logging-config "1.9.6"]
                  [org.clojure/java.jdbc "0.3.0-alpha4"]
                  [clojopts/clojopts "0.3.2"]
@@ -17,7 +17,7 @@
                  [factual/sosueme "0.0.15"]
                  [factual/c4 "0.1.2"]
                  ;; for HDFS support
-                 [hdfs-clj "0.1.0"]
+                 [hdfs-clj "0.1.7"]
                  ;; you may need to change this to be compatible with your cluster
                  ;; or even better, find a way of configuring dependencies.
                  ;[org.apache.hadoop/hadoop-core "0.20.2"]
