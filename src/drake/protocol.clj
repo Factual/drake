@@ -1,7 +1,8 @@
 (ns drake.protocol
   (:require [clojure.string :as str]
             [fs.core :as fs]
-            digest)
+            digest
+            [drake.plugins :as plugins])
   (:use [slingshot.slingshot :only [throw+]]
         [clojure.tools.logging :only [debug]]
         [clojure.java.io :only [writer]]
@@ -26,12 +27,27 @@
 (defn get-protocol-name [step]
   ((:opts step) :protocol "shell"))
 
-(defn get-protocol [step]
-  (let [name (get-protocol-name step)
-        protocol (*protocols* name)]
-    (if-not protocol
-      (throw+ {:msg (str "unknown protocol: " name)})
-      protocol)))
+(defn from-plugins
+  "Returns the reified protocol loaded from installed plugins.
+   Returns nil if no protocol with protocol name is found in plugins.
+
+   The returned protocol's cmds-required? will be set based on the
+   :no-cmds-required metadata entry as set in the corresponding plugin.
+   If :no-cmds-required, cmds-required? defaults to true."
+  [protocol-name]
+  (when-let [f (plugins/get-plugin-fn protocol-name)]
+    (reify Protocol
+      (cmds-required? [_] (not (:no-cmds-required (meta f))))
+      (run [_ step] (f step)))))
+
+(defn get-protocol
+  "Returns the protocol indicated by step. Looks first at built-in protocols,
+   then looks in loaded plugins. Throws an exception if not found."
+  [step]
+  (let [name (get-protocol-name step)]
+    (or (*protocols* name)
+        (from-plugins name)
+        (throw+ {:msg (str "unknown protocol: " name)}))))
 
 (defn create-cmd-file
   "A commonly used function for protocols such as 'shell', 'ruby' or 'python'.

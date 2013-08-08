@@ -4,7 +4,7 @@
             [clojure.string :as str]
             [clj-logging-config.log4j :as log4j]
             [fs.core :as fs]
-            ;; register protocols
+            ;; register built-in protocols
             drake.protocol_interpreters
             drake.protocol_c4
             drake.protocol_eval)
@@ -14,6 +14,7 @@
         sosueme.throwables
         drake.stdin
         drake.steps
+        drake.plugins
         drake.fs
         [drake.protocol :only [get-protocol-name get-protocol]]
         drake.parser
@@ -21,7 +22,7 @@
         drake.utils)
   (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]]))
 
-(def VERSION "0.1.3")
+(def VERSION "0.1.4")
 
 ;; TODO(artem)
 ;; Optimize for repeated BASE prefixes (we can't just show it
@@ -665,6 +666,7 @@
       (debug "parsed targets:" targets)
 
       (try+
+       (load-plugin-deps)
        (let [fn (if (empty? (:merge-branch options)) run merge-branch)]
          (with-workflow-file #(fn % targets)))
        (shutdown 0)
