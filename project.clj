@@ -1,4 +1,4 @@
-(defproject factual/drake "0.1.4-SNAPSHOT"
+(defproject factual/drake "0.1.4"
   :description "Drake: the data processing workflow tool (a.k.a. 'make for data')"
   :url "https://github.com/Factual/drake"
   :license {:name "Eclipse Public License"
@@ -20,7 +20,9 @@
                  ;; you may need to change this to be compatible with your cluster
                  [org.apache.hadoop/hadoop-core "0.20.2"]
                  ;; for AWS S3 support
-                 [clj-aws-s3 "0.3.3"]]
+                 [clj-aws-s3 "0.3.3"]
+                 ;; for plugins
+                 [com.cemerick/pomegranate "0.2.0"]]
   :test-selectors {:regression   :regression
                    :default      (complement :regression)
                    :all          (constantly true)}
