@@ -32,6 +32,7 @@
 
 (defn add-deps [conf]
   (let [repos  (merge DEFAULT-REPOS (:repositories conf))]
+    ;;TODO(aaron): handle org.sonatype.aether.resolution.DependencyResolutionException
     (pom/add-dependencies :coordinates (:plugins conf)
                           :repositories (merge DEFAULT-REPOS repos))))
 
