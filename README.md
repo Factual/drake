@@ -144,6 +144,10 @@ There are annotated workflow examples in the demos directory.
 
 There's a [Google Group for Drake](https://groups.google.com/forum/?fromgroups#!forum/drake-workflow) where you can ask questions. And if you found a bug or want to submit a feature request, go to [Drake's GitHub issues page](https://github.com/Factual/drake/issues?sort=created&state=open).
 
+## Plugins
+
+Drake has a plugin mechanism, allowing developers to publish and use custom plugins that extend Drake. See the [Plugin wiki page](https://github.com/Factual/drake/wiki/Plugins) for details.
+
 ## HDFS Compatibility
 
 Drake provides HDFS support by allowing you to specify inputs and outputs like `hdfs:/my/big_file.txt`.
