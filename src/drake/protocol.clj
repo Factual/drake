@@ -32,8 +32,9 @@
    Returns nil if no protocol with protocol name is found in plugins.
 
    The returned protocol's cmds-required? will be set based on the
-   :no-cmds-required metadata entry as set in the corresponding plugin.
-   If :no-cmds-required, cmds-required? defaults to true."
+   :no-cmds-required metadata entry as set in the function definition in
+   the corresponding plugin. If there's no :no-cmds-required set, then
+   cmds-required? defaults to true."
   [protocol-name]
   (when-let [f (plugins/get-plugin-fn protocol-name)]
     (reify Protocol
