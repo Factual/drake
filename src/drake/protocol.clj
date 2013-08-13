@@ -7,7 +7,8 @@
         [clojure.tools.logging :only [debug]]
         [clojure.java.io :only [writer]]
         drake.shell
-        drake.utils))
+        drake.utils
+        drake.options))
 
 (defprotocol Protocol
   (cmds-required? [this])
@@ -53,14 +54,15 @@
 (defn create-cmd-file
   "A commonly used function for protocols such as 'shell', 'ruby' or 'python'.
 
-   Given the step, puts step's commands into a file under .drake/ directory
+   Given the step, puts step's commands into a file under --tmpdir directory
    with the filename consisting of the protocol name followed by the MD5 of
    the commands. Only creates the file if it doesn't already exists,
    serving as a simple cache.
 
    Returns the filename."
   [{:keys [cmds] :as step}]
-  (let [filename (format ".drake/%s-%s"
+  (let [filename (format "%s/%s-%s"
+                         (*options* :tmpdir)
                          (get-protocol-name step)
                          (digest/md5 (apply str cmds)))]
     ;; we need to use fs.core/file here, since fs.core/with-cwd only changes the

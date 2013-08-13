@@ -37,7 +37,7 @@
     :vars           {'BASE' '/tmp/base/'
                      'MYVAR' 'myvalue'}
       ;; directory for step's intermediate files and logs
-      ;; based on output files and output tags, created under .drake/
+      ;; based on output files and output tags, created under --tmpdir
     :dir            'A_B_use-files'
    }
 
