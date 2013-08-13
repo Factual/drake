@@ -458,7 +458,7 @@
   [args]
   (let [non-flag-long #{"--workflow" "--branch" "--merge-branch"
                         "--logfile" "--vars" "--base" "--plugins"
-                        "--aws-credentials" "--step-delay"}
+                        "--aws-credentials" "--step-delay" "--tmpdir"}
         non-flag-short #{\w \b \l \v \s}]
     (loop [i 0]
       (if (>= i (count args))
