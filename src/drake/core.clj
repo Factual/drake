@@ -315,7 +315,7 @@
                       "Skipped (up-to-date)")
                     step-descr))
       (when should-build
-        ;; save all variable values in .drake directory
+        ;; save all variable values in --tmpdir directory
         (spit-step-vars step)
         (with-time-elapsed
           #(let [wait (- (*options* :step-delay 0) %)]
@@ -458,7 +458,7 @@
   [args]
   (let [non-flag-long #{"--workflow" "--branch" "--merge-branch"
                         "--logfile" "--vars" "--base" "--plugins"
-                        "--aws-credentials" "--step-delay"}
+                        "--aws-credentials" "--step-delay" "--tmpdir"}
         non-flag-short #{\w \b \l \v \s}]
     (loop [i 0]
       (if (>= i (count args))
@@ -642,7 +642,11 @@
                    (no-arg trace
                      "Turn on even more verbose debugging output.")
                    (no-arg version
-                     "Show version information."))
+                     "Show version information.")
+                   (with-arg tmpdir
+                       "Specifies the temporary directory for Drake files (by default, .drake/ in the same directory the main workflow file is located)."
+                       :type :str
+                       :user-name "tmpdir"))
                   (catch IllegalArgumentException e
                     (println
                       (str "\nUnrecognized option: "
@@ -655,7 +659,8 @@
         ;; also, the defaults are specified here.
         options (into {:workflow "./Drakefile"
                        :logfile "drake.log"
-                       :plugins PLUGINS-FILE}
+                       :plugins PLUGINS-FILE
+                       :tmpdir ".drake"}
                       (for [[k v] options] [k (if (nil? v) true v)]))]
     (flush)    ;; we need to do it for help to always print out
     (let [targets (if (empty? targets) ["=..."] targets)]
