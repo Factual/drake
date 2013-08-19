@@ -518,13 +518,34 @@
                      #(assoc % (apply-str var-name) var-value)))]
    nil))
 
+(def inline-shell-cmd-line
+  "input: shell command on its own line, e.g.
+  $(echo '%include dude.d')
+  The output of the shell command will be placed inline the workflow file.
+  This can be recursive, i.e. shell commands can print more shell commands."
+  (p/complex
+    ; Insert result of command line execution into remainder
+    ; TODO(Myron) need a way to make sure line numbers are correct
+    [output command-sub
+     _ (p/opt inline-ws)
+     _ (p/opt inline-comment)
+     _ (p/failpoint line-break (illegal-syntax-error-fn "inline shell command"))
+     remainder p/get-remainder
+     _ (p/set-info :remainder (str output "\n" (apply str remainder)))
+     state p/get-state
+     _ (p/effects p/emptiness #(println "state = " state))]
+    nil
+    )
+  )
+
 (declare call-or-include-line)
 
 (def workflow
   "A workflow is a composition of various types of lines."
   (p/complex
    [body (semantic-rm-nil
-          (p/rep* (p/alt step-lines
+          (p/rep* (p/alt inline-shell-cmd-line
+                         step-lines
                          method-lines
                          call-or-include-line
                          (nil-semantics (p/conc (p/opt inline-ws) line-break))
