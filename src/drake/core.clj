@@ -364,45 +364,56 @@
 (defn- attempt-run-step [parse-tree step]
   ; acquire a semaphore from the --jobs
   (.acquire *jobs-semaphore*)
-  
-  (try
-    ; run the step (the actual job)
-    (let [step-ran (run-step parse-tree (:pos step) step)]
-  
-      ; releases a semaphore from the --jobs
-      (if step-ran 
-         (deliver (:promise step) 1) ; delivers a promise of 1/success
-         (deliver (:promise step) 0) ; delivers a promise of 0/failure
+
+  (let [prom (:promise step)]
+    (try
+      ; run the step (the actual job)
+      (let [step-ran (run-step parse-tree (:pos step) step)]
+
+        ; releases a semaphore from the --jobs
+        (when step-ran 
+          (deliver prom 1) ; delivers a promise of 1/success
+          )
+        )
+      (catch Exception e 
+        (error "caught exception: " (.getMessage e))
+        )
+      (finally
+        ; if promise not delivered, deliver a promise of 0/failure
+        (when (not (realized? prom))
+          (deliver prom 0)) 
+        (.release *jobs-semaphore*)
+        ) 
       )
-    )
-    (catch Exception e (do
-      (error "caught exception: " (.getMessage e))
-      (deliver (:promise step) 0) ; delivers a promise of 0/failure
-    ))
-    (finally
-      (.release *jobs-semaphore*)
     ) 
   )
-  
-)
+
 (defn- future-for-step [parse-tree steps promises-indexed step] 
   "Returns an anonymous function that can be triggered in its own thread to execute a step
-   the number of concurrent jobs is bound by *jobs-semaphore*
-   each step delivers its own promise. dependent step will block on that promise. "
+  the number of concurrent jobs is bound by *jobs-semaphore*
+  each step delivers its own promise. dependent step will block on that promise. "
   (fn [] 
-     (future (do
-
-       ; wait for parent promises in the tree promises to be delivered
-       ; accumulate successful parent tasks into a sum : successful-parent-steps
-       (let [successful-parent-steps (reduce + 0 (map (fn [i] (deref (promises-indexed i)))(:deps step) ))]
-         (if (= successful-parent-steps (count (:deps step)))
-           (attempt-run-step parse-tree step)
-           (deliver (:promise step) 0)
-         )
-       )
-     ))
+    (future
+      ; wait for parent promises in the tree promises to be delivered
+      ; accumulate successful parent tasks into a sum : successful-parent-steps
+      (let [prom (:promise step)]
+        (try
+          (let [deps (:deps step)
+                successful-parent-steps (reduce + 0 (map (fn [i] (deref (promises-indexed i))) deps))]
+            (if (= successful-parent-steps (count deps))
+              (attempt-run-step parse-tree step)
+              (deliver prom 0)
+              )
+            )
+          (finally 
+            (when (not (realized? prom))
+              (deliver prom 0)) 
+            )
+          )
+        )
+      )
+    )
   )
-)
 
 (defn- assoc-future [parse-tree steps]
   "Associates a future (anonymous function) for each step"
