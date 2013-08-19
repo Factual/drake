@@ -526,6 +526,8 @@
   (p/complex
     ; Insert result of command line execution into remainder
     ; TODO(Myron) need a way to make sure line numbers are correct
+    ; TODO(Myron) need a solution for nested parens
+    ; TODO(Myron) if there is a <- in the shell command, bad stuff will happen
     [output command-sub
      _ (p/opt inline-ws)
      _ (p/opt inline-comment)
