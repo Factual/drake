@@ -1,5 +1,6 @@
 (ns drake.test.methods
-  (:use clojure.test
+  (:use [clojure.tools.logging :only [info debug trace error]]
+        clojure.test
         drake.test.utils)
   (:require [clj-logging-config.log4j :as log4j]
             drake.protocol-test
@@ -82,6 +83,8 @@ method_redef() [test]
 ")
 
 (deftest test-methods
+  (comment (log4j/set-loggers! 
+    "drake" {:level :debug :name "console" :pattern "%m%n"} ))
   (log4j/set-loggers! "drake" { :level :warn })
   (let [data (parse-func TEST-DATA)]
     (test-targets data "A" "0")
