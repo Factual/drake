@@ -82,6 +82,16 @@
 (def default-base "")
 
 ;;
+;; Helper functions
+;;
+
+(defn ensure-ends-with-newline
+  [s]
+  (if (.endsWith s "\n") 
+    s 
+    (str s "\n")))
+
+;;
 ;; Drake-specific grammar rules
 ;;
 
@@ -518,29 +528,8 @@
                      #(assoc % (apply-str var-name) var-value)))]
    nil))
 
-(def inline-shell-cmd-line
-  "input: shell command on its own line, e.g.
-  $(echo '%include dude.d')
-  The output of the shell command will be placed inline the workflow file.
-  This can be recursive, i.e. shell commands can print more shell commands."
-  (p/complex
-    ; Insert result of command line execution into remainder
-    ; TODO(Myron) need a way to make sure line numbers are correct
-    ; TODO(Myron) need a solution for nested parens
-    ; TODO(Myron) if there is a <- in the shell command, bad stuff will happen
-    [output command-sub
-     _ (p/opt inline-ws)
-     _ (p/opt inline-comment)
-     _ (p/failpoint line-break (illegal-syntax-error-fn "inline shell command"))
-     remainder p/get-remainder
-     _ (p/set-info :remainder (str output "\n" (apply str remainder)))
-     state p/get-state
-     _ (p/effects p/emptiness #(println "state = " state))]
-    nil
-    )
-  )
-
 (declare call-or-include-line)
+(declare inline-shell-cmd-line)
 
 (def workflow
   "A workflow is a composition of various types of lines."
@@ -559,6 +548,39 @@
      :vars vars)))
 
 (declare parse-state)
+
+(def inline-shell-helper
+  (p/complex
+    [tokens command-sub
+     _ (p/opt inline-ws)
+     _ (p/opt inline-comment)
+     _ (p/failpoint line-break (illegal-syntax-error-fn "inline shell command"))
+     vars (p/get-info :vars)
+     methods (p/get-info :methods)
+     line (p/get-info :line)]
+
+    (parse-state
+      (struct state-s
+              (ensure-ends-with-newline tokens)
+              vars 
+              methods 
+              0 
+              line) ; try to preserve line number as best we can
+      )
+    )
+  )
+
+(def inline-shell-cmd-line
+  "input: shell command on its own line, e.g.
+  $(echo '%include dude.d')
+  The output of the shell command will be placed inline the workflow file.
+  This can be recursive, i.e. shell commands can print more shell commands."
+  (p/complex
+   [prod inline-shell-helper
+    _ (if (:vars prod)
+        (p/set-info :vars (:vars prod))
+        p/emptiness)]
+   (dissoc prod :vars)))
 
 (def call-or-include-helper
   "See call-or-include-line below"
