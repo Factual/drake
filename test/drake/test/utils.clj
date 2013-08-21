@@ -12,7 +12,8 @@
 
 (defn run-targets [func targets]
   (log4j/set-loggers! :root {:level :off})
-  (set-options {:auto true})
+  (set-options {:auto true
+                :tmpdir ".drake"})
   (with-test-protocol #(run (func) (str/split targets #" "))))
 
 (defn test-targets [func targets expected-value]
