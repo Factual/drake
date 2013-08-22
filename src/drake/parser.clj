@@ -180,7 +180,9 @@
                    (illegal-syntax-error-fn "command substitution"))]
    (let [cmd-out (java.io.StringWriter.)]
      ;; stderr preserved by default
+     (debug "shell =" prod)
      (shell prod :die true :use-shell true :out [cmd-out])
+     (debug "shell result =" (.toString cmd-out))
      (s/trim-newline (str cmd-out)))))
 
 (defn string-substitution
@@ -574,7 +576,9 @@
   "input: shell command on its own line, e.g.
   $(echo '%include dude.d')
   The output of the shell command will be placed inline the workflow file.
-  This can be recursive, i.e. shell commands can print more shell commands."
+  This can be recursive, i.e. shell commands can print more shell commands.
+  
+  Split into two parts for much the same reason as call-or-include-line is."
   (p/complex
    [prod inline-shell-helper
     _ (if (:vars prod)
