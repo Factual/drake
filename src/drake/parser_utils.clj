@@ -41,8 +41,8 @@
 ;; parse errors
 
 (defn throw-parse-error [state message message-args]
-  (throw+ {:msg
-           (str (when (:file-path state) (str "In " (:file-path state) ", "))
+  (throw+ {:msg 
+           (str (if (:file-path state) (str "In " (:file-path state) ", ") "")
                 (format "parse error at line %s, column %s: "
                         (:line state) (:column state))
                 (apply format message message-args))}))

@@ -1,5 +1,5 @@
 (ns drake.test.methods
-  (:use [clojure.tools.logging :only [info debug trace error]]
+  (:use [clojure.tools.logging :only [info warn debug trace error]]
         clojure.test
         drake.test.utils)
   (:require [clj-logging-config.log4j :as log4j]
