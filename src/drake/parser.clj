@@ -567,10 +567,7 @@
               vars 
               methods 
               0 
-              line) ; try to preserve line number as best we can
-      )
-    )
-  )
+              line)))) ; try to preserve line number as best we can 
 
 (def inline-shell-cmd-line
   "input: shell command on its own line, e.g.
