@@ -34,7 +34,7 @@ create_local_file() {
 
 create_hdfs_file() {
   $hadoop_rm "$1" >/dev/null 2>/dev/null
-  TMPFILE="$(mktemp -t tmp)"
+  TMPFILE="$(mktemp -t tmp.XXXXXXX)"
   create_local_file_full_path $TMPFILE "$2"
   $hadoop_cp $TMPFILE "$1" 2>/dev/null
 }

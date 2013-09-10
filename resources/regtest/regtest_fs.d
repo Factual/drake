@@ -3,7 +3,7 @@ HDFS_BASE=$[prefix]/tmp/drake-test
 BASE=$[HDFS_BASE]
 
 merged_hdfs <- hdfs_1, hdfs_2
-  TMPFILE=$(mktemp -t tmp)
+  TMPFILE=$(mktemp -t tmp.XXXXXXX)
   $[hadoop_cat] $[INPUTS] > $TMPFILE
   $[hadoop_rm]  $OUTPUT >/dev/null 2>/dev/null
   $[hadoop_cp]  $TMPFILE $OUTPUT
