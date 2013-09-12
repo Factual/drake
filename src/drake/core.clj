@@ -21,15 +21,16 @@
         drake.options
         drake.utils)
   (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]]))
+
 (import
-  '(java.util.concurrent Semaphore)
-)
+  '(java.util.concurrent Semaphore))
 
 (def VERSION "0.1.4")
 (def PLUGINS-FILE "plugins.edn")
 
-
-(defn set-jobs-semaphore [jobs-num]
+(defn set-jobs-semaphore 
+  "Create the jobs semaphore with the number of concurrent jobs."
+  [jobs-num]
   (def ^:dynamic *jobs-semaphore*  (new Semaphore jobs-num true)))
 
 ;; TODO(artem)
@@ -337,12 +338,10 @@
           (.run (get-protocol step) step)))
       should-build)))
 
-
 (defn- assoc-promise [steps]
   "Associates a promise instance for each step
   a promise of value 1 is delivered on success
-  a promise of value 0 is delirvered on failure
-  "
+  a promise of value 0 is delirvered on failure"
   (map (fn [step] (assoc step :promise (promise))) steps))
 
 (defn- assoc-deps [parse-tree steps]
@@ -354,7 +353,8 @@
                   (->>
                     (expand-step-restricted parse-tree (:index step) nil indexes)
                     (into #{}) ; turn into set to remove duplicates
-                    (filter (partial not= (:index step)))))) ; do not mark the step itself as its dependency 
+                    ; do not mark the step itself as its dependency
+                    (filter (partial not= (:index step))))))
          steps)))
 
 (defn- assoc-no-stdin-opt [steps]
@@ -370,25 +370,17 @@
     (try
       ; run the step (the actual job)
       (let [step-ran (run-step parse-tree (:pos step) step)]
-
         ; releases a semaphore from the --jobs
         (when step-ran 
-          (deliver prom 1) ; delivers a promise of 1/success
-          )
-        )
+          (deliver prom 1))) ; delivers a promise of 1/success 
       (catch Exception e 
         (error (str "caught exception step " (:index step) ": ") (.getMessage e) (.printStackTrace e))
-        (deliver (:exception-promise step) e)
-        )
+        (deliver (:exception-promise step) e))
       (finally
         ; if promise not delivered, deliver a promise of 0/failure
         (when (not (realized? prom))
           (deliver prom 0)) 
-        (.release *jobs-semaphore*)
-        ) 
-      )
-    ) 
-  )
+        (.release *jobs-semaphore*)))))
 
 (defn- future-for-step [parse-tree steps promises-indexed step] 
   "Returns an anonymous function that can be triggered in its own thread to execute a step
@@ -401,58 +393,38 @@
       (let [prom (:promise step)]
         (try
           (let [deps (:deps step)
-                successful-parent-steps (reduce + 0 (map (fn [i] (deref (promises-indexed i))) deps))]
+                successful-parent-steps (reduce + 
+                                                (map (fn [i] 
+                                                       @(promises-indexed i)) 
+                                                     deps))]
             (if (= successful-parent-steps (count deps))
               (attempt-run-step parse-tree step)
-              (deliver prom 0)
-              )
-            )
+              (deliver prom 0)))
           (catch Exception e
-            (deliver (:exception-promise step) e)
-            )
+            (deliver (:exception-promise step) e))
           (finally 
             (when (not (realized? prom))
-              (deliver prom 0)) 
-            )
-          )
-        )
-      )
-    )
-  )
+              (deliver prom 0))))))))
 
 (defn- assoc-future [parse-tree steps]
   "Associates a future (anonymous function) for each step"
   ; for quickly accessing promises via a map :index => :promise
-  (def promises-indexed (zipmap 
-      (map (fn[step] (:index step)) steps) 
-      (map (fn[step] (:promise step)) steps)
-    )  
-  )
-  ; associate a :future on each step
-  (map (fn [step] (assoc step :future (future-for-step parse-tree steps promises-indexed step))) steps)
-)
-
+  (let [promises-indexed (zipmap (map :index steps) (map :promise steps))]  
+    ; associate a :future on each step
+    (map (fn [step] (assoc step :future (future-for-step parse-tree steps promises-indexed step))) steps)))
 
 (defn- trigger-futures [steps]
   "Triggers future callbacks in each steps"
-  (do
-    (doseq [step steps]
-      (.acquire *jobs-semaphore*) ; acquire a semaphore from the --jobs
-      ((:future step))
-    )
-  )
-)
-
+  (doseq [step steps]
+    (.acquire *jobs-semaphore*) ; acquire a semaphore from the --jobs
+    ((:future step))))
 
 (defn- await-promises [steps]
   "waits for all the promises to be fullfilled otherwise 
    we get an premature exit on the main thread
    returns the sum of all deref'd promises each 
    returning either 0/1 for failure/success respectively"
-  (reduce + 
-    (map (fn [step] (deref (:promise step))) steps)
-  )
-)
+  (reduce + (map (fn [step] @(:promise step)) steps)))
 
 ; this function is interchangeable with run-steps
 (defn- run-steps-async [parse-tree steps]
@@ -461,32 +433,32 @@
     (if (empty? steps)
       (info "Nothing to do.")
       (do
-        (info (format "Running %d steps with concurrence of %d..." (count steps) jobs))
+        (info (format "Running %d steps with concurrence of %d..." 
+                      (count steps) 
+                      jobs))
 
-        (def steps-flagged (if (> jobs 1) 
-                             (assoc-no-stdin-opt steps)
-                             steps))
-        (def steps-exception (assoc-exception-promise steps-flagged))
-        (def steps-async (assoc-promise steps-exception))
-        (def steps-deps (assoc-deps parse-tree steps-async))
-        (def steps-future (assoc-future  parse-tree steps-deps))
+        (let [steps-future (->> steps
+                             #(if (> jobs 1) (assoc-no-stdin-opt %) %)
+                             assoc-exception-promise
+                             assoc-promise
+                             (assoc-deps parse-tree)
+                             (assoc-future parse-tree))]
 
-        (trigger-futures steps-future)
+          (trigger-futures steps-future) 
 
         (let [successful-steps (await-promises steps-future)]
-          (info "")
           (info (format "Done (%d steps run)." successful-steps))      
           (when (not= successful-steps (count steps))
-            (let [steps-with-exception (filter #(realized? (:exception-promise %)) steps-future)]
+            (let [steps-with-exception (filter 
+                                         #(realized? (:exception-promise %)) 
+                                         steps-future)]
               (if (not-empty steps-with-exception)
                 (throw @(:exception-promise (first steps-with-exception)))
-                (throw+ {:msg (str "successful-steps (" successful-steps ") does not equal total steps (" (count steps) ")")}))))
-          )
-        )
-      )
-    )
-  )
-
+                (throw+ {:msg (str "successful-steps (" 
+                                   successful-steps 
+                                   ") does not equal total steps (" 
+                                   (count steps) 
+                                   ")")}))))))))))
 
 (defn print-steps
   "Prints inputs and outputs of steps to run."
