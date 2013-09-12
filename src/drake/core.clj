@@ -7,7 +7,8 @@
             ;; register built-in protocols
             drake.protocol_interpreters
             drake.protocol_c4
-            drake.protocol_eval)
+            drake.protocol_eval
+            drake.event)
   (:use [clojure.tools.logging :only [info debug trace error]]
         [slingshot.slingshot :only [try+ throw+]]
         clojopts.core
@@ -20,9 +21,10 @@
         drake.parser
         drake.options
         drake.utils)
-  (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]]))
+  (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]
+                        #^{:static true} [run_opts_with_event_bus [java.util.Map com.google.common.eventbus.EventBus] void]]))
 
-(def VERSION "0.1.4")
+(def VERSION "0.1.5-SNAPSHOT")
 (def PLUGINS-FILE "plugins.edn")
 
 
@@ -699,6 +701,12 @@
   "Explicitly for use from Java"
   [opts]
   (run-opts (into {} (for [[k v] opts] [(keyword k) v]))))
+
+(defn -run_opts_with_event_bus
+  "Explicitly for use from Java"
+  [opts event_bus]
+  (let [opts (merge {:guava-event-bus event_bus} opts)]
+    (run-opts (into {} (for [[k v] opts] [(keyword k) v])))))
 
 (defn run-workflow
   ([workflow & {:as opts}]

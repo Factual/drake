@@ -1,4 +1,4 @@
-(defproject factual/drake "0.1.4"
+(defproject factual/drake "0.1.5-SNAPSHOT"
   :description "Drake: the data processing workflow tool (a.k.a. 'make for data')"
   :url "https://github.com/Factual/drake"
   :license {:name "Eclipse Public License"
@@ -10,6 +10,7 @@
                  [fs "1.3.2"]
                  [factual/jlk-time "0.1"]
                  [digest "1.4.0"]
+                 [com.google.guava/guava "14.0.1"]
                  [slingshot "0.10.2"]
                  [factual/fnparse "2.3.0"]
                  [commons-codec/commons-codec "1.6"]
