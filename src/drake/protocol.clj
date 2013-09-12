@@ -1,12 +1,14 @@
 (ns drake.protocol
   (:require [clojure.string :as str]
             [fs.core :as fs]
-            digest)
+            digest
+            [drake.plugins :as plugins])
   (:use [slingshot.slingshot :only [throw+]]
         [clojure.tools.logging :only [debug]]
         [clojure.java.io :only [writer]]
         drake.shell
-        drake.utils))
+        drake.utils
+        drake.options))
 
 (defprotocol Protocol
   (cmds-required? [this])
@@ -26,24 +28,41 @@
 (defn get-protocol-name [step]
   ((:opts step) :protocol "shell"))
 
-(defn get-protocol [step]
-  (let [name (get-protocol-name step)
-        protocol (*protocols* name)]
-    (if-not protocol
-      (throw+ {:msg (str "unknown protocol: " name)})
-      protocol)))
+(defn from-plugins
+  "Returns the reified protocol loaded from installed plugins.
+   Returns nil if no protocol with protocol name is found in plugins.
+
+   The returned protocol's cmds-required? will be set based on the
+   :no-cmds-required metadata entry as set in the function definition in
+   the corresponding plugin. If there's no :no-cmds-required set, then
+   cmds-required? defaults to true."
+  [protocol-name]
+  (when-let [f (plugins/get-plugin-fn protocol-name)]
+    (reify Protocol
+      (cmds-required? [_] (not (:no-cmds-required (meta f))))
+      (run [_ step] (f step)))))
+
+(defn get-protocol
+  "Returns the protocol indicated by step. Looks first at built-in protocols,
+   then looks in loaded plugins. Throws an exception if not found."
+  [step]
+  (let [name (get-protocol-name step)]
+    (or (*protocols* name)
+        (from-plugins name)
+        (throw+ {:msg (str "unknown protocol: " name)}))))
 
 (defn create-cmd-file
   "A commonly used function for protocols such as 'shell', 'ruby' or 'python'.
 
-   Given the step, puts step's commands into a file under .drake/ directory
+   Given the step, puts step's commands into a file under --tmpdir directory
    with the filename consisting of the protocol name followed by the MD5 of
    the commands. Only creates the file if it doesn't already exists,
    serving as a simple cache.
 
    Returns the filename."
   [{:keys [cmds] :as step}]
-  (let [filename (format ".drake/%s-%s"
+  (let [filename (format "%s/%s-%s"
+                         (*options* :tmpdir)
                          (get-protocol-name step)
                          (digest/md5 (apply str cmds)))]
     ;; we need to use fs.core/file here, since fs.core/with-cwd only changes the

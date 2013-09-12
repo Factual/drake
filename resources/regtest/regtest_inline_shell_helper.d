@@ -1,0 +1,3 @@
+$[FILE] <-
+  echo "$FILE" > $FILE
+

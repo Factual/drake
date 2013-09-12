@@ -15,6 +15,7 @@
   (:use [clojure.tools.logging :only [debug trace]]
         [slingshot.slingshot :only [throw+]]
         drake.utils
+        drake.options
         [drake.fs :only [remove-extra-slashes normalized-path]])
   (:require [clojure.string :as str]
             [clojure.set :as set]
@@ -103,7 +104,7 @@
    Returns the parse tree with added :dir to each step."
   [{:keys [steps] :as parse-tree}]
   (trace "Naming steps' temporary directories...")
-  (let [drake-dir (fs/absolute-path ".drake")]
+  (let [drake-dir (fs/absolute-path (*options* :tmpdir))]
     (if (> (count drake-dir) (dec MAX_PATH))
       (throw+ {:msg (format "workflow directory name %s is too long."
                             drake-dir)}))

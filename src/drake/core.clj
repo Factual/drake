@@ -4,7 +4,7 @@
             [clojure.string :as str]
             [clj-logging-config.log4j :as log4j]
             [fs.core :as fs]
-            ;; register protocols
+            ;; register built-in protocols
             drake.protocol_interpreters
             drake.protocol_c4
             drake.protocol_eval)
@@ -14,6 +14,7 @@
         sosueme.throwables
         drake.stdin
         drake.steps
+        drake.plugins
         drake.fs
         [drake.protocol :only [get-protocol-name get-protocol]]
         drake.parser
@@ -24,7 +25,9 @@
   '(java.util.concurrent Semaphore)
 )
 
-(def VERSION "0.1.3")
+(def VERSION "0.1.4")
+(def PLUGINS-FILE "plugins.edn")
+
 
 (defn set-jobs-semaphore [jobs-num]
   (def ^:dynamic *jobs-semaphore*  (new Semaphore jobs-num true)))
@@ -319,7 +322,7 @@
                       "Skipped (up-to-date)")
                     step-descr))
       (when should-build
-        ;; save all variable values in .drake directory
+        ;; save all variable values in --tmpdir directory
         (spit-step-vars step)
         (with-time-elapsed
           #(let [wait (- (*options* :step-delay 0) %)]
@@ -615,8 +618,8 @@
    Returns a tuple of vectors."
   [args]
   (let [non-flag-long #{"--workflow" "--branch" "--merge-branch"
-                        "--logfile" "--vars" "--base"
-                        "--aws-credentials" "--step-delay" "--jobs"}
+                        "--logfile" "--vars" "--base" "--plugins"
+                        "--aws-credentials" "--step-delay" "--jobs" "--tmpdir"}
         non-flag-short #{\w \b \l \v \s \j}]
     (loop [i 0]
       (if (>= i (count args))
@@ -789,6 +792,10 @@
                      "Specifies a period of time, in milliseconds, to wait after completion of each step. Some file systems have low timestamp resolution, and small steps can proceed so quickly that outputs of two or more steps can share the same timestamp, and will be re-built on a subsequent run of Drake. Also, if the clocks on HDFS and local filesystem are not perfectly synchronized, timestamped evaluation can break down. Specifying a delay can help in both cases."
                      :type :int
                      :user-name "ms")
+                   (with-arg plugins
+                     "Specifies a plugins configuration file. All dependencies listed in the file will be added to the classpath, and steps that call non-built-in protocols will look for protocol implementations in those dependencies."
+                     :type :file
+                     :user-name "filename")
                    (with-arg aws-credentials s
                      "Specifies a properties file containing aws credentials. The access_id should be in a property named 'access_key', while the secret part of the key should be in a property names 'secret_key'. Other values in the properties file are ignored."
                      :type :str
@@ -800,7 +807,11 @@
                    (no-arg trace
                      "Turn on even more verbose debugging output.")
                    (no-arg version
-                     "Show version information."))
+                     "Show version information.")
+                   (with-arg tmpdir
+                       "Specifies the temporary directory for Drake files (by default, .drake/ in the same directory the main workflow file is located)."
+                       :type :str
+                       :user-name "tmpdir"))
                   (catch IllegalArgumentException e
                     (println
                       (str "\nUnrecognized option: "
@@ -813,7 +824,9 @@
         ;; also, the defaults are specified here.
         options (into {:workflow "./Drakefile"
                        :logfile "drake.log"
-                       :jobs 1}
+                       :jobs 1
+                       :plugins PLUGINS-FILE
+                       :tmpdir ".drake"}
                       (for [[k v] options] [k (if (nil? v) true v)]))]
     (flush)    ;; we need to do it for help to always print out
     (let [targets (if (empty? targets) ["=..."] targets)]
@@ -833,6 +846,7 @@
       (debug "parsed targets:" targets)
 
       (try+
+       (load-plugin-deps (*options* :plugins))
        (let [fn (if (empty? (:merge-branch options)) run merge-branch)]
          (with-workflow-file #(fn % targets)))
        (shutdown 0)

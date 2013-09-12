@@ -1,5 +1,6 @@
 (ns drake.test.parser
-  (:use clojure.test)
+  (:use [clojure.tools.logging :only [warn debug trace]]
+        clojure.test)
   (:require [drake.parser :as d]))
 
 (defstruct state-s :vars :methods :line :column :remainder)
@@ -181,6 +182,20 @@
                            "/test/drake/test/resources/nested.d\n")))]
     (is (var-eq? actual-prod "NESTEDVAR" nil))
     (is (var-eq? actual-prod "BASE" "/base"))))
+
+(def INLINE-SHELL-TEST-DATA "$(for DUDE in dude.txt babe.txt belle.txt; do echo \\\"$DUDE <\\\"\\\"-\\\"; echo \\\"  echo $DUDE\\\"; echo; done)\n")
+
+(deftest inline-shell-test
+  (let [actual-prod
+        (first
+          (d/workflow
+            (make-state
+              INLINE-SHELL-TEST-DATA)))]
+
+    (is (= (count (:steps actual-prod)) 3))
+    (is (= (get-in actual-prod [:steps 0 :raw-outputs 0]) "dude.txt"))
+    (is (= (get-in actual-prod [:steps 1 :raw-outputs 0]) "babe.txt"))
+    (is (= (get-in actual-prod [:steps 2 :raw-outputs 0]) "belle.txt"))))
 
 (deftest errors-test
   (is (thrown-with-msg? Exception

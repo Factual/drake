@@ -1,3 +1,8 @@
+## 0.1.4
+
+ * Added support for plugins. See [Plugins wiki page](https://github.com/Factual/drake/wiki/Plugins)
+ * TODO(aaron): other changes?
+
 ## 0.1.3
 
  * Default workflow filename changed from workflow.d to Drakefile
