@@ -1,0 +1,7 @@
+Notes on running the regression tests:
+
+- Make sure the project.clj contains a Hadoop JAR file compatible with your cluster.
+- Make sure your Hadoop config is correct and you have access to the hadoop binary.
+- Run "lein uberjar" in the main project directory
+- Make sure s3cmd is set up and configured to test Amazon S3 functionality
+- You may want to create an S3 bucket and modify the S3 test to point to that bucket in regtest_s3.sh

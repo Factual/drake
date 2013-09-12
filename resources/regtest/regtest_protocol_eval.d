@@ -1,4 +1,4 @@
-JAR=test_proj/test.jar
+JAR=test_proj/target/test.jar
 
 ; TODO(artem) This should be a no-input step when it's supported
 $[JAR] <- regtest_protocol_eval.sh
