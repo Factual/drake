@@ -1,5 +1,8 @@
 #!/bin/bash
 # Regression testing for Drake: inline shell commands
+# Relevant URLs:
+# https://github.com/Factual/drake/issues/63
+# https://github.com/Factual/drake/pull/85
 
 source $(dirname $0)/regtest_utils.sh
 
