@@ -21,8 +21,8 @@
   (log4j/set-loggers! :root {:level :off})
   (set-jobs-semaphore 1)
   (set-options {:auto true
-                :tmpdir ".drake"}
-                :jobs 1)
+                :tmpdir ".drake"
+                :jobs 1})
   (with-test-protocol #(run (func) (str/split targets #" "))))
 
 (defn test-targets [func targets expected-value]

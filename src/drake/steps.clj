@@ -176,13 +176,13 @@
    but I would like to preserve the order for being able to print
    a nice error message.
   
-   valid-step-indices is a list of steps that are valid for expansion.
+   valid-step-indices is a set of steps that are valid for expansion.
    nil means that all steps are valid for expansion."
   [tree-steps index up-tree current-chain valid-step-indices]
   ;;(prn index)
   
   ;; Check if current step is in list of valid steps
-  (if (or (not valid-step-indices) (some #{index} valid-step-indices))
+  (if (or (not valid-step-indices) (valid-step-indices index))
     (let [step (tree-steps index)
           current-chain-and-me (conj current-chain index)]
       (if (not= -1 (.indexOf current-chain index))

@@ -343,21 +343,19 @@
   a promise of value 1 is delivered on success
   a promise of value 0 is delirvered on failure
   "
-  (map (fn [step] (assoc step :promise (promise)) ) steps)
-)
+  (map (fn [step] (assoc step :promise (promise))) steps))
 
 (defn- assoc-deps [parse-tree steps]
   "Associates dependencies as set object containing the indexes for each step"
-  (def indexes (into #{} (map (fn [step] (:index step)) steps))) ; contains? does not work on list but works on set
-  (map (fn [step] (assoc step :deps 
-    (->>
-      (expand-step-restricted parse-tree (:index step) nil indexes)
-      (into #{}) ; turn into set to remove duplicates
-      (keep #(if (contains? indexes %) %)) ; only keep the step contained in the list of step to execute
-      (keep #(if (not= (:index step) %) %)) ; do not mark the step itself as its dependency
-    )
-  ) ) steps)
-)
+  (let [indexes (into #{} (map :index steps))]
+    (map (fn [step] 
+           (assoc step 
+                  :deps 
+                  (->>
+                    (expand-step-restricted parse-tree (:index step) nil indexes)
+                    (into #{}) ; turn into set to remove duplicates
+                    (filter (partial not= (:index step)))))) ; do not mark the step itself as its dependency 
+         steps)))
 
 (defn- assoc-no-stdin-opt [steps]
   "Set :no-stdin option for all steps"
@@ -489,17 +487,6 @@
     )
   )
 
-(defn- run-steps [parse-tree steps]
-  "Runs steps in order given as an array of their indexes"
-  (if (empty? steps)
-    (info "Nothing to do.")
-    (do
-      (info (format "Running %d steps..." (count steps)))
-      (let [steps-run (reduce (fn [x [i step]]
-                                (inc-if (run-step parse-tree i step) x))
-                              0 (keep-indexed vector steps))]
-        (info "")
-        (info (format "Done (%d steps run)." steps-run))))))
 
 (defn print-steps
   "Prints inputs and outputs of steps to run."
