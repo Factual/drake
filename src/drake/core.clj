@@ -437,8 +437,8 @@
                       (count steps) 
                       jobs))
 
-        (let [steps-future (->> steps
-                             #(if (> jobs 1) (assoc-no-stdin-opt %) %)
+        (let [steps-opt (if (> jobs 1) (assoc-no-stdin-opt steps) steps)
+              steps-future (->> steps-opt
                              assoc-exception-promise
                              assoc-promise
                              (assoc-deps parse-tree)
