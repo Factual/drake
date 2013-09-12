@@ -25,8 +25,5 @@
 
 (defn test-targets [func targets expected-value]
   (let [value (run-targets func targets)]
-    (is (or 
-          (= expected-value value) 
-          (= expected-value (sort-chars value)) 
-          (= (sort-chars expected-value) (sort-chars value))))))
+    (is (= expected-value value))))
 

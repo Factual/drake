@@ -348,7 +348,7 @@
   (def indexes (into #{} (map (fn [step] (:index step)) steps))) ; contains? does not work on list but works on set
   (map (fn [step] (assoc step :deps 
     (->>
-      (expand-step parse-tree (:index step) nil)
+      (expand-step-restricted parse-tree (:index step) nil indexes)
       (into #{}) ; turn into set to remove duplicates
       (keep #(if (contains? indexes %) %)) ; only keep the step contained in the list of step to execute
       (keep #(if (not= (:index step) %) %)) ; do not mark the step itself as its dependency
@@ -365,9 +365,6 @@
   (map (fn [step] (assoc step :exception-promise (promise))) steps))
 
 (defn- attempt-run-step [parse-tree step]
-  ; acquire a semaphore from the --jobs
-  (.acquire *jobs-semaphore*)
-
   (let [prom (:promise step)]
     (try
       ; run the step (the actual job)
@@ -439,6 +436,7 @@
   "Triggers future callbacks in each steps"
   (do
     (doseq [step steps]
+      (.acquire *jobs-semaphore*) ; acquire a semaphore from the --jobs
       ((:future step))
     )
   )
