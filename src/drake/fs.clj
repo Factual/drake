@@ -39,11 +39,6 @@
 (defn should-ignore? [path]
   (drake-ignore (last (split path #"/"))))
 
-(defn assert-files-exist [fs files]
-  (doseq [f files]
-    (when (not (.exists? fs f))
-      (throw+ {:msg (str "file not found: " f)}))))
-
 (defn remove-extra-slashes
   "Removes duplicate and trailing slashes from the filename."
   [filename]
@@ -63,6 +58,11 @@
   (rm [_ path])
   (mv [_ from to]))
 
+(defn assert-files-exist [fs files]
+  (doseq [f files]
+    (when (not (exists? fs f))
+      (throw+ {:msg (str "file not found: " f)}))))
+
 ;; TODO(artem)
 ;; I tried a lot of things but still don't know how to create a common
 ;; ancestor in Clojure and inherit two other classes from it
@@ -71,14 +71,14 @@
 ;; functions in all descendants is a bit tiring.
 (defn file-info-impl [fs path]
   {:path path
-   :mod-time (.mod-time fs path)
-   :directory (.directory? fs path)})
+   :mod-time (mod-time fs path)
+   :directory (directory? fs path)})
 
 (defn file-info-seq-impl [fs path]
-  (map #(.file-info fs %) (.file-seq fs path)))
+  (map #(file-info fs %) (file-seq fs path)))
 
 (defn data-in?-impl [fs path]
-  (not (empty? (.file-info-seq fs path))))
+  (not (empty? (file-info-seq fs path))))
 
 (def file-info-impls
   {:file-info file-info-impl
@@ -202,7 +202,7 @@
 
       :file-seq
       (fn [this path]
-        (map :path (.file-info-seq this path)))
+        (map :path (file-info-seq this path)))
 
       :file-info
       (fn [this path]
@@ -210,16 +210,16 @@
 
       :file-info-seq
       (fn [this path]
-        (if (or (not (.exists? this path)) (should-ignore? path))
+        (if (or (not (exists? this path)) (should-ignore? path))
         []
         (let [statuses (hdfs-list-status path)]
-          (if-not (.directory? this path)
+          (if-not (directory? this path)
             statuses
             (mapcat #(if (should-ignore? (% :path))
                        []
                        (if-not (% :directory)
                          [%]
-                         (.file-info-seq this (% :path))))
+                         (file-info-seq this (% :path))))
                     statuses)))))
 
       :normalized-filename
@@ -312,7 +312,7 @@
       ;; extra data
       :file-seq
       (fn [this path]
-        (map :path (.file-info-seq this path)))
+        (map :path (file-info-seq this path)))
 
       ;; Not using the impl here as it would result in an
       ;; excessive number of api calls. We get all that we
@@ -326,7 +326,7 @@
           ;; that does not seem to exist, we need to explicitly try
           ;; adding a separator character to it and calling s3/list-objects
           ;; on that.
-          (if (.directory? this path)
+          (if (directory? this path)
             ;; it is a directory and it exists, so
             ;; we should go do a list-object call
             (let [{bucket :bucket key :key} (s3-bucket-key path)]
@@ -336,8 +336,8 @@
                                                       bucket
                                                       {:prefix key})))))
             ;; not a directory
-            (if (.exists? this path)
-              [(.file-info this path)]
+            (if (exists? this path)
+              [(file-info this path)]
               (file-info-seq this (str path "/"))))))
 
       ;; Normalize file names for s3 objects need to look like
@@ -391,7 +391,7 @@
 
       :mod-time
       (fn [this path]
-        (if-not (.exists? this path)
+        (if-not (exists? this path)
           (throw+ {:msg (str "file not found: " path)})
           (condp = (get-in this [:fs-data path :mod-time])
             :pre (Long/MIN_VALUE)
@@ -464,7 +464,7 @@
   "Returns absolute path preserving the prefix."
   [path]
   (let [[filesystem prefix filename] (get-fs path)]
-    (make-path prefix (.normalized-filename filesystem filename))))
+    (make-path prefix (normalized-filename filesystem filename))))
 
 (defn pick-by-mod-time
   "Traverses the full directory tree starting at path, applies given
