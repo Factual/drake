@@ -63,12 +63,6 @@
     (when (not (exists? fs f))
       (throw+ {:msg (str "file not found: " f)}))))
 
-;; TODO(artem)
-;; I tried a lot of things but still don't know how to create a common
-;; ancestor in Clojure and inherit two other classes from it
-;; TODO(artem)
-;; We have to figure it out somehow, since adding direct calls to these
-;; functions in all descendants is a bit tiring.
 (defn file-info-impl [fs path]
   {:path path
    :mod-time (mod-time fs path)
