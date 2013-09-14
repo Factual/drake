@@ -39,11 +39,6 @@
 (defn should-ignore? [path]
   (drake-ignore (last (split path #"/"))))
 
-(defn assert-files-exist [fs files]
-  (doseq [f files]
-    (when (not (.exists? fs f))
-      (throw+ {:msg (str "file not found: " f)}))))
-
 (defn remove-extra-slashes
   "Removes duplicate and trailing slashes from the filename."
   [filename]
@@ -63,56 +58,71 @@
   (rm [_ path])
   (mv [_ from to]))
 
-;; TODO(artem)
-;; I tried a lot of things but still don't know how to create a common
-;; ancestor in Clojure and inherit two other classes from it
-;; TODO(artem)
-;; We have to figure it out somehow, since adding direct calls to these
-;; functions in all descendants is a bit tiring.
+(defn assert-files-exist [fs files]
+  (doseq [f files]
+    (when (not (exists? fs f))
+      (throw+ {:msg (str "file not found: " f)}))))
+
 (defn file-info-impl [fs path]
   {:path path
-   :mod-time (.mod-time fs path)
-   :directory (.directory? fs path)})
+   :mod-time (mod-time fs path)
+   :directory (directory? fs path)})
 
 (defn file-info-seq-impl [fs path]
-  (map #(.file-info fs %) (.file-seq fs path)))
+  (map #(file-info fs %) (file-seq fs path)))
 
 (defn data-in?-impl [fs path]
-  (not (empty? (.file-info-seq fs path))))
+  (not (empty? (file-info-seq fs path))))
+
+(def file-info-impls
+  {:file-info file-info-impl
+   :file-info-seq file-info-seq-impl
+   :data-in? data-in?-impl})
 
 ;; ----- Local FS -----------
 
-(deftype LocalFileSystem []
+(deftype LocalFileSystem [])
+
+(extend LocalFileSystem
   FileSystem
-  (exists? [_ path]
-    (fs/exists? (fs/file path)))
-  (directory? [_ path]
-    (fs/directory? (fs/file path)))
-  (mod-time [_ path]
-    (fs/mod-time path))
-  (file-seq [this path]
-    (let [f (fs/file path)]
-      (if (or (not (.exists f)) (should-ignore? (.getName f)))
-        []
-        (if-not (.isDirectory f)
-          [(.getPath f)]
-          (mapcat #(file-seq this (.getPath %)) (.listFiles f))))))
-  (file-info [this path]
-    (file-info-impl this path))
-  (file-info-seq [this path]
-    (file-info-seq-impl this path))
-  (data-in? [this path]
-    (data-in?-impl this path))
-  (normalized-filename [_ path]
-    (str (fs/normalized-path path)))
-  (rm [_ path]
-    ;; TODO(artem)
-    ;; This is dirty, we probably should re-implement this using syscalls
-    (shell "rm" "-rf" path :use-shell true :die true))
-  (mv [_ from to]
-    ;; TODO(artem)
-    ;; This is dirty, we probably should re-implement this using syscalls
-    (shell "mv" from to :use-shell true :die true)))
+  (merge
+    file-info-impls
+    { :exists?
+      (fn [_ path]
+        (fs/exists? (fs/file path)))
+
+      :directory?
+      (fn [_ path]
+        (fs/directory? (fs/file path)))
+
+      :mod-time
+      (fn [_ path]
+        (fs/mod-time path))
+
+      :file-seq
+      (fn [this path]
+        (let [f (fs/file path)]
+          (if (or (not (.exists f)) (should-ignore? (.getName f)))
+            []
+            (if-not (.isDirectory f)
+            [(.getPath f)]
+            (mapcat #(file-seq this (.getPath %)) (.listFiles f))))))
+
+      :normalized-filename
+      (fn [_ path]
+        (str (fs/normalized-path path)))
+
+      :rm
+      (fn [_ path]
+        ;; TODO(artem)
+        ;; This is dirty, we probably should re-implement this using syscalls
+        (shell "rm" "-rf" path :use-shell true :die true))
+
+      :mv
+      (fn [_ from to]
+        ;; TODO(artem)
+        ;; This is dirty, we probably should re-implement this using syscalls
+        (shell "mv" from to :use-shell true :die true))}))
 
 ;; ----- HDFS -----------
 
@@ -166,43 +176,61 @@
   (map hdfs-file-info (.listStatus (hdfs-filesystem path)
                                    (hdfs/make-path path))))
 
-(deftype HDFS []
-  FileSystem
-  (exists? [_ path]
-    (.exists (hdfs-filesystem path) (hdfs/make-path path)))
-  (directory? [_ path]
-    (.isDirectory (hdfs-filesystem path) (hdfs/make-path path)))
-  (mod-time [_ path]
-    (.getModificationTime (hdfs/file-status path)))
-  (file-seq [this path]
-    (map :path (.file-info-seq this path)))
-  (file-info [_ path]
-    (hdfs-file-info (hdfs/file-status path)))
-  (file-info-seq [this path]
-    (if (or (not (.exists? this path)) (should-ignore? path))
-      []
-      (let [statuses (hdfs-list-status path)]
-        (if-not (.directory? this path)
-          statuses
-          (mapcat #(if (should-ignore? (% :path))
-                     []
-                     (if-not (% :directory)
-                       [%]
-                       (.file-info-seq this (% :path))))
-                  statuses)))))
-  (data-in? [this path]
-    (data-in?-impl this path))
-  (normalized-filename [_ path]
-    (remove-extra-slashes path))
-  (rm [_ path]
-    ;; TODO(artem)
-    ;; This is dirty, we probably should reimplement this using Hadoop API
-    (shell "hadoop" "fs" "-rmr" path :use-shell true :die true))
-  (mv [_ from to]
-    ;; TODO(artem)
-    ;; This is dirty, we probably should reimplement this using Hadoop API
-    (shell "hadoop" "fs" "-mv" from to :use-shell true :die true)))
+(deftype HDFS [])
 
+(extend HDFS
+  FileSystem
+  (merge
+    file-info-impls
+    { :exists?
+      (fn [_ path]
+        (.exists (hdfs-filesystem path) (hdfs/make-path path)))
+
+      :directory?
+      (fn [_ path]
+        (.isDirectory (hdfs-filesystem path) (hdfs/make-path path)))
+
+      :mod-time
+      (fn [_ path]
+        (.getModificationTime (hdfs/file-status path)))
+
+      :file-seq
+      (fn [this path]
+        (map :path (file-info-seq this path)))
+
+      :file-info
+      (fn [this path]
+        (hdfs-file-info (hdfs/file-status path)))
+
+      :file-info-seq
+      (fn [this path]
+        (if (or (not (exists? this path)) (should-ignore? path))
+        []
+        (let [statuses (hdfs-list-status path)]
+          (if-not (directory? this path)
+            statuses
+            (mapcat #(if (should-ignore? (% :path))
+                       []
+                       (if-not (% :directory)
+                         [%]
+                         (file-info-seq this (% :path))))
+                    statuses)))))
+
+      :normalized-filename
+      (fn [_ path]
+        (remove-extra-slashes path))
+
+      :rm
+      (fn [_ path]
+        ;; TODO(artem)
+        ;; This is dirty, we probably should reimplement this using Hadoop API
+        (shell "hadoop" "fs" "-rmr" path :use-shell true :die true))
+
+      :mv
+      (fn [_ from to]
+        ;; TODO(artem)
+        ;; This is dirty, we probably should reimplement this using Hadoop API
+        (shell "hadoop" "fs" "-mv" from to :use-shell true :die true))}))
 
 ;; -------- S3 -----------
 ;; Support for Amazon AWS object store
@@ -249,115 +277,140 @@
    :directory (.endsWith key "/")
    :mod-time  (.getTime last-mod)})
 
-(deftype S3 []
+(deftype S3 [])
+
+(extend S3
   FileSystem
-  (exists? [_ path]
-    (let [{bucket :bucket key :key} (s3-bucket-key path)]
-      (s3/object-exists? (s3-credentials) bucket key )))
-  (directory? [this path]
-    (.endsWith path "/"))
-  (mod-time [_ path]
-    (let [{bucket :bucket key :key} (s3-bucket-key path)]
-      (.getTime (:last-modified (s3/get-object-metadata (s3-credentials) bucket key)))))
-  ;; S3 list-object api call by default will give
-  ;; us everything to fill out the file-info-seq
-  ;; call. This one calls that one and strips out the
-  ;; extra data
-  (file-seq [this path]
-    (map :path (.file-info-seq this path)))
-  ;; Using the impl here
-  (file-info [this path]
-    (file-info-impl this path))
-  ;; Not using the impl here as it would result in an
-  ;; excessive number of api calls. We get all that we
-  ;; need from list-objects anyway.
-  (file-info-seq [this path]
-    (if (should-ignore? path)
-      []
-      ;; S3 is funny about directories - they do not really exist
-      ;; so if we are looking to list the contents of a file
-      ;; that does not seem to exist, we need to explicitly try
-      ;; adding a separator character to it and calling s3/list-objects
-      ;; on that.
-      (if (.directory? this path)
-        ;; it is a directory and it exists, so
-        ;; we should go do a list-object call
+  (merge
+    file-info-impls
+    { :exists?
+      (fn [_ path]
         (let [{bucket :bucket key :key} (s3-bucket-key path)]
-          (map s3-object-to-info
-               (remove #(should-ignore? (:key %))
-                       (:objects (s3/list-objects (s3-credentials)
-                                                  bucket
-                                                  {:prefix key})))))
-        ;; not a directory
-        (if (.exists? this path)
-          [(.file-info this path)]
-          (file-info-seq this (str path "/"))))))
-  (data-in? [this path]
-    (data-in?-impl this path))
-  ;; Normalize file names for s3 objects need to look like
-  ;; s3://bucket/path/to/object for compatibility for tools
-  ;; like s3cmd.
-  ;;
-  ;; TODO(howech)
-  ;; remove-extra-slashes is probably doing some other things
-  ;; that could potentially be wrong in S3.
- (normalized-filename [_ path]
-    (join "/" ["" (remove-extra-slashes path)]))
-  (rm [_ path]
-    (let [{bucket :bucket key :key} (s3-bucket-key path)]
-      (s3/delete-object (s3-credentials) bucket key)))
-  (mv [_ from to]
-    (let [{from-bucket :bucket from-key :key} (s3-bucket-key from)
-          {to-bucket :bucket to-key :key} (s3-bucket-key to)]
-      ;; ensure that moving to/from the same name
-      ;; is a null operation
-      (when-not (and (= from-bucket to-bucket)
-                     (= from-key to-key))
-        ;; There are two flavors of the move command - one for
-        ;; in the same bucket, the other for different buckets.
-        ;; Might not be necessary to do this, but we try to call
-        ;; the right one
-        (if (= from-bucket to-bucket)
-          (s3/copy-object (s3-credentials) from-bucket from-key to-key)
-          (s3/copy-object (s3-credentials) from-bucket from-key to-bucket to-key))
-        (s3/delete-object (s3-credentials) from-bucket from-key)))))
+          (s3/object-exists? (s3-credentials) bucket key)))
+
+      :directory?
+      (fn [_ path]
+        (.endsWith path "/"))
+
+      :mod-time
+      (fn [_ path]
+        (let [{bucket :bucket key :key} (s3-bucket-key path)]
+          (-> (s3-credentials)
+              (s3/get-object-metadata bucket key)
+              :last-modified
+              .getTime)))
+
+      ;; S3 list-object api call by default will give
+      ;; us everything to fill out the file-info-seq
+      ;; call. This one calls that one and strips out the
+      ;; extra data
+      :file-seq
+      (fn [this path]
+        (map :path (file-info-seq this path)))
+
+      ;; Not using the impl here as it would result in an
+      ;; excessive number of api calls. We get all that we
+      ;; need from list-objects anyway.
+      :file-info-seq
+      (fn [this path]
+        (if (should-ignore? path)
+          []
+          ;; S3 is funny about directories - they do not really exist
+          ;; so if we are looking to list the contents of a file
+          ;; that does not seem to exist, we need to explicitly try
+          ;; adding a separator character to it and calling s3/list-objects
+          ;; on that.
+          (if (directory? this path)
+            ;; it is a directory and it exists, so
+            ;; we should go do a list-object call
+            (let [{bucket :bucket key :key} (s3-bucket-key path)]
+              (map s3-object-to-info
+                   (remove #(should-ignore? (:key %))
+                           (:objects (s3/list-objects (s3-credentials)
+                                                      bucket
+                                                      {:prefix key})))))
+            ;; not a directory
+            (if (exists? this path)
+              [(file-info this path)]
+              (file-info-seq this (str path "/"))))))
+
+      ;; Normalize file names for s3 objects need to look like
+      ;; s3://bucket/path/to/object for compatibility for tools
+      ;; like s3cmd.
+      ;;
+      ;; TODO(howech)
+      ;; remove-extra-slashes is probably doing some other things
+      ;; that could potentially be wrong in S3.
+      :normalized-filename
+      (fn [_ path]
+        (join "/" ["" (remove-extra-slashes path)]))
+
+      :rm
+      (fn [_ path]
+        (let [{bucket :bucket key :key} (s3-bucket-key)]
+          (s3/delete-object (s3-credentials bucket key))))
+
+      :mv
+      (fn [_ from to]
+        (let [{from-bucket :bucket from-key :key} (s3-bucket-key from)
+              {to-bucket :bucket to-key :key} (s3-bucket-key to)]
+          ;; ensure that moving to/from the same name is a null operation
+          (when-not (and (= from-bucket to-bucket)
+                         (= from-key to-key))
+            ;; There are two flavors of the move command - one for
+            ;; in the same bucket, the other for different buckets.
+            ;; Might not be necessary to do this, but we try to call
+            ;; the right one
+            (if (= from-bucket to-bucket)
+              (s3/copy-object (s3-credentials) from-bucket from-key to-key)
+              (s3/copy-object (s3-credentials) from-bucket from-key to-bucket to-key))
+            (s3/delete-object (s3-credentials) from-bucket from-key))))}))
+
 ;; ----- Mock FS --------
 ;; Mock file system does not support drake-ignore
 
-(deftype MockFileSystem [fs-data]
+(defrecord MockFileSystem [fs-data])
+
+(extend MockFileSystem
   FileSystem
-  (exists? [_ path]
-    (contains? fs-data path))
-  (directory? [_ path]
-    (get-in fs-data path :directory))
-  (mod-time [this path]
-    ;; (println "--")
-    ;; (println fs-data)
-    ;; (println "--")
-    (if-not (.exists? this path)
-      (throw+ {:msg (str "file not found: " path)})
-      (condp = (:mod-time (fs-data path))
-          :pre (Long/MIN_VALUE)
-          :now (System/currentTimeMillis)
-          (:mod-time (fs-data path)))))
-  (file-seq [_ path]
-    (keys (filter (fn [[name opts]]
-                    ;; skip directories
-                    (and (not (opts :directory))
-                         (.startsWith name path)))
-                  fs-data)))
-  (file-info [this path]
-    (file-info-impl this path))
-  (file-info-seq [this path]
-    (file-info-seq-impl this path))
-  (data-in? [this path]
-    (data-in?-impl this path))
-  (normalized-filename [_ path]
-    (remove-extra-slashes path))
-  (rm [_ _]
-    (throw+ {:msg (str "rm is not implemented on mock filesystem")}))
-  (mv [_ _ _]
-    (throw+ {:msg (str "mv is not implemented on mock filesystem")})))
+  (merge
+    file-info-impls
+    { :exists?
+      (fn [this path]
+        (contains? (:fs-data this) path))
+
+      :directory?
+      (fn [this path]
+        (get-in this [:fs-data path :directory]))
+
+      :mod-time
+      (fn [this path]
+        (if-not (exists? this path)
+          (throw+ {:msg (str "file not found: " path)})
+          (condp = (get-in this [:fs-data path :mod-time])
+            :pre (Long/MIN_VALUE)
+            :now (System/currentTimeMillis)
+            (get-in this [:fs-data path :mod-time]))))
+
+      :file-seq
+      (fn [this path]
+        (keys (filter (fn [[name opts]]
+                        (and (not (opts :directory))
+                             (.startsWith name path)))
+                      (:fs-data this))))
+
+      :normalized-filename
+      (fn [_ path]
+        (remove-extra-slashes path))
+
+      :rm
+      (fn [_ _]
+        (throw+ {:msg (str "rm is not implemented on mock filesystem")}))
+
+      :mv
+      (fn [_ _]
+        (throw+ {:msg (str "mv is not implemented on mock filesystem")}))}))
+
 
 (def ^:private MOCK-FILESYSTEM-DATA
   {"A" {:mod-time 108}
@@ -405,7 +458,7 @@
   "Returns absolute path preserving the prefix."
   [path]
   (let [[filesystem prefix filename] (get-fs path)]
-    (make-path prefix (.normalized-filename filesystem filename))))
+    (make-path prefix (normalized-filename filesystem filename))))
 
 (defn pick-by-mod-time
   "Traverses the full directory tree starting at path, applies given
