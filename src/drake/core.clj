@@ -459,7 +459,7 @@
   (let [prom (:promise step)]
     (try
       ; run the step (the actual job)
-      (let [step-ran (run-step parse-tree (:pos step) step)]
+      (let [step-ran (run-step parse-tree (:index step) step)]
         (when step-ran 
           (deliver prom 1))) ; delivers a promise of 1/success 
       (catch Exception e 
