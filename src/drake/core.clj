@@ -26,11 +26,6 @@
 (def VERSION "0.1.4")
 (def PLUGINS-FILE "plugins.edn")
 
-(defn set-jobs-semaphore 
-  "Create the jobs semaphore with the number of concurrent jobs."
-  [jobs-num]
-  (def ^:dynamic *jobs-semaphore*  (new Semaphore jobs-num true)))
-
 ;; TODO(artem)
 ;; Optimize for repeated BASE prefixes (we can't just show it
 ;; without base, since it can be ambiguous)
@@ -336,18 +331,84 @@
           (.run (get-protocol step) step)))
       should-build)))
 
+(defn- create-state-atom
+  "Create the atom which will keep track of which steps are not yet runnable,
+   which steps are runnable, and which steps are done."
+  [steps]
+  (let [sort-map (zipmap (map :index steps) (range))] ; order sorted-set by step order
+    (atom (hash-map 
+            :not-runnable (into #{} (map :index (filter #(seq (:deps %)) steps))) 
+            :runnable (into (sorted-set-by #(< (sort-map %1) (sort-map %2))) 
+                            (map :index (filter #(empty? (:deps %)) steps)))
+            :done #{}
+            :steps steps))))
+
+(defn- pop-next-step-from-atom
+  "Pop the next runnable step from the state atom.
+   Block if waiting on dependencies."
+  [state-atom]
+  (loop []
+    (let [a @state-atom
+          steps (:steps a)
+          not-runnable (:not-runnable a)
+          runnable (:runnable a)]
+      (cond
+        ; If there are runnable steps, pop one off and return it
+        (seq runnable) (let [i (first runnable)
+                             na (assoc a :runnable (disj runnable i))]
+                         (if (compare-and-set! state-atom a na)
+                           (first (filter #(= (:index %) i) steps))
+                           (recur))) ; if compare-and-set fails, try the whole thing again
+
+        ; If there are non-runnable steps, wait until one is runnable
+        (seq not-runnable) (do 
+                             (Thread/sleep 100) ; NOTE(Myron) spinlock not ideal
+                             (recur))
+
+        ; Otherwise, there's nothing left
+        :else nil))))
+
+(defn- update-state-atom-when-step-finishes 
+  "Use this with swap! to update the state atom when a step finishes"
+  [a step]
+  (let [i (:index step)
+        a (assoc a :done (conj (:done a) i)) ; put this step on the "done" list
+        done (:done a)
+        not-runnable (:not-runnable a)
+        runnable (:runnable a)
+        children (filter #((:children step) (:index %)) (:steps a))
+        children-not-yet-running (filter #(not-runnable (:index %)) children)
+        runnable-steps (filter (fn [child] 
+                                 (every? (fn [dep] 
+                                           (done dep)) 
+                                         (:deps child))) 
+                               children-not-yet-running)
+        runnable-step-numbers (map :index runnable-steps)
+        a (assoc a :not-runnable (apply (partial disj not-runnable) runnable-step-numbers)) ]
+    (if (seq runnable-step-numbers)
+      (assoc a :runnable (apply (partial conj runnable) runnable-step-numbers))
+      a)))
+
+(defn- lazy-step-list
+  "Create a lazy list that pops runnable steps from the state-atom."
+  [state-atom]
+  (when-let [step (pop-next-step-from-atom state-atom)]
+    (cons step (lazy-seq (lazy-step-list state-atom)))))
+
 (defn- add-empty-promises-to-steps
   [steps promise-key]
   (map (fn [step] (assoc step promise-key (promise))) steps))
 
-(defn- assoc-promise [steps]
+(defn- assoc-promise 
   "Associates a promise instance for each step
   a promise of value 1 is delivered on success
   a promise of value 0 is delirvered on failure"
+  [steps]
   (add-empty-promises-to-steps steps :promise))
 
-(defn- assoc-deps [parse-tree steps]
+(defn- assoc-deps 
   "Associates dependencies as set object containing the indexes for each step"
+  [parse-tree steps]
   (let [indexes (into #{} (map :index steps))]
     (map (fn [step] 
            (assoc step 
@@ -359,15 +420,42 @@
                     (filter (partial not= (:index step))))))
          steps)))
 
-(defn- assoc-no-stdin-opt [steps]
+(defn- assoc-children 
+  "For each step, associate a set of steps that have this step as a dependency.
+  Assumes assoc-deps was called already."
+  [steps]
+  (let [child-map (->> steps
+                    (map (fn [step] 
+                           (map (fn [parent] 
+                                  (list parent (:index step))) 
+                                (seq (:deps step)))))
+                    (apply concat) ; flatten list by one level
+                    (reduce (fn [m pair] 
+                              (let [k (first pair) 
+                                    v (second pair)] 
+                                (if (m k) 
+                                  (assoc m k (conj (m k) v)) 
+                                  (assoc m k #{v})))) 
+                            {}))] 
+    (map #(assoc % 
+                 :children 
+                 (if-let [children (child-map (:index %))] 
+                   children
+                   {})) 
+         steps)))
+
+(defn- assoc-no-stdin-opt 
   "Set :no-stdin option for all steps"
+  [steps]
   (map (fn [step] (assoc-in step [:opts :no-stdin] true)) steps))
 
-(defn- assoc-exception-promise [steps]
+(defn- assoc-exception-promise 
   "Associate a promise for any exceptions generated by this step"
+  [steps]
   (add-empty-promises-to-steps steps :exception-promise))
 
-(defn- attempt-run-step [parse-tree step]
+(defn- attempt-run-step 
+  [parse-tree step]
   (let [prom (:promise step)]
     (try
       ; run the step (the actual job)
@@ -380,61 +468,81 @@
       (finally
         ; if promise not delivered, deliver a promise of 0/failure
         (when (not (realized? prom))
-          (deliver prom 0)) 
-        (.release *jobs-semaphore*)))))
+          (deliver prom 0))))))
 
-(defn- future-for-step [parse-tree steps promises-indexed step] 
-  "Returns an anonymous function that can be triggered in its own thread to execute a step
-  the number of concurrent jobs is bound by *jobs-semaphore*
-  each step delivers its own promise. dependent step will block on that promise. "
+(defn- function-for-step 
+  "Returns an anonymous function that can be triggered in its own thread to execute a step.
+  Each step delivers its own promise.  Dependent steps will block on that promise. "
+  [parse-tree steps promises-indexed step] 
   (fn [] 
-    (future
-      ; wait for parent promises in the tree promises to be delivered
-      ; accumulate successful parent tasks into a sum : successful-parent-steps
-      (let [prom (:promise step)]
-        (try
-          (let [deps (:deps step)
-                successful-parent-steps (reduce + 
-                                                (map (fn [i] 
-                                                       @(promises-indexed i)) 
-                                                     deps))]
-            (if (= successful-parent-steps (count deps))
-              (attempt-run-step parse-tree step)
-              (deliver prom 0)))
-          (catch Exception e
-            (deliver (:exception-promise step) e))
-          (finally 
-            (when (not (realized? prom))
-              (deliver prom 0))))))))
+    ; wait for parent promises in the tree promises to be delivered
+    ; accumulate successful parent tasks into a sum : successful-parent-steps
+    (let [prom (:promise step)]
+      (try
+        (let [deps (:deps step)
+              successful-parent-steps (reduce + 
+                                              (map (fn [i] 
+                                                     @(promises-indexed i)) 
+                                                   deps))]
+          (if (= successful-parent-steps (count deps))
+            (attempt-run-step parse-tree step)
+            (deliver prom 0)))
+        (catch Exception e
+          (deliver (:exception-promise step) e))
+        (finally 
+          (when (not (realized? prom))
+            (deliver prom 0)))))))
 
-(defn- assoc-future [parse-tree steps]
+(defn- assoc-function 
   "Associates a future (anonymous function) for each step"
+  [parse-tree steps]
   ; for quickly accessing promises via a map :index => :promise
   (let [promises-indexed (zipmap (map :index steps) (map :promise steps))]  
-    ; associate a :future on each step
-    (map (fn [step] (assoc step :future (future-for-step parse-tree steps promises-indexed step))) steps)))
+    ; associate a :function on each step
+    (map (fn [step] 
+           (assoc step 
+                  :function 
+                  (function-for-step parse-tree steps promises-indexed step))) 
+         steps)))
 
-(defn- trigger-futures [steps]
-  "Triggers future callbacks in each steps"
-  (doseq [step steps]
-    (.acquire *jobs-semaphore*) ; acquire a semaphore from the --jobs
-    ((:future step))))
 
-(defn- await-promises [steps]
+(defn- trigger-futures-helper
+  [jobs lazy-steps state-atom]
+  (let [semaphore (new Semaphore jobs true)]
+    (loop [steps lazy-steps]
+      (.acquire semaphore)
+      (when (seq steps)
+        (let [step (first steps)]
+          (future (try 
+                    ((:function step))
+                    (finally
+                      (swap! state-atom update-state-atom-when-step-finishes step)
+                      (.release semaphore)))) 
+          (recur (rest steps)))))))
+
+(defn- trigger-futures
+  "Run all the steps in (jobs) number of threads"
+  [jobs steps]
+  (let [state-atom (create-state-atom steps)]
+    (trigger-futures-helper jobs (lazy-step-list state-atom) state-atom)))
+
+(defn- await-promises 
   "waits for all the promises to be fullfilled otherwise 
    we get an premature exit on the main thread
    returns the sum of all deref'd promises each 
    returning either 0/1 for failure/success respectively"
+  [steps]
   (reduce + (map (fn [step] @(:promise step)) steps)))
 
-(defn- run-steps-async [parse-tree steps]
+(defn- run-steps-async 
   "Runs steps asynchronously.
-  If concurrence = 1, this will run the steps in the same order as the
-  array of their indexes.  If concurrence = N, this will grab the first
-  N steps and run in parallel.  As steps complete, it will grab additional
-  steps in index order and run them, but no more than N at a time.  
-  NOTE: less than N steps may be running depending on whether dependencies 
-  are met for the steps."
+   If concurrence = 1, this will run the steps in the same order as the
+   array of their indexes.  If concurrence = N, this will grab the first
+   N steps and run in parallel.  As steps complete, it will grab additional
+   steps in index order and run them, but no more than N at a time.  
+   NOTE: less than N steps may be running depending on whether dependencies 
+   are met for the steps."
+  [parse-tree steps]
   (let [jobs (:jobs *options*)]
     (if (empty? steps)
       (info "Nothing to do.")
@@ -448,23 +556,24 @@
                              assoc-exception-promise
                              assoc-promise
                              (assoc-deps parse-tree)
-                             (assoc-future parse-tree))]
+                             (assoc-children)
+                             (assoc-function parse-tree))]
 
-          (trigger-futures steps-future) 
+          (trigger-futures jobs steps-future)
 
-        (let [successful-steps (await-promises steps-future)]
-          (info (format "Done (%d steps run)." successful-steps))      
-          (when (not= successful-steps (count steps))
-            (let [steps-with-exception (filter 
-                                         #(realized? (:exception-promise %)) 
-                                         steps-future)]
-              (if (not-empty steps-with-exception)
-                (throw @(:exception-promise (first steps-with-exception)))
-                (throw+ {:msg (str "successful-steps (" 
-                                   successful-steps 
-                                   ") does not equal total steps (" 
-                                   (count steps) 
-                                   ")")}))))))))))
+          (let [successful-steps (await-promises steps-future)]
+            (info (format "Done (%d steps run)." successful-steps))      
+            (when (not= successful-steps (count steps))
+              (let [steps-with-exception (filter 
+                                           #(realized? (:exception-promise %)) 
+                                           steps-future)]
+                (if (not-empty steps-with-exception)
+                  (throw @(:exception-promise (first steps-with-exception)))
+                  (throw+ {:msg (str "successful-steps (" 
+                                     successful-steps 
+                                     ") does not equal total steps (" 
+                                     (count steps) 
+                                     ")")}))))))))))
 
 (defn print-steps
   "Prints inputs and outputs of steps to run."
@@ -801,7 +910,6 @@
 
       (check-for-conflicts options)
       (set-options options)
-      (set-jobs-semaphore (:jobs options))
       
       (configure-logging)
 

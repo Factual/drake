@@ -19,7 +19,6 @@
     :root {:level :debug :name "console" :pattern "%m%n"}
     "drake" {:level :debug :name "console" :pattern "%m%n"}))
   (log4j/set-loggers! :root {:level :off})
-  (set-jobs-semaphore 1)
   (set-options {:auto true
                 :tmpdir ".drake"
                 :jobs 1})
