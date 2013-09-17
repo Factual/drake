@@ -29,7 +29,7 @@ cleanup
 
 # Run test with concurrency = 2, check order
 run_d regtest_async.d -a -j 2
-check_grep $(dirname $0)/async_order "g1f1f2f3g2g3h1"
+check_grep $(dirname $0)/async_order "g1f1f2f3g2h1g3"
 cleanup
 
 # Run test with concurrency = 3, check order

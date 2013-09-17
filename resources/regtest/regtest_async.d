@@ -19,12 +19,12 @@ g1 <-
   echo -n "$OUTPUT" > $OUTPUT
 
 g2 <- g1
-  sleep 7
+  sleep 8
   echo -n "$(basename $OUTPUT)" >> async_order
   echo -n "$OUTPUT" > $OUTPUT
 
 g3 <- g2
-  sleep 1
+  sleep 2
   echo -n "$(basename $OUTPUT)" >> async_order
   echo -n "$OUTPUT" > $OUTPUT
 
