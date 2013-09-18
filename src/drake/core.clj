@@ -348,21 +348,21 @@
    Block if waiting on dependencies."
   [state-atom]
   (loop []
-    (let [a @state-atom
-          steps (:steps a)
-          not-runnable (:not-runnable a)
-          runnable (:runnable a)]
+    (let [state @state-atom
+          steps (:steps state)
+          not-runnable (:not-runnable state)
+          runnable (:runnable state)]
       (cond
         ; If there are runnable steps, pop one off and return it
-        (seq runnable) (let [i (first runnable)
-                             na (assoc a :runnable (disj runnable i))]
-                         (if (compare-and-set! state-atom a na)
-                           (first (filter #(= (:index %) i) steps))
+        (seq runnable) (let [popped-step-index (first runnable)
+                             new-state (assoc state :runnable (disj runnable popped-step-index))]
+                         (if (compare-and-set! state-atom state new-state)
+                           (first (filter #(= (:index %) popped-step-index) steps))
                            (recur))) ; if compare-and-set fails, try the whole thing again
 
         ; If there are non-runnable steps, wait until one is runnable
         (seq not-runnable) (do 
-                             (Thread/sleep 100) ; NOTE(Myron) spinlock not ideal
+                             (Thread/sleep 100) ; NOTE(Myron) spin-wait not ideal
                              (recur))
 
         ; Otherwise, there's nothing left
@@ -370,13 +370,13 @@
 
 (defn- update-state-atom-when-step-finishes 
   "Use this with swap! to update the state atom when a step finishes"
-  [a step]
+  [state step]
   (let [i (:index step)
-        a (assoc a :done (conj (:done a) i)) ; put this step on the "done" list
-        done (:done a)
-        not-runnable (:not-runnable a)
-        runnable (:runnable a)
-        children (filter #((:children step) (:index %)) (:steps a))
+        state (assoc state :done (conj (:done state) i)) ; put this step on the "done" list
+        done (:done state)
+        not-runnable (:not-runnable state)
+        runnable (:runnable state)
+        children (filter #((:children step) (:index %)) (:steps state))
         children-not-yet-running (filter #(not-runnable (:index %)) children)
         runnable-steps (filter (fn [child] 
                                  (every? (fn [dep] 
@@ -384,10 +384,10 @@
                                          (:deps child))) 
                                children-not-yet-running)
         runnable-step-numbers (map :index runnable-steps)
-        a (assoc a :not-runnable (apply (partial disj not-runnable) runnable-step-numbers)) ]
+        state (assoc state :not-runnable (apply (partial disj not-runnable) runnable-step-numbers)) ]
     (if (seq runnable-step-numbers)
-      (assoc a :runnable (apply (partial conj runnable) runnable-step-numbers))
-      a)))
+      (assoc state :runnable (apply (partial conj runnable) runnable-step-numbers))
+      state)))
 
 (defn- lazy-step-list
   "Create a lazy list that pops runnable steps from the state-atom."
@@ -431,8 +431,7 @@
                                 (seq (:deps step)))))
                     (apply concat) ; flatten list by one level
                     (reduce (fn [m pair] 
-                              (let [k (first pair) 
-                                    v (second pair)] 
+                              (let [[k v] pair] 
                                 (if (m k) 
                                   (assoc m k (conj (m k) v)) 
                                   (assoc m k #{v})))) 
