@@ -8,51 +8,47 @@
 (gen-class
   :name drake.event.DrakeEvent
   :prefix DrakeEvent-
-  :methods [[getTimestamp [] long]]
-  ) 
+  :methods [[getTimestamp [] long]]) 
+
 (gen-class
   :name drake.event.DrakeEventWorkflowBegin
   :extends drake.event.DrakeEvent
   :prefix DrakeEvent-
-  :methods [[getSteps [] long]]
+  :methods [[getSteps [] String]]
   :state state
-  :init init
-  ) 
+  :init init) 
+
 (gen-class
   :name drake.event.DrakeEventWorkflowEnd
   :extends drake.event.DrakeEvent
   :prefix DrakeEvent-
   :state state
-  :init init
-  ) 
+  :init init) 
+
 (gen-class
   :name drake.event.DrakeEventStepBegin
   :extends drake.event.DrakeEvent
   :prefix DrakeEvent-
-  :methods [[getStepId [] String]
-            [getStepDesc [] String]]
+  :methods [[getStep [] String]]
   :state state
-  :init init
-  ) 
+  :init init) 
+
 (gen-class
   :name drake.event.DrakeEventStepEnd
   :extends drake.event.DrakeEvent
   :prefix DrakeEvent-
-  :methods [[getStepId [] String]
-            [getStepDesc [] String]]
+  :methods [[getStep [] String]]
   :state state
-  :init init
-  ) 
+  :init init) 
+
 (gen-class
   :name drake.event.DrakeEventStepError
   :extends drake.event.DrakeEvent
   :prefix DrakeEvent-
-  :methods [[getStepId [] String]
-            [getStepDesc [] String] 
-            [getStepError [] String]]
+  :methods [[getStep [] String] 
+            [getStepError [] Throwable]]
   :state state
-  :init init
-  )
+  :init init)
 
 (defn DrakeEvent-init
   []
@@ -60,29 +56,63 @@
 
 (defn DrakeEvent-getTimestamp
   [this]
-  (:timestamp @(.state this)) 
-  )
+  (:timestamp @(.state this)) )
 
 (defn DrakeEvent-getSteps
   [this]
-  (:timestamp @(.state this)) 
-  )
+  (:steps @(.state this)))
 
-(defn DrakeEvent-getStepId
+(defn DrakeEvent-getStep
   [this]
-  (:step-id @(.state this)) 
-  )
-
-(defn DrakeEvent-getStepDesc
-  [this]
-  (:step-desc @(.state this)) 
-  )
-
+  (:step @(.state this)) )
 
 (defn DrakeEvent-getStepError
   [this]
-  (:step-error @(.state this)) 
-  )
+  (:error @(.state this)) )
 
+(defn EventWorkflowBegin
+  [steps]
+  (let [event (drake.event.DrakeEventWorkflowBegin.)
+        state (.state event)]
+    (reset! state 
+            {:timestamp (System/currentTimeMillis)
+             :steps steps})
+    event))
+
+(defn EventWorkflowEnd
+  []
+  (let [event (drake.event.DrakeEventWorkflowEnd.)
+        state (.state event)]
+    (reset! state 
+            {:timestamp (System/currentTimeMillis)})
+    event))
+
+(defn EventStepBegin
+  [step]
+  (let [event (drake.event.DrakeEventStepBegin.)
+        state (.state event)]
+    (reset! state 
+            {:timestamp (System/currentTimeMillis)
+             :step step})
+    event))
+
+(defn EventStepEnd
+  [step]
+  (let [event (drake.event.DrakeEventStepEnd.)
+        state (.state event)]
+    (reset! state 
+            {:timestamp (System/currentTimeMillis)
+             :step step})
+    event))
+
+(defn EventStepError
+  [step ^Throwable error]
+  (let [event (drake.event.DrakeEventStepError.)
+        state (.state event)]
+    (reset! state 
+            {:timestamp (System/currentTimeMillis)
+             :step step
+             :error error})
+    event))
 
 
