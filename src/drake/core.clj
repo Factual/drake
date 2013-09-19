@@ -533,8 +533,8 @@
             (println (format "Moving %s to %s..." from to))
             ;; from and to always share a filesystem
             (let [fs (first (get-fs from))]
-              (.rm fs (path-filename to))
-              (.mv fs (path-filename from) (path-filename to))))
+              (rm fs (path-filename to))
+              (mv fs (path-filename from) (path-filename to))))
           (println "Done."))))))
 
 (defn- check-for-conflicts
