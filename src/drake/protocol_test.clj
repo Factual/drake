@@ -1,6 +1,7 @@
 (ns drake.protocol-test
   (:require [clojure.string :as str])
-  (:use drake.protocol))
+  (:use drake.protocol
+        [drake-interface.core :only [Protocol]]))
 
 (def ^{:dynamic :private} test-results "")
 

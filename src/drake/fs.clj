@@ -1,9 +1,11 @@
 (ns drake.fs
   (:refer-clojure :exclude [file-seq])
   (:require [fs.core :as fs]
+            [drake.plugins :as plugins]
             [hdfs.core :as hdfs]
             [aws.sdk.s3 :as s3])
-  (:use [slingshot.slingshot :only [throw+]]
+  (:use drake-interface.core
+        [slingshot.slingshot :only [throw+]]
         [clojure.string :only [join split]]
         drake.shell
         drake.options)
@@ -45,18 +47,6 @@
   (let [spl (split filename #"/" -1)]
     (str (if (empty? (first spl)) "/" "")
          (join "/" (filter (complement empty?) spl)))))
-
-(defprotocol FileSystem
-  (exists? [_ path])
-  (directory? [_ path])
-  (mod-time [_ path])
-  (file-seq [_ path])
-  (file-info [_ path])
-  (file-info-seq [_ path])
-  (data-in? [_ path])
-  (normalized-filename [_ path])
-  (rm [_ path])
-  (mv [_ from to]))
 
 (defn assert-files-exist [fs files]
   (doseq [f files]

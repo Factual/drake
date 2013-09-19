@@ -25,39 +25,51 @@
       (pom/add-dependencies :coordinates (:plugins conf)
                             :repositories repos)
       (catch org.sonatype.aether.resolution.DependencyResolutionException e
-        (throw+ {:msg "Could not resolve all plugin dependencies. Check your plugins configuration file and make sure all dependencies are correct and exist in Maven Central, Clojars, or any additional repos you've specified."})))))
+        (throw+
+         {:msg (str "Plugin error. " (.getMessage e))})))))
 
 (defn load-plugin-deps
   "Loads onto the classpath all plugins specified in plugins configuration file f.
    f must be an EDN formatted file that reads to a hash-map with:
      :plugins       array of dependency tuples
-     :repositories  optional hash-map of Maven repos to use"
+     :repositories  optional hash-map of Maven repos to use
+
+   Returns nill regardless of whether the file is found.
+   (A missing file is taken to mean there's no plugin config desired.)"
   [f]
   (debug "looking for plugins conf file" (fs/absolute-path f))
   (when-let [conf (read-plugins-conf f)]
     (add-deps conf)))
 
-(def get-plugin-fn
-  "Returns the resolved function, based on protocol name, from loaded plugins.
-   Assumes the function is located in a namespace named drake.[protocol-name].
-   Assumes the function is named protocol-name.
-   Returns nil if the function is not found."
+(defn req-ns
+  "Attempts to require the namespace named ns-name.
+   Returns truthy only if succussful."
+  [ns-symbol]
+  (try+ (require ns-symbol)
+        true
+        (catch java.io.FileNotFoundException e nil)))
+
+(def get-reified
+  "Returns reified protocol based on protocol-name, from
+   loaded plugins. Assumes the reified protocol is returned by the function
+   named protocol-name in the namespace named [ns-prefix][protocol-name].
+   Returns nil if the expected namespace is not require-able.
+   Throws an exception if the expected namespace is found but the expected
+   function is not.
+
+   Example calls:
+     (plugins/get-reified 'drake.fs.' 'myfs')
+     (plugins/get-reified 'drake.protocol.' 'myproto')"
   (memoize
-   (fn [protocol-name]
-     (let [base-name (str "drake." protocol-name)
-           namespace (symbol base-name)
-           f-symbol-name (str base-name "/" protocol-name)
-           f-symbol  (symbol f-symbol-name)]
-       (try+ (require namespace)
-             (catch java.io.FileNotFoundException e
-               (throw+ {:msg (str
-                 "Could not find plugin namespace '" namespace
-                 "' on the classpath."
-                 " Make sure your plugins conf file exists and"
-                 " includes the plugins you need.")})))
-       (try+ (resolve f-symbol)
-             (catch java.io.FileNotFoundException e
-               (throw+ {:msg (str
-                 "There is no function named '%s' in the plugin namespace '%s'"
-                 "There is something hokey about that plugin."
-                 f-symbol namespace)})))))))
+   (fn [ns-prefix protocol-name]
+     (let [ns-symbol-name (str ns-prefix protocol-name)
+           ns-symbol      (symbol ns-symbol-name)
+           f-symbol-name  (str ns-symbol-name "/" protocol-name)
+           f-symbol       (symbol f-symbol-name)]
+       (when (req-ns ns-symbol)
+         (try+ ((resolve f-symbol))
+               (catch java.io.FileNotFoundException e
+                 (throw+ {:msg (str
+                                "Bad plugin: There is no function named '%s' in "
+                                "the plugin namespace '%s'"
+                                f-symbol-name ns-symbol-name)}))))))))
