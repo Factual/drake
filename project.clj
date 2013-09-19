@@ -8,7 +8,6 @@
                  "releases" "http://maven.corp.factual.com/nexus/content/repositories/releases"
                  "snapshots" {:url "http://maven.corp.factual.com/nexus/content/repositories/snapshots" :snapshot {:update :always}}}
 
-  
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [org.clojure/tools.logging "0.2.3"]
                  [clj-logging-config "1.9.6"]
@@ -22,11 +21,11 @@
                  [factual/fnparse "2.3.0"]
                  [commons-codec/commons-codec "1.6"]
                  [factual/sosueme "0.0.15"]
-                 [factual/c4 "0.1.1"]
+                 [factual/c4 "0.0.9-NO-FACEBOOK"]
                  ;; for HDFS support
                  [hdfs-clj "0.1.0"]
                  ;; you may need to change this to be compatible with your cluster
-                 [org.apache.hadoop/hadoop-core "0.20.2"]
+                 [org.apache.hadoop/hadoop-core "0.20.2-cdh3u4"]
                  ;; for AWS S3 support
                  [clj-aws-s3 "0.3.3"]
                  ;; for plugins
