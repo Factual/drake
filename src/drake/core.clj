@@ -533,7 +533,7 @@
                     (finally
                       (swap! state-atom update-state-atom-when-step-finishes step)
                       (when (realized? (:exception-promise step))
-                        (post event-bus (EventStepError sanitized-step (.getMessage @(:exception-promise step)))))
+                        (post event-bus (EventStepError sanitized-step @(:exception-promise step))))
                       (post event-bus (EventStepEnd sanitized-step))
                       (.release semaphore)))) 
           (recur (rest steps)))))))

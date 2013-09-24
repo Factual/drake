@@ -21,7 +21,7 @@
                  [factual/fnparse "2.3.0"]
                  [commons-codec/commons-codec "1.6"]
                  [factual/sosueme "0.0.15"]
-                 [factual/c4 "0.0.9-NO-FACEBOOK"]
+                 [factual/c4 "0.1.2"]
                  ;; for HDFS support
                  [hdfs-clj "0.1.0"]
                  ;; you may need to change this to be compatible with your cluster
