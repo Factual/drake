@@ -1,5 +1,6 @@
 (ns drake.event
   (:require [clojure.string :as str]
+            [cheshire.core :refer :all]
             [clj-logging-config.log4j :as log4j])
   (:use [clojure.tools.logging :only [info debug trace error]]
         [slingshot.slingshot :only [try+ throw+]]
@@ -8,7 +9,8 @@
 (gen-class
   :name drake.event.DrakeEvent
   :prefix DrakeEvent-
-  :methods [[getTimestamp [] long]]) 
+  :methods [[getTimestamp [] long]
+            [getState [] String]]) 
 
 (gen-class
   :name drake.event.DrakeEventWorkflowBegin
@@ -46,7 +48,7 @@
   :extends drake.event.DrakeEvent
   :prefix DrakeEvent-
   :methods [[getStep [] String] 
-            [getStepError [] Throwable]]
+            [getStepError [] String]]
   :state state
   :init init)
 
@@ -58,13 +60,17 @@
   [this]
   (:timestamp @(.state this)) )
 
+(defn DrakeEvent-getState
+  [this]
+  (generate-string @(.state this)) )
+
 (defn DrakeEvent-getSteps
   [this]
-  (:steps @(.state this)))
+  (generate-string (:steps @(.state this))))
 
 (defn DrakeEvent-getStep
   [this]
-  (:step @(.state this)) )
+  (generate-string (:step @(.state this))))
 
 (defn DrakeEvent-getStepError
   [this]
@@ -75,7 +81,8 @@
   (let [event (drake.event.DrakeEventWorkflowBegin.)
         state (.state event)]
     (reset! state 
-            {:timestamp (System/currentTimeMillis)
+            {:type "worfklow-begin"
+             :timestamp (System/currentTimeMillis)
              :steps steps})
     event))
 
@@ -84,7 +91,8 @@
   (let [event (drake.event.DrakeEventWorkflowEnd.)
         state (.state event)]
     (reset! state 
-            {:timestamp (System/currentTimeMillis)})
+            {:type "workflow-end"
+             :timestamp (System/currentTimeMillis)})
     event))
 
 (defn EventStepBegin
@@ -92,7 +100,8 @@
   (let [event (drake.event.DrakeEventStepBegin.)
         state (.state event)]
     (reset! state 
-            {:timestamp (System/currentTimeMillis)
+            {:type "step-begin"
+             :timestamp (System/currentTimeMillis)
              :step step})
     event))
 
@@ -101,16 +110,18 @@
   (let [event (drake.event.DrakeEventStepEnd.)
         state (.state event)]
     (reset! state 
-            {:timestamp (System/currentTimeMillis)
+            {:type "step-end"
+             :timestamp (System/currentTimeMillis)
              :step step})
     event))
 
 (defn EventStepError
-  [step ^Throwable error]
+  [step error]
   (let [event (drake.event.DrakeEventStepError.)
         state (.state event)]
     (reset! state 
-            {:timestamp (System/currentTimeMillis)
+            {:type "step-error"
+             :timestamp (System/currentTimeMillis)
              :step step
              :error error})
     event))

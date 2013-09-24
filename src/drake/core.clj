@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [file-seq])
   (:import [java.util.concurrent Semaphore])
   (:require [clojure.set :as set]
-            [cheshire.core :refer :all]
             [clojure.string :as str]
             [clj-logging-config.log4j :as log4j]
             [fs.core :as fs]
@@ -30,6 +29,12 @@
 
 (def VERSION "0.1.5-SNAPSHOT")
 (def PLUGINS-FILE "plugins.edn")
+
+(def DEFAULT-OPTIONS {:workflow "./Drakefile"
+                      :logfile "drake.log"
+                      :jobs 1
+                      :plugins PLUGINS-FILE
+                      :tmpdir ".drake"})
 
 ;; TODO(artem)
 ;; Optimize for repeated BASE prefixes (we can't just show it
@@ -506,13 +511,13 @@
                   (function-for-step parse-tree steps promises-indexed step))) 
          steps)))
 
-(defn- jsonify-step
-  [step]
-  (generate-string (dissoc step :function :promise :exception-promise)))
-
 (defn- post 
   [event-bus event]
   (when event-bus (.post event-bus event)))
+
+(defn- sanitize-step
+  [step]
+  (dissoc step :function :promise :exception-promise))
 
 (defn- trigger-futures-helper
   [jobs lazy-steps state-atom event-bus]
@@ -521,15 +526,15 @@
       (.acquire semaphore)
       (when (seq steps)
         (let [step (first steps)
-              json-step (jsonify-step step)]
+              sanitized-step (sanitize-step step)]
           (future (try 
-                    (post event-bus (EventStepBegin json-step))
+                    (post event-bus (EventStepBegin sanitized-step))
                     ((:function step))
                     (finally
                       (swap! state-atom update-state-atom-when-step-finishes step)
                       (when (realized? (:exception-promise step))
-                        (post event-bus (EventStepError json-step @(:exception-promise step))))
-                      (post event-bus (EventStepEnd json-step))
+                        (post event-bus (EventStepError sanitized-step (.getMessage @(:exception-promise step)))))
+                      (post event-bus (EventStepEnd sanitized-step))
                       (.release semaphore)))) 
           (recur (rest steps)))))))
 
@@ -575,8 +580,7 @@
                              assoc-promise
                              (assoc-function parse-tree))]
 
-          (info (generate-string steps-data {:pretty true}))
-          (post event-bus (EventWorkflowBegin (generate-string steps-data)))  
+          (post event-bus (EventWorkflowBegin steps-data))  
 
           (trigger-futures jobs steps-future event-bus)
 
@@ -916,11 +920,7 @@
         ;; if a flag is specified, clojopts adds the corresponding key
         ;; to the option map with nil value. here we convert them to true.
         ;; also, the defaults are specified here.
-        options (into {:workflow "./Drakefile"
-                       :logfile "drake.log"
-                       :jobs 1
-                       :plugins PLUGINS-FILE
-                       :tmpdir ".drake"}
+        options (into DEFAULT-OPTIONS
                       (for [[k v] options] [k (if (nil? v) true v)]))]
     (flush)    ;; we need to do it for help to always print out
     (let [targets (if (empty? targets) ["=..."] targets)]
@@ -959,13 +959,15 @@
 (defn -run_opts
   "Explicitly for use from Java"
   [opts]
-  (run-opts (into {} (for [[k v] opts] [(keyword k) v]))))
+  (run-opts (into DEFAULT-OPTIONS 
+                  (for [[k v] opts] [(keyword k) v]))))
 
 (defn -run_opts_with_event_bus
   "Explicitly for use from Java"
   [opts event_bus]
   (let [opts (merge {:guava-event-bus event_bus} opts)]
-    (run-opts (into {} (for [[k v] opts] [(keyword k) v])))))
+    (run-opts (into DEFAULT-OPTIONS
+                    (for [[k v] opts] [(keyword k) v])))))
 
 (defn run-workflow
   ([workflow & {:as opts}]
