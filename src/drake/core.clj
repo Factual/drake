@@ -500,14 +500,16 @@
                 parentals (intersection (:parents tree-step) indexes)
                 opts (:opts tree-step)
                 input-tags (:input-tags tree-step)
-                output-tags (:output-tags tree-step)] 
+                output-tags (:output-tags tree-step)
+                id (:id tree-step)] 
             (assoc % 
                    :name (step-string tree-step)
                    :children (or children #{}) 
                    :parents (or parentals #{})
                    :opts opts
                    :input-tags input-tags
-                   :output-tags output-tags)) 
+                   :output-tags output-tags
+                   :id id)) 
          steps)))
 
 (defn- assoc-no-stdin-opt 
@@ -804,7 +806,10 @@
         ;;
         ;; Then the file will be created in the correct location.
         (fs/with-cwd (fs/parent abs-filename)
-          (let [parse-tree (parse-file abs-filename (build-vars))]
+          (let [parse-tree (parse-file abs-filename (build-vars))
+                parse-tree (map (fn [step] 
+                                  (assoc step :id (str (java.util.UUID/randomUUID)))) 
+                                parse-tree)] ; add unique ID to each step
             (f parse-tree)))))))
 
 (defn split-command-line
