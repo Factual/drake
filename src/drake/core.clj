@@ -810,6 +810,7 @@
                 steps (map (fn [step] 
                              (assoc step :id (str (java.util.UUID/randomUUID)))) 
                            (:steps parse-tree)) ; add unique ID to each step 
+                steps (into [] steps)
                 parse-tree (assoc parse-tree :steps steps)] 
             (f parse-tree)))))))
 
