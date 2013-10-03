@@ -1,7 +1,8 @@
 ## 0.1.4
 
- * Added support for plugins. See [Plugins wiki page](https://github.com/Factual/drake/wiki/Plugins)
- * TODO(aaron): other changes?
+ * Added support for async execution of steps via --jobs (thanks guillaume and myronahn). See [Async Execution of Steps](https://github.com/Factual/drake/wiki/Async-Execution-of-Steps)
+ * Added support for plugins via --plugins. See [Plugins wiki page](https://github.com/Factual/drake/wiki/Plugins)
+ * Internal cleanup of drake.fs design (thanks stanistan)
 
 ## 0.1.3
 
