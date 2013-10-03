@@ -1,5 +1,6 @@
 (ns drake.shell
   (:use [clojure.string :only [join]]
+        [clojure.tools.logging :only [debug]]
         [slingshot.slingshot :only [throw+]]
         [clojure.java.io :only [as-file]]
         drake.stdin)
@@ -74,6 +75,7 @@
      :use-shell     If true, use system's shell to run the provided command.
                     The command and all its argument are concatenated via
                     a space and given to $SHELL -c.
+     :no-stdin      Do not redirect stdin to the child process
 
    Returns the child process' exit code.
 
@@ -81,7 +83,7 @@
   [& args]
   (let [[cmd raw-opts] (split-with string? args)
         opts (apply hash-map raw-opts)
-        {:keys [out err die use-shell]} opts
+        {:keys [out err die use-shell no-stdin]} opts
         env (as-env-strings (if (:replace-env opts)
                               (:env opts)
                               (merge (into {} (System/getenv)) (:env opts))))
@@ -95,7 +97,9 @@
                     cmd-for-exec
                     env
                     fs/*cwd*)]
-    (let [stdin  (Thread. #(copy-stdin proc))
+    ;; Pass stdin to process unless :no-stdin option is set
+    ;; Usually set when async is on
+    (let [stdin  (and (not no-stdin) (Thread. #(copy-stdin proc)))
           ;; because we're starting two threads to process stdout & stderr,
           ;; there's NO GUARANTEE that lines output to these streams will appear
           ;; in correct order relative to each other. if the child process
@@ -112,18 +116,19 @@
                             (.getErrorStream proc)
                             (if err err [System/err])))]
       ;; start threads
-      (doseq [t [stdin stdout stderr]] (.start t))
+      (doseq [t [stdin stdout stderr]] (when t (.start t)))
       ;; we have to wait until stdout and stderr threads finish,
       ;; otherwise when the process exits, we may not have finished
       ;; copying; this does not apply to stdin since it's blocked on user
       ;; input
       (doseq [t [stdout stderr]] (.join t))
       (let [exit-code (.waitFor proc)]
-        ;; the process exited at this point, interrupt the thread
-        ;; that is waiting on user's input
-        (.interrupt stdin)
-        ;; now we can wait for its completion
-        (.join stdin)
+        (when stdin
+          ;; the process exited at this point, interrupt the thread
+          ;; that is waiting on user's input
+          (.interrupt stdin)
+          ;; now we can wait for its completion
+          (.join stdin))
         (if (and (not= 0 exit-code) die)
           (throw+ {:msg (str "shell command failed with exit code " exit-code)
                    :args args
