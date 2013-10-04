@@ -1,4 +1,5 @@
 (ns drake.protocol-interpreters
+  (:use [drake-interface.core :only [Protocol]])
   (:use drake.protocol))
 
 (defn- register-interpreter!

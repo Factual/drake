@@ -37,7 +37,7 @@
     :vars           {'BASE' '/tmp/base/'
                      'MYVAR' 'myvalue'}
       ;; directory for step's intermediate files and logs
-      ;; based on output files and output tags, created under .drake/
+      ;; based on output files and output tags, created under --tmpdir
     :dir            'A_B_use-files'
    }
 
@@ -80,6 +80,16 @@
 
 
 (def default-base "")
+
+;;
+;; Helper functions
+;;
+
+(defn ensure-ends-with-newline
+  [s]
+  (if (.endsWith s "\n") 
+    s 
+    (str s "\n")))
 
 ;;
 ;; Drake-specific grammar rules
@@ -170,7 +180,9 @@
                    (illegal-syntax-error-fn "command substitution"))]
    (let [cmd-out (java.io.StringWriter.)]
      ;; stderr preserved by default
+     (debug "shell =" prod)
      (shell prod :die true :use-shell true :out [cmd-out])
+     (debug "shell result =" (.toString cmd-out))
      (s/trim-newline (str cmd-out)))))
 
 (defn string-substitution
@@ -519,12 +531,14 @@
    nil))
 
 (declare call-or-include-line)
+(declare inline-shell-cmd-line)
 
 (def workflow
   "A workflow is a composition of various types of lines."
   (p/complex
    [body (semantic-rm-nil
-          (p/rep* (p/alt step-lines
+          (p/rep* (p/alt inline-shell-cmd-line
+                         step-lines
                          method-lines
                          call-or-include-line
                          (nil-semantics (p/conc (p/opt inline-ws) line-break))
@@ -536,6 +550,38 @@
      :vars vars)))
 
 (declare parse-state)
+
+(def inline-shell-helper
+  (p/complex
+    [tokens command-sub
+     _ (p/opt inline-ws)
+     _ (p/opt inline-comment)
+     _ (p/failpoint line-break (illegal-syntax-error-fn "inline shell command"))
+     vars (p/get-info :vars)
+     methods (p/get-info :methods)
+     line (p/get-info :line)]
+
+    (parse-state
+      (struct state-s
+              (ensure-ends-with-newline tokens)
+              vars 
+              methods 
+              0 
+              line)))) ; try to preserve line number as best we can 
+
+(def inline-shell-cmd-line
+  "input: shell command on its own line, e.g.
+  $(echo '%include dude.d')
+  The output of the shell command will be placed inline the workflow file.
+  This can be recursive, i.e. shell commands can print more shell commands.
+  
+  Split into two parts for much the same reason as call-or-include-line is."
+  (p/complex
+   [prod inline-shell-helper
+    _ (if (:vars prod)
+        (p/set-info :vars (:vars prod))
+        p/emptiness)]
+   (dissoc prod :vars)))
 
 (def call-or-include-helper
   "See call-or-include-line below"

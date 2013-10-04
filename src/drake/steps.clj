@@ -15,6 +15,7 @@
   (:use [clojure.tools.logging :only [debug trace]]
         [slingshot.slingshot :only [throw+]]
         drake.utils
+        drake.options
         [drake.fs :only [remove-extra-slashes normalized-path]])
   (:require [clojure.string :as str]
             [clojure.set :as set]
@@ -103,7 +104,7 @@
    Returns the parse tree with added :dir to each step."
   [{:keys [steps] :as parse-tree}]
   (trace "Naming steps' temporary directories...")
-  (let [drake-dir (fs/absolute-path ".drake")]
+  (let [drake-dir (fs/absolute-path (*options* :tmpdir))]
     (if (> (count drake-dir) (dec MAX_PATH))
       (throw+ {:msg (format "workflow directory name %s is too long."
                             drake-dir)}))
@@ -173,33 +174,46 @@
 
    current-chain is a vector right now, a hashset would be faster,
    but I would like to preserve the order for being able to print
-   a nice error message."
-  [tree-steps index up-tree current-chain]
+   a nice error message.
+  
+   valid-step-indices is a set of steps that are valid for expansion.
+   nil means that all steps are valid for expansion."
+  [tree-steps index up-tree current-chain valid-step-indices]
   ;;(prn index)
-  (let [step (tree-steps index)
-        current-chain-and-me (conj current-chain index)]
-    (if (not= -1 (.indexOf current-chain index))
-      (throw+ {:msg (str "cycle dependency detected: "
-                         (str/join " -> " (map #(step-str (tree-steps %))
-                                               current-chain-and-me)))}))
-    (let [all-but-me (mapcat #(expand-step-recur tree-steps %
-                                                 up-tree current-chain-and-me)
-                             (step (if up-tree :parents :children)))]
-      ;; conj appends an element to the back of the vector (which
-      ;; is what we need for up-tree mode), but to the beginning
-      ;; of the sequence (which is what we need for down-tree)
-      (conj (if up-tree (into [] all-but-me) all-but-me) index))))
+  
+  ;; Check if current step is in list of valid steps
+  (if (or (not valid-step-indices) (valid-step-indices index))
+    (let [step (tree-steps index)
+          current-chain-and-me (conj current-chain index)]
+      (if (not= -1 (.indexOf current-chain index))
+        (throw+ {:msg (str "cycle dependency detected: "
+                           (str/join " -> " (map #(step-str (tree-steps %))
+                                                 current-chain-and-me)))}))
+      (let [all-but-me (mapcat #(expand-step-recur tree-steps %
+                                                   up-tree current-chain-and-me valid-step-indices)
+                               (step (if up-tree :parents :children)))]
+        ;; conj appends an element to the back of the vector (which
+        ;; is what we need for up-tree mode), but to the beginning
+        ;; of the sequence (which is what we need for down-tree)
+        (conj (if up-tree (into [] all-but-me) all-but-me) index)))
+    []))
 
-(defn- expand-step
-  "Given a step index, return an ordered list of all steps involved
+(defn expand-step-restricted
+  "Like expand-step below, but only expand the steps that are in the 
+   valid-step-indices.  If valid-step-indices is nil, expand them all"
+  [parse-tree index tree-mode valid-step-indices]
+  ;;(prn (parse-tree :steps))
+  (if (= tree-mode :only)
+    [index]
+    (expand-step-recur (parse-tree :steps) index (nil? tree-mode) [] valid-step-indices)))
+
+(defn expand-step
+   "Given a step index, return an ordered list of all steps involved
    into building the given step.
 
    Tree mode can be either :down, :only or nil for default (up-tree)."
   [parse-tree index tree-mode]
-  ;;(prn (parse-tree :steps))
-  (if (= tree-mode :only)
-    [index]
-    (expand-step-recur (parse-tree :steps) index (nil? tree-mode) [])))
+  (expand-step-restricted parse-tree index tree-mode nil))
 
 (defn- clip-only
   [str charset]

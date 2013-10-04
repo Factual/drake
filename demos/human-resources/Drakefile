@@ -1,42 +1,27 @@
 ;
-; This is a demo workflow to show HDFS integration, multiple protocols,
-; multiple inputs, and multiple outputs.
+; This is a demo workflow to show multiple protocols, multiple inputs, and
+; multiple outputs.
 ;
-; Since you probably won't have the initial data in HDFS, nor the
-; black/magic/getskills script, you'll want to exclude those steps
-; and just use the sample data already provided. Like so, from
-; project root:
+; To run:
 ;
-;   lein run --auto --workflow demos/human-resources/workflow.d ... -people -skills
+;   lein run --auto --workflow demos/human-resources/Drakefile
 ;
 ; Or, if you have Drake installed, you can cd to this directory and do:
 ;
-;   drake ... -people -skills
+;   drake
 ;
 
 
 ;
-; Fetches sorted people from HDFS, keeping only a select few, and
-; sorting by name.
+; Filters everyone down to just the people with the right numbers.
 ;
 ; Output is like:
 ;   Artem Boytsov,310-100-0000
 ;   Vinnie Pepi,+86-310-400-0000
 ;   Will Lao,+86-310-600-0000
 ;
-people <- hdfs:/peeps/everyone
+people <- everyone
   grep 310 $INPUT | sort > $OUTPUT
-
-;
-; Calls a legacy script that knows how to download a
-; skills file, sorted by name, from our central db.
-; Output is like:
-;   Aaron Crow,java clojure gcal
-;   Alvin Chyan,java ruby clojure
-;   Maverick Lou,java clojure jenkins
-;
-skills <-
-  ~/bin/black/magic/getskills --sortby name > $OUTPUT
 
 ;
 ; Joins people to their skills. Output is like:
@@ -84,7 +69,6 @@ last_gt_first.txt, first_gt_last.txt <- people.json [ruby]
     lGf.puts(rec['name']) if last.length > first.length
     fGl.puts(rec['name']) if first.length > last.length
   end
-  nil.str
 
 ;
 ; No JSON files outside of Engineering; only CSV is acceptable!

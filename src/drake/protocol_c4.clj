@@ -18,7 +18,8 @@
   (:use [clojure.tools.logging :only [debug]]
         [slingshot.slingshot :only [throw+]]
         factql.core
-        drake.protocol))
+        drake.protocol
+        [drake-interface.core :only [Protocol]]))
 
 
 ;;

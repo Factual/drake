@@ -1,16 +1,16 @@
 (ns drake.protocol
+  (:refer-clojure :exclude [file-seq])
   (:require [clojure.string :as str]
             [fs.core :as fs]
-            digest)
+            digest
+            [drake.plugins :as plugins])
   (:use [slingshot.slingshot :only [throw+]]
         [clojure.tools.logging :only [debug]]
         [clojure.java.io :only [writer]]
+        drake-interface.core
         drake.shell
-        drake.utils))
-
-(defprotocol Protocol
-  (cmds-required? [this])
-  (run [this step]))
+        drake.utils
+        drake.options))
 
 (deftype ProtocolUnsupported []
   Protocol
@@ -26,24 +26,27 @@
 (defn get-protocol-name [step]
   ((:opts step) :protocol "shell"))
 
-(defn get-protocol [step]
-  (let [name (get-protocol-name step)
-        protocol (*protocols* name)]
-    (if-not protocol
-      (throw+ {:msg (str "unknown protocol: " name)})
-      protocol)))
+(defn get-protocol
+  "Returns the protocol indicated by step. Looks first at built-in protocols,
+   then looks in loaded plugins. Throws an exception if not found."
+  [step]
+  (let [name (get-protocol-name step)]
+    (or (*protocols* name)
+        (plugins/get-reified "drake.protocol." name)
+        (throw+ {:msg (str "unknown protocol: " name)}))))
 
 (defn create-cmd-file
   "A commonly used function for protocols such as 'shell', 'ruby' or 'python'.
 
-   Given the step, puts step's commands into a file under .drake/ directory
+   Given the step, puts step's commands into a file under --tmpdir directory
    with the filename consisting of the protocol name followed by the MD5 of
    the commands. Only creates the file if it doesn't already exists,
    serving as a simple cache.
 
    Returns the filename."
   [{:keys [cmds] :as step}]
-  (let [filename (format ".drake/%s-%s"
+  (let [filename (format "%s/%s-%s"
+                         (*options* :tmpdir)
                          (get-protocol-name step)
                          (digest/md5 (apply str cmds)))]
     ;; we need to use fs.core/file here, since fs.core/with-cwd only changes the
@@ -69,7 +72,7 @@
 
    Caches the script file using MD5, and intercepts and stores child process'
    stdout and stderr in the standard location."
-  [{:keys [vars] :as step} interpreter args]
+  [{:keys [vars opts] :as step} interpreter args]
   (let [script-filename (create-cmd-file step)
         stdout (log-file step "stdout")
         stderr (log-file step "stderr")]
@@ -78,6 +81,7 @@
                          [script-filename
                           :env vars
                           :die true
+                          :no-stdin (:no-stdin opts)
                           :out [System/out (writer stdout)]
                           :err [System/err (writer stderr)]]))
     (debug "run-interpreter: finished running" (relative-path script-filename))
