@@ -907,6 +907,8 @@
       (when (options :version)
         (println "Drake Version" VERSION "\n")
         (shutdown 0))
+      (when (some #{"--help"} opts)
+        (shutdown 0))
 
       (check-for-conflicts options)
       (set-options options)
