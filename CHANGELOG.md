@@ -1,3 +1,7 @@
+## Unreleased
+
+* bugfix: [#98](https://github.com/Factual/drake/issues/98) --help now doesn't run workflow (thanks marshallshen)
+
 ## 0.1.4
 
  * Added support for async execution of steps via --jobs (thanks guillaume and myronahn). See [Async Execution of Steps](https://github.com/Factual/drake/wiki/Async-Execution-of-Steps)
