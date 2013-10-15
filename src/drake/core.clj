@@ -27,6 +27,12 @@
 (def VERSION "0.1.4")
 (def PLUGINS-FILE "plugins.edn")
 
+(def DEFAULT-OPTIONS {:workflow "./Drakefile"
+                      :logfile "drake.log"
+                      :jobs 1
+                      :plugins PLUGINS-FILE
+                      :tmpdir ".drake"})
+
 ;; TODO(artem)
 ;; Optimize for repeated BASE prefixes (we can't just show it
 ;; without base, since it can be ambiguous)
@@ -896,11 +902,7 @@
         ;; if a flag is specified, clojopts adds the corresponding key
         ;; to the option map with nil value. here we convert them to true.
         ;; also, the defaults are specified here.
-        options (into {:workflow "./Drakefile"
-                       :logfile "drake.log"
-                       :jobs 1
-                       :plugins PLUGINS-FILE
-                       :tmpdir ".drake"}
+        options (into DEFAULT-OPTIONS
                       (for [[k v] options] [k (if (nil? v) true v)]))]
     (flush)    ;; we need to do it for help to always print out
     (let [targets (if (empty? targets) ["=..."] targets)]
@@ -941,7 +943,8 @@
 (defn -run_opts
   "Explicitly for use from Java"
   [opts]
-  (run-opts (into {} (for [[k v] opts] [(keyword k) v]))))
+  (run-opts (into DEFAULT-OPTIONS 
+                  (for [[k v] opts] [(keyword k) v]))))
 
 (defn run-workflow
   ([workflow & {:as opts}]
