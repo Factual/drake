@@ -1,9 +1,17 @@
+;;;; Drake Events
+;;;;
+;;;; Define classes and constructors intended for communicating
+;;;; Drake events to a calling program so that the calling program
+;;;; can track the progress of a workflow.
+
 (ns drake.event
   (:require [cheshire.core :as json]
             [clj-logging-config.log4j :as log4j])
   (:use [clojure.tools.logging :only [info debug trace error]]
         [slingshot.slingshot :only [try+ throw+]]
         sosueme.throwables)) 
+
+;;; Class definitions
 
 (gen-class
   :name drake.event.DrakeEvent
@@ -51,6 +59,8 @@
   :state state
   :init init)
 
+;;; Class methods
+
 (defn DrakeEvent-init
   []
   [[] (atom {})])
@@ -75,6 +85,8 @@
   [this]
   (json/generate-string (:error @(.state this))))
 
+;;; Class "constructors"
+
 (defn setup-event-state
   [event state-props]
   (let [state (.state event)]
@@ -83,33 +95,42 @@
   event)
 
 (defn EventWorkflowBegin
+  "Constructor function for EventWorkflowBegin class.
+  Takes a JSON array of step hashes."
   [steps]
   (setup-event-state (drake.event.DrakeEventWorkflowBegin.)
                      {:type "worfklow-begin"
                       :steps steps}))
 
 (defn EventWorkflowEnd
+  "Constructor function for EventWorkflowEnd class."
   []
   (setup-event-state (drake.event.DrakeEventWorkflowEnd.)
                      {:type "workflow-end"}))
 
 (defn EventStepBegin
+  "Constructor function for EventStepBegin class.
+  Takes a JSON hash with all the step info."
   [step]
   (setup-event-state (drake.event.DrakeEventStepBegin.)
                      {:type "step-begin"
                       :step step}))
 
 (defn EventStepEnd
+  "Constructor function for EventStepEnd class.
+  Takes a JSON hash with all the step info."
   [step]
   (setup-event-state (drake.event.DrakeEventStepEnd.)
                      {:type "step-end"
                       :step step}))
 
 (defn EventStepError
+  "Constructor function for EventStepError class.
+  Takes a JSON hash with all the step info and a 
+  Throwable that represents the error."
   [step ^Throwable error]
   (setup-event-state (drake.event.DrakeEventStepError.)
                      {:type "step-error"
                       :step step
                       :error (.toString error)}))
-
 
