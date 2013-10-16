@@ -9,7 +9,6 @@
             [fs.core :as fs]
             [factql.core :as factql]
             [c4.apis.foursquare :as foursquare]
-            [c4.apis.facebook :as facebook]
             [c4.apis.yelp :as yelp]
             [c4.apis.google :as google]
             [sosueme.conf :as conf]
@@ -107,7 +106,6 @@
   (init-if! "factual"     #(factql/init! %))
   (init-if! "yelp"        #(yelp/init! %))
   (init-if! "foursquare"  #(foursquare/init! %))
-  (init-if! "facebook"    #(facebook/init! %))
   (init-if! "google"      #(google/init! %)))
 
 (defn add-ns [clj-str]
