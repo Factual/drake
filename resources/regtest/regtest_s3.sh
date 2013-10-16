@@ -7,7 +7,7 @@
 # found at ~/.s3cfs, and that you have access to the 
 # civ-test-drake bucket. 
 source $(dirname $0)/regtest_utils.sh
-export bucket="factual-test-drake"
+export bucket="civ-test-drake"
 
 # do we have access to s3
 if s3cmd ls s3://$bucket >/dev/null 2>&1; then
