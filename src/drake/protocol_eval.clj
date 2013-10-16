@@ -3,7 +3,8 @@
 ;; while putting the rest of the body into the environment variable "CODE".
 
 (ns drake.protocol-eval
-  (:use drake.protocol)
+  (:use drake.protocol
+        [drake-interface.core :only [Protocol]])
   (:require [clojure.string :as str]
             drake.protocol_interpreters))
 

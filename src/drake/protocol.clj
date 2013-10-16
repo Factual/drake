@@ -1,4 +1,5 @@
 (ns drake.protocol
+  (:refer-clojure :exclude [file-seq])
   (:require [clojure.string :as str]
             [fs.core :as fs]
             digest
@@ -6,13 +7,10 @@
   (:use [slingshot.slingshot :only [throw+]]
         [clojure.tools.logging :only [debug]]
         [clojure.java.io :only [writer]]
+        drake-interface.core
         drake.shell
         drake.utils
         drake.options))
-
-(defprotocol Protocol
-  (cmds-required? [this])
-  (run [this step]))
 
 (deftype ProtocolUnsupported []
   Protocol
@@ -28,27 +26,13 @@
 (defn get-protocol-name [step]
   ((:opts step) :protocol "shell"))
 
-(defn from-plugins
-  "Returns the reified protocol loaded from installed plugins.
-   Returns nil if no protocol with protocol name is found in plugins.
-
-   The returned protocol's cmds-required? will be set based on the
-   :no-cmds-required metadata entry as set in the function definition in
-   the corresponding plugin. If there's no :no-cmds-required set, then
-   cmds-required? defaults to true."
-  [protocol-name]
-  (when-let [f (plugins/get-plugin-fn protocol-name)]
-    (reify Protocol
-      (cmds-required? [_] (not (:no-cmds-required (meta f))))
-      (run [_ step] (f step)))))
-
 (defn get-protocol
   "Returns the protocol indicated by step. Looks first at built-in protocols,
    then looks in loaded plugins. Throws an exception if not found."
   [step]
   (let [name (get-protocol-name step)]
     (or (*protocols* name)
-        (from-plugins name)
+        (plugins/get-reified "drake.protocol." name)
         (throw+ {:msg (str "unknown protocol: " name)}))))
 
 (defn create-cmd-file

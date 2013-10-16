@@ -9,7 +9,8 @@
             drake.protocol_interpreters
             drake.protocol_c4
             drake.protocol_eval
-            drake.event)
+            drake.event
+            [drake-interface.core :as di])
   (:use [clojure.tools.logging :only [info debug trace error]]
         [slingshot.slingshot :only [try+ throw+]]
         clojure.set
@@ -77,7 +78,7 @@
         branch-adjusted-inputs (if (empty? branch)
                                  inputs
                                  (map #(if (or add-to-all
-                                               (fs data-in? (str % "#" branch)))
+                                               (fs di/data-in? (str % "#" branch)))
                                          (str % "#" branch)
                                          %)
                                       inputs))]
@@ -175,7 +176,7 @@
   [step forced triggered match-type fail-on-empty]
   (trace "should-build? fail-on-empty: " fail-on-empty)
   (let [{:keys [inputs outputs opts]} (branch-adjust-step step false)
-        empty-inputs (filter #(not (fs data-in? %)) inputs)
+        empty-inputs (filter #(not (fs di/data-in? %)) inputs)
         no-outputs (empty? outputs)]
     (trace "should-build? forced:" forced)
     (trace "should-build? match-type:" match-type)
@@ -198,7 +199,7 @@
        ;; one or more outputs are missing? (can only look for those
        ;; for targets which were specified explicitly, not triggered)
        (and (not triggered)
-            (some #(not (fs data-in? %)) outputs)) "missing output"
+            (some #(not (fs di/data-in? %)) outputs)) "missing output"
        ;; timecheck disabled
        (= false (get-in step [:opts :timecheck])) nil
        ;; built as a dependency?
@@ -208,7 +209,7 @@
        :else
        (let [input-files (mapv newest-in inputs)
              newest-input (apply max (map :mod-time input-files))
-             output-files (mapv oldest-in (filter #(fs data-in? %) outputs))]
+             output-files (mapv oldest-in (filter #(fs di/data-in? %) outputs))]
          (let [oldest-output (apply min (map :mod-time output-files))]
            (debug (format "Timestamp checking, inputs: %s, outputs: %s"
                           input-files output-files))
@@ -781,7 +782,7 @@
         ;; vector of tuples [from, to]
         outputs-for-move (filter identity
                                  (map #(let [branched (str % "#" branch)]
-                                         (if (fs data-in? branched)
+                                         (if (fs di/data-in? branched)
                                            [branched %]
                                            nil)) all-outputs))]
     (if (empty? outputs-for-move)
@@ -792,8 +793,8 @@
             (println (format "Moving %s to %s..." from to))
             ;; from and to always share a filesystem
             (let [fs (first (get-fs from))]
-              (.rm fs (path-filename to))
-              (.mv fs (path-filename from) (path-filename to))))
+              (di/rm fs (path-filename to))
+              (di/mv fs (path-filename from) (path-filename to))))
           (println "Done."))))))
 
 (defn- check-for-conflicts
@@ -926,6 +927,8 @@
     (let [targets (if (empty? targets) ["=..."] targets)]
       (when (options :version)
         (println "Drake Version" VERSION "\n")
+        (shutdown 0))
+      (when (some #{"--help"} opts)
         (shutdown 0))
 
       (check-for-conflicts options)

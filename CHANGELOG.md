@@ -1,7 +1,13 @@
+## Unreleased
+
+* bugfix: [#98](https://github.com/Factual/drake/issues/98) --help now doesn't run workflow (thanks marshallshen)
+* Upgrade to c4 0.2.0, which no longer bundles the Facebook API
+
 ## 0.1.4
 
- * Added support for plugins. See [Plugins wiki page](https://github.com/Factual/drake/wiki/Plugins)
- * TODO(aaron): other changes?
+ * Added support for async execution of steps via --jobs (thanks guillaume and myronahn). See [Async Execution of Steps](https://github.com/Factual/drake/wiki/Async-Execution-of-Steps)
+ * Added support for plugins via --plugins. See [Plugins wiki page](https://github.com/Factual/drake/wiki/Plugins)
+ * Internal cleanup of drake.fs design (thanks stanistan)
 
 ## 0.1.3
 
