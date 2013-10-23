@@ -13,7 +13,7 @@
                  [digest "1.4.0"]
                  [com.google.guava/guava "14.0.1"]
                  [cheshire "5.2.0"]
-                 [slingshot "0.10.2"]
+                 [slingshot "0.10.3"]
                  [factual/fnparse "2.3.0"]
                  [commons-codec/commons-codec "1.6"]
                  [factual/sosueme "0.0.15"]
