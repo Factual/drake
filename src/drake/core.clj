@@ -465,9 +465,8 @@
   (let [prom (:promise step)]
     (try
       ; run the step (the actual job)
-      (let [step-ran (run-step parse-tree (:index step) step)]
-        (when step-ran 
-          (deliver prom 1))) ; delivers a promise of 1/success 
+      (run-step parse-tree (:index step) step)
+      (deliver prom 1) ; delivers a promise of 1/success  
       (catch Exception e 
         (error (str "caught exception step " (:index step) ": ") (.getMessage e) (.printStackTrace e))
         (deliver (:exception-promise step) e))
