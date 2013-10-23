@@ -28,7 +28,7 @@
   (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]
                         #^{:static true} [run_opts_with_event_bus [java.util.Map com.google.common.eventbus.EventBus] void]]))
 
-(def VERSION "0.1.5-SNAPSHOT")
+(def VERSION "0.1.6-SNAPSHOT")
 (def PLUGINS-FILE "plugins.edn")
 (def DEFAULT-VARS-SPLIT-REGEX-STR ",(?=([^\"]*\"[^\"]*\")*[^\"]*$)")
 
@@ -239,8 +239,8 @@
     (trace "should-build? empty inputs: " empty-inputs)
     (trace "should-build? no-outputs: " no-outputs)
     (if (and (not (empty? empty-inputs)) (or fail-on-empty (not triggered)))
-      (throw+ {:msg (str "no input data found in locations: "
-                         (str/join ", " empty-inputs))})
+      (throw (Exception. (str "no input data found in locations: "
+                              (str/join ", " empty-inputs))))
       ;; check that all output files are present
       (cond
        forced (str "forced" (if (not= match-type :output)
@@ -841,14 +841,11 @@
 
 (defn- configure-logging
   []
-  (let [level-map {:debug :debug
-                   :trace :trace
-                   :quiet :error}
-        loglevel (if-let [level (first (apply set/intersection
-                                              (map #(into #{} (keys %))
-                                                   [level-map *options*])))]
-                   (level-map level)
-                   :info)
+  (let [loglevel (cond
+                   (:trace *options*) :trace
+                   (:debug *options*) :debug
+                   (:quiet *options*) :error
+                   :else :info)
         logfile (:logfile *options*)
         logfile (if (fs/absolute? logfile)
                   logfile
@@ -1069,6 +1066,13 @@
 (defn run-opts [opts]
   (let [opts (merge {:auto true} opts)]
     (set-options opts)
+    (configure-logging)
+
+    (debug "Drake" VERSION)
+    (info "Clojure version:" *clojure-version*)
+    (info "Options:" opts)
+
+    (load-plugin-deps (*options* :plugins))
     (with-workflow-file #(run % (:targetv opts)))))
 
 (defn -run_opts
