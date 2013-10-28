@@ -26,6 +26,7 @@
 
 (def VERSION "0.1.4")
 (def PLUGINS-FILE "plugins.edn")
+(def DEFAULT-VARS-SPLIT-REGEX-STR ",(?=([^\"]*\"[^\"]*\")*[^\"]*$)")
 
 (def DEFAULT-OPTIONS {:workflow "./Drakefile"
                       :logfile "drake.log"
@@ -634,9 +635,9 @@
         (shutdown-agents)))
     (System/exit exit-code)))
 
-(defn parse-cli-vars [vars-str]
+(defn parse-cli-vars [vars-str split-regex-str]
   (when-not (empty? vars-str)
-    (let [pairs (str/split vars-str #",")]
+    (let [pairs (str/split vars-str (re-pattern split-regex-str))]
       (reduce
        (fn [acc pair]
          (let [spl (str/split pair #"=" -1)]
@@ -649,11 +650,14 @@
        pairs))))
 
 (defn build-vars []
-  (merge
-   (into {} (System/getenv))
-   (parse-cli-vars (*options* :vars))
-   (when-let [base (*options* :base)]
-     {"BASE" base})))
+  (let [split-regex-str (or
+                          (*options* :split-vars-regex)
+                          DEFAULT-VARS-SPLIT-REGEX-STR)]
+    (merge
+      (into {} (System/getenv))
+      (parse-cli-vars (*options* :vars) split-regex-str)
+      (when-let [base (*options* :base)]
+        {"BASE" base}))))
 
 (defn- with-workflow-file
   "Reads the workflow file from command-line options, parses it,
@@ -698,7 +702,8 @@
   [args]
   (let [non-flag-long #{"--workflow" "--branch" "--merge-branch"
                         "--logfile" "--vars" "--base" "--plugins"
-                        "--aws-credentials" "--step-delay" "--jobs" "--tmpdir"}
+                        "--aws-credentials" "--step-delay" "--jobs" "--tmpdir"
+                        "--split-vars-regex"}
         non-flag-short #{\w \b \l \v \s \j}]
     (loop [i 0]
       (if (>= i (count args))
@@ -890,7 +895,11 @@
                    (with-arg tmpdir
                        "Specifies the temporary directory for Drake files (by default, .drake/ in the same directory the main workflow file is located)."
                        :type :str
-                       :user-name "tmpdir"))
+                       :user-name "tmpdir")
+                   (with-arg split-vars-regex
+                       "Specifies a regex to split up the --vars argument (by default, a regex that splits on commas except commas within double quotes)."
+                       :type :str
+                       :user-name "regex"))
                   (catch IllegalArgumentException e
                     (println
                       (str "\nUnrecognized option: "
