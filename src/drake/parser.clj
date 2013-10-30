@@ -264,11 +264,12 @@
 (def arrow (p/conc lt-sign hyphen))
 
 (def file-name
-  (p/complex [sign (p/opt
+  (p/complex [temp (p/opt tilde)
+              sign (p/opt
                     (p/alt exclamation-mark percent-sign question-mark caret))
               name (string-substitution filename-chars)
               end-marker (p/opt dollar-sign)]
-             (str sign name end-marker)))
+             (str temp sign name end-marker)))
 
 
 (def name-list
@@ -282,12 +283,20 @@
                         second))]   ;; first is ",", second is <file-name>
    (cons first-file rest-files)))
 
-(defn add-prefix
+(defn add-prefix-helper
   "Appends prefix if necessary (unless prepended by '!')."
   [prefix file]
   (if (= \! (first file))
     (clip file)
     (str prefix file)))
+
+(defn add-prefix
+  "Appends prefix if necessary (unless prepended by '!').
+  Also, if there is a ~ at the beginning, move it in front of the prefix."
+  [prefix file]
+  (if (= \~ (first file))  
+    (str "~" (add-prefix-helper prefix (clip file))) 
+    (add-prefix-helper prefix file)))
 
 (defn add-path-sep-suffix [path]
   (if (or (empty? path)
@@ -364,15 +373,25 @@
          [intags infiles] (demix inputs #(= \% (first %)))
          intags (remove-tag-symbol intags)
          infiles-with-base (map-base-prefix infiles)
+         [infiles-with-base-temp infiles-with-base] (demix infiles-with-base #(= \~ (first %)))
+         infiles-with-base-temp (map clip infiles-with-base-temp)
+         infiles-with-base (into infiles-with-base infiles-with-base-temp)
 
          [outtags outfiles] (demix outputs #(= \% (first %)))
          outtags (remove-tag-symbol outtags)
          outfiles-with-base (map-base-prefix outfiles)
+         [outfiles-with-base-temp outfiles-with-base] (demix outfiles-with-base #(= \~ (first %)))
+         outfiles-with-base-temp (map clip outfiles-with-base-temp)
+         outfiles-with-base (into outfiles-with-base outfiles-with-base-temp)
+
          ;; this is used for target matching, just remove all
          ;; prefixes
-         outfiles-raw (mapv #(if (#{\! \?} (first %))
+         outfiles-raw (mapv #(if (#{\~} (first %))
                                (clip %)
                                %) outfiles)
+         outfiles-raw (mapv #(if (#{\! \?} (first %))
+                               (clip %)
+                               %) outfiles-raw)
          ;; even though we will expand INPUT and OUTPUT variables later,
          ;; for now just put placeholders there for variable name checking
          vars (merge vars (into {} (map #(vector (first %1) "*placeholder*")
@@ -385,6 +404,8 @@
       :raw-outputs outfiles-raw
       :outputs     outfiles-with-base
       :output-tags outtags
+      :temp-inputs infiles-with-base-temp
+      :temp-outputs outfiles-with-base-temp
       :vars        vars
       :opts        (if (nil? opts) {} opts)})))
 

@@ -85,6 +85,8 @@
           :output-tags ["outtag1" "outtag2"]
           :inputs '("/base/b" "/base/c")
           :input-tags ["intag"]
+          :temp-inputs []
+          :temp-outputs []
           :opts {}}))
   (let [actual-prod (first (d/step-def-line
                             (make-state "a <- b [shell] ;comment \n")))]
@@ -115,6 +117,8 @@
             :inputs '("/base/b")
             :input-tags []
             :output-tags []
+            :temp-inputs []
+            :temp-outputs []
             :opts {}}))
     (is (var-eq? actual-tuple :inputs nil)) ; verify :vars state not changed
                                             ; after step has concluded
