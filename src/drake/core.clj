@@ -184,9 +184,7 @@
     (trace "expand-outputs empty-temp-output-step-deps:" empty-temp-output-step-deps)
     (trace "expand-outputs expanded-temp-outputs" expanded-temp-outputs)
 
-    (concat real-outputs existing-temp-outputs expanded-temp-outputs)
-    )
-  )
+    (concat real-outputs existing-temp-outputs expanded-temp-outputs)))
 
 (defn- should-build?
   "Given the parse tree and a step index, determines whether it should
@@ -246,6 +244,8 @@
        (= false (get-in step [:opts :timecheck])) nil
        ;; built as a dependency?
        triggered "projected timestamped"
+       ;; if there are nothing but temp inputs, don't build
+       (and (empty? inputs) (not (empty? temp-inputs))) nil
        ;; no-input steps are always rebuilt
        (empty? inputs) "no-input step"
        :else
@@ -364,7 +364,7 @@
     (let [step-descr (step-string (branch-adjust-step step false))
           step (update-in step [:opts] #(merge % opts))
           step (prepare-step-for-run step parse-tree)
-          step-list (map :index step)
+          step-list (map :index steps)
           should-build (should-build? parse-tree step-list step (= build :forced)
                                       false match-type true)]
       (info "")
@@ -600,6 +600,27 @@
   [steps]
   (reduce + (map (fn [step] @(:promise step)) steps)))
 
+(defn- setup-temp-deleting-futures
+  [parse-tree steps]
+  (let [steps-map (zipmap (map :index steps) steps)
+        steps-set (into #{} (map :index steps))]
+    (doseq [[file deps] (parse-tree :temp-input-map-lookup)]
+      (let [trimmed-deps (map steps-set deps)]
+        (when (not (empty? trimmed-deps))
+          (future 
+            (try
+              (info "Running future for file" file "deps" deps) 
+              (let [successful-deps-count (reduce + 
+                                                  (map (fn [i] 
+                                                         @((steps-map i) :promise)) 
+                                                       trimmed-deps))] 
+                (info "Finished waiting for dependents of file" file "deps" deps "successful-count" successful-deps-count)
+                (when (= successful-deps-count (count trimmed-deps))
+                  (info "DELETING TEMP FILE" file)
+                  (fs di/rm file)))
+              (catch Exception e 
+                (error "Future for file" file "Caught exception" e)))))))))
+
 (defn- run-steps-async 
   "Runs steps asynchronously.
    If concurrence = 1, this will run the steps in the same order as the
@@ -627,6 +648,8 @@
                              assoc-exception-promise
                              assoc-promise
                              (assoc-function parse-tree))]
+
+          (setup-temp-deleting-futures parse-tree steps-future)
 
           (post event-bus (EventWorkflowBegin steps-data))  
 
