@@ -124,6 +124,24 @@
                                             ; after step has concluded
     ))
 
+(deftest step-test-temp-files
+  (let [actual-tuple (d/step-lines (make-state
+                          (str "~a <- ~b\n"
+                               "  c $[OUTPUT0]\n")))]
+    (is (= (dissoc (first (:steps (first actual-tuple))) :vars)
+           {:cmds [[\space \space \c \space #{"OUTPUT0"}]]
+            :raw-outputs ["a"]
+            :outputs ["/base/a"]
+            :inputs '("/base/b")
+            :input-tags []
+            :output-tags []
+            :temp-inputs ["/base/b"]
+            :temp-outputs ["/base/a"]
+            :opts {}}))
+    (is (var-eq? actual-tuple :inputs nil)) ; verify :vars state not changed
+                                            ; after step has concluded
+    ))
+
 (deftest template-test
   (is (:templates (first (d/step-lines (make-state
                                         (str ".sorted$ <- . [+template]\n"
@@ -200,6 +218,8 @@
     (is (= (get-in actual-prod [:steps 0 :raw-outputs 0]) "dude.txt"))
     (is (= (get-in actual-prod [:steps 1 :raw-outputs 0]) "babe.txt"))
     (is (= (get-in actual-prod [:steps 2 :raw-outputs 0]) "belle.txt"))))
+
+
 
 (deftest errors-test
   (is (thrown-with-msg? Exception

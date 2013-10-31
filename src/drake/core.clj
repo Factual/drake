@@ -626,14 +626,14 @@
         (when (not (empty? trimmed-deps))
           (future 
             (try
-              (info "Running future for file" file "deps" deps) 
+              (trace "Running future for file" file "deps" deps) 
               (let [successful-deps-count (reduce + 
                                                   (map (fn [i] 
                                                          @((steps-map i) :promise)) 
                                                        trimmed-deps))] 
-                (info "Finished waiting for dependents of file" file "deps" deps "successful-count" successful-deps-count)
+                (trace "Finished waiting for dependents of file" file "deps" deps "successful-count" successful-deps-count)
                 (when (= successful-deps-count (count trimmed-deps))
-                  (info "DELETING TEMP FILE" file)
+                  (info "Deleting temp file:" file)
                   (fs di/rm file)))
               (catch Exception e 
                 (error "Future for file" file "Caught exception" e)))))))))
@@ -666,7 +666,8 @@
                              assoc-promise
                              (assoc-function parse-tree))]
 
-          (setup-temp-deleting-futures parse-tree steps-future)
+          (when (not (:keep-temp-files *options*))
+            (setup-temp-deleting-futures parse-tree steps-future)) 
 
           (post event-bus (EventWorkflowBegin steps-data))  
 
@@ -1000,6 +1001,8 @@
                      "Show version information.")
                    (no-arg empty-input-dir-valid
                      "Make it so empty input directories are valid input files")                     
+                   (no-arg keep-temp-files
+                     "Do not auto-delete temp files")
                    (with-arg tmpdir
                        "Specifies the temporary directory for Drake files (by default, .drake/ in the same directory the main workflow file is located)."
                        :type :str
