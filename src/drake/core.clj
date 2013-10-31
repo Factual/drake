@@ -158,18 +158,31 @@
       :vars vars
       :opts (if-not method opts (merge (method :opts) opts)))))
 
-(defn- file-has-data
+(defn- data-in?
+  "Shortcut for (fs di/data-in?)"
   [file]
   (fs di/data-in? file))
 
+(defn- no-data-in?
+  "Shortcut for (not (fs di/data-in?))"
+  [file]
+  (not (data-in? file)))
+
 (defn- expand-outputs
+  "Given a set of outputs, expand any temp outputs that have no data by
+  recursively replacing the temp output with the outputs of any steps 
+  that depend on that temp output - and then doing the same for the
+  temp outputs of the dependent steps that have no data.  Temp outputs
+  that have data will not be expanded.  This is the key algorithm that
+  allows Drake to deal with deleted temp targets without triggering 
+  unnecessary rebuilds."
   [parse-tree step-list step]
   (let [step-set (into #{} step-list)
         steps (parse-tree :steps)
         real-outputs (step :real-outputs)
         temp-outputs (step :temp-outputs)
         temp-input-map-lookup (parse-tree :temp-input-map-lookup)
-        [existing-temp-outputs empty-temp-outputs] (split-with file-has-data temp-outputs)
+        [existing-temp-outputs empty-temp-outputs] (split-with data-in? temp-outputs)
         empty-temp-output-step-deps (map (comp temp-input-map-lookup normalized-path) empty-temp-outputs)
         empty-temp-output-step-deps (flatten empty-temp-output-step-deps)
         empty-temp-output-step-deps (filter step-set empty-temp-output-step-deps)
@@ -208,9 +221,9 @@
         empty-input-dir-valid? (:empty-input-dir-valid *options*)
         empty-input? (if empty-input-dir-valid? 
                        #(not (fs di/exists? %))
-                       #(not (fs di/data-in? %)))
-        empty-inputs (filter empty-input? inputs)
-        inputs (into real-inputs (filter file-has-data temp-inputs))
+                       no-data-in?)
+        empty-inputs (filter empty-input? (into real-inputs temp-inputs))
+        inputs (into real-inputs (filter data-in? temp-inputs))
         outputs (expand-outputs parse-tree step-list step)
         no-outputs (empty? outputs)]
     (trace "should-build? forced:" forced)
@@ -239,7 +252,7 @@
        ;; one or more outputs are missing? (can only look for those
        ;; for targets which were specified explicitly, not triggered)
        (and (not triggered)
-            (some (comp not file-has-data) outputs)) "missing output"
+            (some no-data-in? outputs)) "missing output"
        ;; timecheck disabled
        (= false (get-in step [:opts :timecheck])) nil
        ;; built as a dependency?
@@ -601,9 +614,13 @@
   (reduce + (map (fn [step] @(:promise step)) steps)))
 
 (defn- setup-temp-deleting-futures
+  "Set up a future for each temp file which waits for all
+  the steps which depend on this temp file to finish and
+  then deletes the temp file."
   [parse-tree steps]
-  (let [steps-map (zipmap (map :index steps) steps)
-        steps-set (into #{} (map :index steps))]
+  (let [steps-list (map :index steps)
+        steps-map (zipmap steps-list steps)
+        steps-set (into #{} steps-list)]
     (doseq [[file deps] (parse-tree :temp-input-map-lookup)]
       (let [trimmed-deps (map steps-set deps)]
         (when (not (empty? trimmed-deps))
