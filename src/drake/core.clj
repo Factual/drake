@@ -530,7 +530,7 @@
       (run-step parse-tree steps (:index step) step)
       (deliver prom 1) ; delivers a promise of 1/success  
       (catch Exception e 
-        (error (str "caught exception step " (:index step) ": ") (.getMessage e) (.printStackTrace e))
+        (error e (str "caught exception step " (:index step) ": " e))
         (deliver (:exception-promise step) e))
       (finally
         ; if promise not delivered, deliver a promise of 0/failure
@@ -622,21 +622,26 @@
         steps-map (zipmap steps-list steps)
         steps-set (into #{} steps-list)]
     (doseq [[file deps] (parse-tree :temp-input-map-lookup)]
-      (let [trimmed-deps (map steps-set deps)]
+      (let [trimmed-deps (filter steps-set deps)]
         (when (not (empty? trimmed-deps))
           (future 
             (try
-              (trace "Running future for file" file "deps" deps) 
+              (trace "Running future for file" file "deps" trimmed-deps) 
               (let [successful-deps-count (reduce + 
                                                   (map (fn [i] 
                                                          @((steps-map i) :promise)) 
                                                        trimmed-deps))] 
-                (trace "Finished waiting for dependents of file" file "deps" deps "successful-count" successful-deps-count)
+                (trace "Finished waiting for dependents of file" 
+                       file 
+                       "deps" 
+                       trimmed-deps 
+                       "successful-count" 
+                       successful-deps-count)
                 (when (= successful-deps-count (count trimmed-deps))
                   (info "Deleting temp file:" file)
                   (fs di/rm file)))
               (catch Exception e 
-                (error "Future for file" file "Caught exception" e)))))))))
+                (error e "Future for file" file "Caught exception")))))))))
 
 (defn- run-steps-async 
   "Runs steps asynchronously.
@@ -1050,8 +1055,7 @@
          (error (str "drake: " (m :msg)))
          (shutdown (or (get m :exit) 1)))
        (catch Exception e
-         (.printStackTrace e)
-         (error (stack-trace-str e))
+         (error e (str "Exception caught: " e))
          (shutdown 1))))))
 
 (defn run-opts [opts]
