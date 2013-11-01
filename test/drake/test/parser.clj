@@ -85,6 +85,8 @@
           :output-tags ["outtag1" "outtag2"]
           :inputs '("/base/b" "/base/c")
           :input-tags ["intag"]
+          :temp-inputs []
+          :temp-outputs []
           :opts {}}))
   (let [actual-prod (first (d/step-def-line
                             (make-state "a <- b [shell] ;comment \n")))]
@@ -115,10 +117,37 @@
             :inputs '("/base/b")
             :input-tags []
             :output-tags []
+            :temp-inputs []
+            :temp-outputs []
             :opts {}}))
     (is (var-eq? actual-tuple :inputs nil)) ; verify :vars state not changed
                                             ; after step has concluded
     ))
+
+(deftest step-test-temp-files
+  (let [actual-tuple (d/step-lines (make-state
+                          (str "~a <- b\n"
+                               "  c $[OUTPUT0]\n")))]
+    (is (= (dissoc (first (:steps (first actual-tuple))) :vars)
+           {:cmds [[\space \space \c \space #{"OUTPUT0"}]]
+            :raw-outputs ["a"]
+            :outputs ["/base/a"]
+            :inputs '("/base/b")
+            :input-tags []
+            :output-tags []
+            :temp-inputs []
+            :temp-outputs ["/base/a"]
+            :opts {}}))
+    (is (var-eq? actual-tuple :inputs nil)) ; verify :vars state not changed
+                                            ; after step has concluded
+    ))
+
+(deftest step-test-no-temp-files-in-inputs
+   (is (thrown-with-msg? Exception
+        #"illegal syntax starting with .* for step definition"
+        (let [actual-tuple (d/step-lines (make-state
+                          (str "a <- ~b\n"
+                               "  c $[OUTPUT0]\n")))]))))
 
 (deftest template-test
   (is (:templates (first (d/step-lines (make-state
@@ -196,6 +225,8 @@
     (is (= (get-in actual-prod [:steps 0 :raw-outputs 0]) "dude.txt"))
     (is (= (get-in actual-prod [:steps 1 :raw-outputs 0]) "babe.txt"))
     (is (= (get-in actual-prod [:steps 2 :raw-outputs 0]) "belle.txt"))))
+
+
 
 (deftest errors-test
   (is (thrown-with-msg? Exception

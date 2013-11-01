@@ -1,6 +1,32 @@
 STDOUT=$(dirname $0)/stdout.log
 STDERR=$(dirname $0)/stderr.log
 
+check_exists() {
+  for file in "$@"
+  do
+    echo "Making sure $file exists"
+    if [ ! -f $file ]; then
+      echo "FAIL"
+      echo "file $file does not exist"
+      exit -1
+    fi
+  done
+  echo "PASS"
+}
+
+check_does_not_exist() {
+  for file in "$@"
+  do
+    echo "Making sure $file does not exist"
+    if [ -f $file ]; then
+      echo "FAIL"
+      echo "file $file exists"
+      exit -1
+    fi
+  done
+  echo "PASS"
+}
+
 check() {
   if [ "$1" != "$2" ]; then
     echo "FAIL"
