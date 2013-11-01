@@ -126,7 +126,7 @@
 
 (deftest step-test-temp-files
   (let [actual-tuple (d/step-lines (make-state
-                          (str "~a <- ~b\n"
+                          (str "~a <- b\n"
                                "  c $[OUTPUT0]\n")))]
     (is (= (dissoc (first (:steps (first actual-tuple))) :vars)
            {:cmds [[\space \space \c \space #{"OUTPUT0"}]]
@@ -135,12 +135,19 @@
             :inputs '("/base/b")
             :input-tags []
             :output-tags []
-            :temp-inputs ["/base/b"]
+            :temp-inputs []
             :temp-outputs ["/base/a"]
             :opts {}}))
     (is (var-eq? actual-tuple :inputs nil)) ; verify :vars state not changed
                                             ; after step has concluded
     ))
+
+(deftest step-test-no-temp-files-in-inputs
+   (is (thrown-with-msg? Exception
+        #"illegal syntax starting with .* for step definition"
+        (let [actual-tuple (d/step-lines (make-state
+                          (str "a <- ~b\n"
+                               "  c $[OUTPUT0]\n")))]))))
 
 (deftest template-test
   (is (:templates (first (d/step-lines (make-state

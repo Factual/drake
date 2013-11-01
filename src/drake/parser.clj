@@ -264,13 +264,16 @@
 (def arrow (p/conc lt-sign hyphen))
 
 (def file-name
-  (p/complex [temp (p/opt tilde)
-              sign (p/opt
+  (p/complex [sign (p/opt
                     (p/alt exclamation-mark percent-sign question-mark caret))
               name (string-substitution filename-chars)
               end-marker (p/opt dollar-sign)]
-             (str temp sign name end-marker)))
+             (str sign name end-marker)))
 
+(def file-name-optional-temp
+  (p/complex [temp (p/opt tilde)
+              filename file-name]
+             (str temp filename)))
 
 (def name-list
   "input: comma separated names. ie., \"a.csv, b.out\"
@@ -280,6 +283,17 @@
     rest-files (p/rep* (p/semantics
                         (p/conc (p/conc (p/opt ws) comma (p/opt ws))
                                 file-name)
+                        second))]   ;; first is ",", second is <file-name>
+   (cons first-file rest-files)))
+
+(def name-list-outputs
+  "input: comma separated names. ie., \"a.csv, b.out\"
+   output: vector of the names. ie., [\"a.csv\" \"b.out\"]"
+  (p/complex
+   [first-file file-name-optional-temp
+    rest-files (p/rep* (p/semantics
+                        (p/conc (p/conc (p/opt ws) comma (p/opt ws))
+                                file-name-optional-temp)
                         second))]   ;; first is ",", second is <file-name>
    (cons first-file rest-files)))
 
@@ -356,7 +370,7 @@
      :raw-outputs (outputs without BASE prefix),
      :inputs, :vars, and possibly :opts"
   (p/complex
-   [outputs (p/opt (p/invisi-conc name-list (p/opt ws)))
+   [outputs (p/opt (p/invisi-conc name-list-outputs (p/opt ws)))
     _ (p/conc arrow (p/opt inline-ws))
     inputs (p/opt name-list)
     opts (p/opt options)
