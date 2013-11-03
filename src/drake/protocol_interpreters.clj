@@ -2,6 +2,8 @@
   (:use [drake-interface.core :only [Protocol]])
   (:use drake.protocol))
 
+(def WINDOWS? (.startsWith (System/getProperty "os.name") "Win")) 
+
 (defn- register-interpreter!
   [[protocol-name interpreter args]]
   (register-protocols! protocol-name
@@ -10,7 +12,9 @@
                          (run [_ step]
                            (run-interpreter step interpreter args)))))
 
-(dorun (map register-interpreter! [["shell" (get (System/getenv) "SHELL") nil]
+(dorun (map register-interpreter! [(if WINDOWS? 
+                                     ["shell" "cmd" ["/C"]]
+                                     ["shell" (get (System/getenv) "SHELL") nil]) 
                                    ["ruby" "ruby" nil]
                                    ["python" "python" nil]
                                    ["R" "R" ["--slave" "-f"]]]))

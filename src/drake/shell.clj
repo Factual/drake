@@ -84,14 +84,15 @@
   (let [[cmd raw-opts] (split-with string? args)
         opts (apply hash-map raw-opts)
         {:keys [out err die use-shell no-stdin]} opts
+        windows? (.startsWith (System/getProperty "os.name") "Win")
         env (as-env-strings (if (:replace-env opts)
                               (:env opts)
                               (merge (into {} (System/getenv)) (:env opts))))
         cmd-for-exec ^"[Ljava.lang.String;"
                      (into-array (if-not use-shell
                                    cmd
-                                   [(get (System/getenv) "SHELL")
-                                    "-c"
+                                   [(if windows? "cmd" (get (System/getenv) "SHELL")) 
+                                    (if windows? "/C" "-c")
                                     (join " " cmd)]))
         proc (.exec (Runtime/getRuntime)
                     cmd-for-exec

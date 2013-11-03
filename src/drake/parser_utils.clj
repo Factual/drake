@@ -94,7 +94,8 @@
 (def tab (nb-char-lit \tab))
 (def newline-lit (p/lit \newline))
 (def return-lit (p/lit \return))
-(def line-break (b-char (p/alt newline-lit return-lit)))
+(def windows-newline-lit (p/conc return-lit newline-lit))
+(def line-break (b-char (p/alt windows-newline-lit newline-lit return-lit)))
 (def ws (p/constant-semantics (p/rep+ (p/alt space tab line-break)) :ws))
 (def inline-ws (p/constant-semantics (p/rep+ (p/alt space tab)) :inline-ws))
 
