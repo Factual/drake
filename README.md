@@ -19,7 +19,8 @@ If you like screencasts, check out this [Drake walk-through video](http://www.yo
 
 ## Installation
 
-You will need to have a JVM installed. Drake has been tested under Linux and Mac OS X. We've not tested it on Windows.
+You will need to have a JVM installed. Drake has been tested under Linux, Mac OS X and Windows 8. 
+We've not tested it on other operating systems.
 
 ### Download or build the uberjar
 
