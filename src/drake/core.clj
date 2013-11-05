@@ -222,8 +222,8 @@
         empty-input? (if empty-input-dir-valid? 
                        #(not (fs di/exists? %))
                        no-data-in?)
-        empty-inputs (filter empty-input? (into real-inputs temp-inputs))
-        inputs (into real-inputs (filter data-in? temp-inputs))
+        inputs (into real-inputs (filter (not empty-input?) temp-inputs))
+        empty-inputs (filter empty-input? inputs)
         outputs (expand-outputs parse-tree step-list step)
         no-outputs (empty? outputs)]
     (trace "should-build? forced:" forced)
