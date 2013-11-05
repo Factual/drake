@@ -653,6 +653,7 @@
    are met for the steps."
   [parse-tree steps]
   (let [jobs (:jobs *options*)
+        jobs (Integer. jobs)
         event-bus (:guava-event-bus *options*)]
     (if (empty? steps)
       (info "Nothing to do.")
