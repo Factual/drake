@@ -2,6 +2,7 @@
 
 * bugfix: [#98](https://github.com/Factual/drake/issues/98) --help now doesn't run workflow (thanks marshallshen)
 * Upgrade to c4 0.2.0, which no longer bundles the Facebook API
+* Basic functionality working for Windows sytems, specifically, Windows 8/command shell.
 
 ## 0.1.4
 
