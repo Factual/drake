@@ -1,6 +1,5 @@
 (ns drake.parser
   (:use [clojure.tools.logging :only [warn debug trace]]
-        [slingshot.slingshot :only [throw+]]
         drake.shell
         [drake.steps :only [add-dependencies calc-step-dirs]]
         drake.utils
@@ -455,10 +454,9 @@
                (or (vector? l-val) (seq? l-val) (list? l-val))
                  (concat l-val r-val)
                :else
-               (throw+ {:msg
-                        (str "joining maps with non-vector and non-map values"
-                             l-val " " r-val)})))
-            %1 %2)
+                (throw (Exception.  (str "joining maps with non-vector and non-map values"
+                                         l-val " " r-val)))))
+             %1 %2)
           nil
           vector-of-maps))
 
