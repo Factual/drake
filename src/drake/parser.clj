@@ -147,8 +147,8 @@
              ;; (unless it's a method in which case
              ;; we just don't know what variables will be available)
              (if (and var-check (not (contains? vars var-name)))
-               (throw+ {:msg (format "variable \"%s\" undefined at this point."
-                                     var-name)})
+               (throw (Exception. (format "variable \"%s\" undefined at this point."
+                                           var-name)))
                (if-not substitute-value
                  #{var-name}
                  (get vars var-name)))))
