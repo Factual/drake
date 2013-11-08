@@ -140,6 +140,7 @@
 (def dollar-sign (nb-char-lit \$))
 (def hashtag-sign (nb-char-lit \#))
 (def percent-sign (nb-char-lit \%))
+(def tilde (nb-char-lit \~))
 
 (def fractional-part (p/conc decimal-point (p/rep* decimal-digit)))
 
