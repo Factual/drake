@@ -40,7 +40,7 @@
   [raw-parse-tree]
   (trace "Calculating dependency graph...")
   (let [steps (:steps raw-parse-tree)
-        tempfiles (reduce into (map #(into (:temp-inputs %) (:temp-outputs %)) steps)) 
+        tempfiles (reduce into [] (map #(into (:temp-inputs %) (:temp-outputs %)) steps)) 
         tempfiles (set (map normalized-path tempfiles)) 
 
         ;; goes over steps and maps values returned by function f (a sequence)
