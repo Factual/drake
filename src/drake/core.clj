@@ -183,13 +183,13 @@
         temp-outputs (step :temp-outputs)
         temp-input-map-lookup (parse-tree :temp-input-map-lookup)
         [existing-temp-outputs empty-temp-outputs] (split-with data-in? temp-outputs)
-        empty-temp-output-step-deps (map (comp temp-input-map-lookup normalized-path) empty-temp-outputs)
-        empty-temp-output-step-deps (flatten empty-temp-output-step-deps)
-        empty-temp-output-step-deps (filter step-set empty-temp-output-step-deps)
-        expanded-temp-outputs (map (comp (partial expand-outputs parse-tree step-list) steps) 
-                                   empty-temp-output-step-deps)
-        expanded-temp-outputs (flatten expanded-temp-outputs)
-        ]
+        empty-temp-output-step-deps (->> empty-temp-outputs
+                                      (map (comp temp-input-map-lookup normalized-path)) 
+                                      flatten
+                                      (filter step-set)) 
+        expanded-temp-outputs (->> empty-temp-output-step-deps
+                                (map (comp (partial expand-outputs parse-tree step-list) steps))
+                                flatten)]
     (trace "expand-outputs step:" step)
     (trace "expand-outputs step-list:" step-list)
     (trace "expand-outputs existing-temp-outputs:" existing-temp-outputs)
@@ -629,22 +629,26 @@
         (when (not (empty? trimmed-deps))
           (future 
             (try
-              (trace "Running future for file" file "deps" trimmed-deps) 
+              (trace "Running future to delete target:" file "dependencies:" trimmed-deps) 
               (let [successful-deps-count (reduce + 
                                                   (map (fn [i] 
                                                          @((steps-map i) :promise)) 
                                                        trimmed-deps))] 
-                (trace "Finished waiting for dependents of file" 
+                (trace "Finished waiting for dependents of target:" 
                        file 
-                       "deps" 
+                       "dependencies:" 
                        trimmed-deps 
-                       "successful-count" 
+                       "successful-count:" 
                        successful-deps-count)
                 (when (= successful-deps-count (count trimmed-deps))
-                  (info "Deleting temp file:" file)
+                  (info "Deleting temp target:" file)
                   (fs di/rm file)))
               (catch Exception e 
-                (error e "Future for file" file "Caught exception")))))))))
+                ; Likely to happen if there is some problem with deleting the file.
+                ; Catch the exception and inform the user of the problem,
+                ; but do not hald execution as deletion of the file is probably not 
+                ; critical to the workflow.
+                (error e "Exception deleting temp target:" file)))))))))
 
 (defn- run-steps-async 
   "Runs steps asynchronously.
@@ -675,7 +679,7 @@
                              assoc-promise
                              (assoc-function parse-tree))]
 
-          (when (not (:keep-temp-files *options*))
+          (when (not (:keep-temp-targets *options*))
             (setup-temp-deleting-futures parse-tree steps-future)) 
 
           (post event-bus (EventWorkflowBegin steps-data))  
@@ -1012,8 +1016,8 @@
                      "Show version information.")
                    (no-arg empty-input-dir-valid
                      "Make it so empty input directories are valid input files")                     
-                   (no-arg keep-temp-files
-                     "Do not auto-delete temp files")
+                   (no-arg keep-temp-targets
+                     "Do not auto-delete temp targets")
                    (with-arg tmpdir
                        "Specifies the temporary directory for Drake files (by default, .drake/ in the same directory the main workflow file is located)."
                        :type :str
