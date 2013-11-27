@@ -434,7 +434,9 @@
   (let [[prefix filename] (split-path path)
         filesystem (FILESYSTEMS prefix)]
     (if (nil? filesystem)
-      [(FILESYSTEMS "file") "file" path]
+      (let [fs (plugins/get-reified "drake.fs." prefix)]
+        (if fs [fs prefix filename] [(FILESYSTEMS "file") "file" path])
+      )
       [filesystem prefix filename])))
 
 (defn fs
