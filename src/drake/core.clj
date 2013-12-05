@@ -556,7 +556,7 @@
           (if (= successful-parent-steps (count deps))
             (attempt-run-step parse-tree steps step)
             (do (deliver prom 0)
-                (deliver (:exception-promise step) "Some parent tasks failed!"))))
+                (deliver (:exception-promise step) (Exception. (str "Some parent tasks failed!")) ))))
         (catch Exception e
           (deliver (:exception-promise step) e))
         (finally 
