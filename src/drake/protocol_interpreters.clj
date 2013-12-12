@@ -17,4 +17,5 @@
                                      ["shell" (get (System/getenv) "SHELL") nil]) 
                                    ["ruby" "ruby" nil]
                                    ["python" "python" nil]
+                                   ["node" "node" nil]
                                    ["R" "R" ["--slave" "-f"]]]))
