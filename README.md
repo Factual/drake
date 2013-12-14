@@ -19,7 +19,7 @@ If you like screencasts, check out this [Drake walk-through video](http://www.yo
 
 ## Installation
 
-You will need to have a JVM installed. Drake has been tested under Linux, Mac OS X and Windows 8. 
+You will need to have a JVM installed. Drake has been tested under Linux, Mac OS X and Windows 8.
 We've not tested it on other operating systems.
 
 ### Download or build the uberjar
@@ -175,6 +175,8 @@ You can use Drake from your Clojure REPL, via `drake.core/run-workflow`. Please 
 Thanks to [Lars Yencken](https://github.com/larsyencken), we now have [Vim syntax support](https://bitbucket.org/larsyencken/vim-drake-syntax) for Drake:
 
 <img src="https://lh3.googleusercontent.com/-mqNpFqf7P0k/UQoXkpAqr1I/AAAAAAAAADU/U5zrvozVmzE/s400/image.png"/>
+
+Also thanks to [Lars Yencken](https://github.com/larsyencken), [utilities for making life easier in Python with Drake workflows](https://pypi.python.org/pypi/drakeutil).
 
 Courtesy of [@daguar](https://gist.github.com/daguar), an [alternative approach to installing Drake on Mac OS X](https://gist.github.com/daguar/5368778).
 
