@@ -992,34 +992,23 @@
                     (for [[k v] opts] [(keyword k) v])))))
 
 (defn run-workflow
-  ([workflow & {:as opts}]
-     (run-opts (merge opts {:workflow workflow})))
-  ([]
-     (run-opts {})))
-
-#_(defn run-workflow
   "This can be called from the REPL or Clojure code as a way of
    using this ns as a library. Runs in auto mode, meaning there
    won't be an interactive user confirmation before running steps.
 
-   Specify an empty targetv to get the same result as running Drake
-   with no targets.
+   You must specify a non-empty :targetv.
 
    Examples:
-     (run-workflow \"demos/factual\" [])
-     (run-workflow \"demos/factual\" [\"+...\"])
-     (run-workflow \"demos/factual\" [\"+...\"] :branch \"MYBRANCH\")
-     (run-workflow \"some/workflow-file.drake\" [\"+...\" \"-^D\" \"-=B\"]
+     (run-workflow \"demos/factual\" :targetv [\"+...\"])
+     (run-workflow \"demos/factual\" :targetv [\"+...\"] :branch \"MYBRANCH\")
+     (run-workflow \"some/workflow-file.drake\" :targetv [\"+...\" \"-^D\" \"-=B\"]
                    :branch \"MYBRANCH\" :preview true)
 
    TODO: log messages don't show up on the REPL (but printlns do).
          Can this be fixed?"
-  [workflow targetv & {:as opts}]
-  (set-options
-   (merge opts
-          {:workflow workflow
-           ;; Prevent interactive user confirmation. We can later
-           ;; refactor the run function to be more library-like,
-           ;; rather than cli-like.
-           :auto true}))
-  (with-workflow-file #(run % targetv)))
+  ([workflow & {:as opts}]
+     (run-opts (merge DEFAULT-OPTIONS
+                      {:workflow workflow}
+                      opts)))
+   ([]
+    (run-opts DEFAULT-OPTIONS)))
