@@ -543,10 +543,7 @@
         p/emptiness  ; nothing if := assignment but the var is not empty
         (p/update-info :vars
                      #(assoc % (apply-str var-name) var-value)))]
-    (do (debug "var-def-line var=" (apply-str var-name) " value=" var-value)
-        nil
-        ) 
-    ))
+    nil))
 
 (declare call-or-include-line)
 (declare inline-shell-cmd-line)
