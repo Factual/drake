@@ -1,5 +1,6 @@
 (ns drake.parser_utils
-  (:require [name.choi.joshua.fnparse :as p])
+  (:require [name.choi.joshua.fnparse :as p]
+            [clojure.tools.logging :refer [warn debug trace]])
   (:use [slingshot.slingshot :only [throw+]]))
 
 ;; The parsing state data structure. The remaining tokens are stored
@@ -22,6 +23,10 @@
 
 (def apply-str
   (partial apply str))
+
+(defn flatten-apply-str
+  [& args]
+  (apply str (flatten args)))
 
 
 ;; These functions are given a rule and make it so that it
@@ -140,6 +145,20 @@
 (def dollar-sign (nb-char-lit \$))
 (def hashtag-sign (nb-char-lit \#))
 (def percent-sign (nb-char-lit \%))
+(def tilde (nb-char-lit \~))
+(def single-quote (nb-char-lit \'))
+(def non-single-quote (p/except p/anything single-quote))
+(def double-quote (nb-char-lit \"))
+(def backslash (nb-char-lit \\))
+(def backquote (nb-char-lit \`))
+(def doublequote-escaped-chars (p/conc backslash
+                                       (p/alt dollar-sign
+                                              backquote
+                                              double-quote
+                                              backslash
+                                              line-break)))
+(def non-double-quote-or-backslash (p/except p/anything 
+                                             (p/alt double-quote backslash)))
 
 (def fractional-part (p/conc decimal-point (p/rep* decimal-digit)))
 
@@ -149,6 +168,18 @@
           (expectation-error-fn
             (str "in number literal, after an exponent sign, decimal"
                  "digit")))))
+
+(def single-quote-shell-string
+  (p/semantics (p/conc single-quote
+                       (p/rep* non-single-quote)
+                       single-quote)
+               flatten-apply-str))
+
+(def double-quote-shell-string
+  (p/semantics (p/conc double-quote
+                       (p/rep* (p/alt non-double-quote-or-backslash doublequote-escaped-chars))
+                       double-quote)
+               flatten-apply-str))
 
 (def number-lit
   (p/complex [minus (p/opt minus-sign)

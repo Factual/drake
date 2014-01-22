@@ -10,6 +10,15 @@ check() {
   echo "PASS"
 }
 
+check_not_equal() {
+  if [ "$1" == "$2" ]; then
+    echo "FAIL"
+    echo "\"$1\" == \"$2\""
+    exit -1
+  fi
+  echo "PASS"
+}
+
 check_grep() {
   if ! grep "$2" "$1" >/dev/null; then
     echo "FAIL"

@@ -3,6 +3,7 @@
   (:import [java.util.concurrent Semaphore])
   (:require [clojure.set :as set]
             [clojure.string :as str]
+            [clojure.core.memoize :as memo]
             [clj-logging-config.log4j :as log4j]
             [fs.core :as fs]
             ;; register built-in protocols
@@ -947,6 +948,7 @@
       (set-options options)
 
       (configure-logging)
+      (memo/memo-clear! drake.parser/shell-memo)
 
       (debug "Drake" VERSION)
       (debug "Clojure version:" *clojure-version*)
@@ -970,6 +972,7 @@
   (let [opts (merge {:auto true} opts)]
     (set-options opts)
     (configure-logging)
+    (memo/memo-clear! drake.parser/shell-memo)
 
     (debug "Drake" VERSION)
     (info "Clojure version:" *clojure-version*)
