@@ -7,7 +7,10 @@
         drake.parser_utils)
   (:require [name.choi.joshua.fnparse :as p]
             [clojure.string :as s]
-            [fs.core :as fs]))
+            [clojure.core.memoize :as memo]
+            [fs.core :as fs]
+            clojure.stacktrace
+            ))
 
   "This namespace is responsible for the overall parsing of a .d file into
    a standard 'parse tree'. Contains the top level logic to take a .d file name,
@@ -165,6 +168,16 @@
             _ string-delimiter]
     (apply-str contents)))
 
+
+(defn shell-helper
+  [& options]
+  (let [cmd-out (java.io.StringWriter.)
+        new-options (concat options [:out [cmd-out]])]
+    (apply shell new-options)
+    (.toString cmd-out)))
+
+(def shell-memo (memo/memo shell-helper))
+
 (def command-sub
   "input: shell cmd invocations of form $(...)
    output: output of the shell command with trailing line-breaks trimmed"
@@ -172,18 +185,20 @@
    [_ dollar-sign
     _ open-paren
     prod (p/semantics
-          (p/rep+ (p/alt (var-sub true true)
-                         string-lit (p/except string-char
-                                              close-paren)))
+          (p/rep+ (p/alt single-quote-shell-string 
+                         double-quote-shell-string
+                         (p/except string-char close-paren)))
           apply-str)
     _ (p/failpoint close-paren
-                   (illegal-syntax-error-fn "command substitution"))]
-   (let [cmd-out (java.io.StringWriter.)]
-     ;; stderr preserved by default
-     (debug "shell =" prod)
-     (shell prod :die true :use-shell true :out [cmd-out])
-     (debug "shell result =" (.toString cmd-out))
-     (s/trim-newline (str cmd-out)))))
+                   (illegal-syntax-error-fn "command substitution"))
+    line (p/get-info :line) 
+    column (p/get-info :column)]
+
+    ;; stderr preserved by default
+    (let [result (shell-memo prod :line line :column column :die true :use-shell true)]
+      (debug "line =" line " column=" column " shell =" prod)
+      (debug "shell result = " result)
+      (s/trim-newline result))))
 
 (defn string-substitution
   [chars]
@@ -528,7 +543,7 @@
         p/emptiness  ; nothing if := assignment but the var is not empty
         (p/update-info :vars
                      #(assoc % (apply-str var-name) var-value)))]
-   nil))
+    nil))
 
 (declare call-or-include-line)
 (declare inline-shell-cmd-line)
