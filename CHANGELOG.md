@@ -1,9 +1,14 @@
-## Unreleased
+## 0.1.5
 
 * bugfix: [#98](https://github.com/Factual/drake/issues/98) --help now doesn't run workflow (thanks marshallshen)
 * Upgrade to c4 0.2.0, which no longer bundles the Facebook API
 * Basic functionality working for Windows sytems, specifically, Windows 8/command shell.
 * bugfix: [#11](https://github.com/Factual/drake/issues/111) FileSystem plugins get wired up properly (thanks derenrich)
+* Initial fix for [#118](https://github.com/Factual/drake/issues/118) to handle quotes better in shell commands  (thanks myronahn)
+* Fixes and documentation for core.run-workflow
+* Add node (Javascript) protocol (thanks arowla)
+* Upgrade c4 to version 0.2.0, which drops bundling of Facebook Places API support
+* Supprot for command line var regex
 
 ## 0.1.4
 
