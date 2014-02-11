@@ -432,10 +432,10 @@
    if the prefix is unknown."
   [path]
   (let [[prefix filename] (split-path path)
-        filesystem (FILESYSTEMS prefix)]
-    (if (nil? filesystem)
-      [(FILESYSTEMS "file") "file" path]
-      [filesystem prefix filename])))
+        fs (or (FILESYSTEMS prefix)
+               (plugins/get-reified "drake.fs." prefix)
+               (FILESYSTEMS "file"))]
+    [fs prefix filename]))
 
 (defn fs
   "Automatically determines the filesystem from the filename and dispatched

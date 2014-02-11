@@ -1,9 +1,10 @@
-(defproject factual/drake "0.1.4"
+(defproject factual/drake "0.1.5"
   :description "Drake: the data processing workflow tool (a.k.a. 'make for data')"
   :url "https://github.com/Factual/drake"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.4.0"]
+                 [org.clojure/core.memoize "0.5.6"]
                  [factual/drake-interface "0.0.1"]
                  [org.clojure/tools.logging "0.2.3"]
                  [clj-logging-config "1.9.6"]
@@ -11,11 +12,13 @@
                  [fs "1.3.2"]
                  [factual/jlk-time "0.1"]
                  [digest "1.4.0"]
-                 [slingshot "0.10.2"]
+                 [com.google.guava/guava "14.0.1"]
+                 [cheshire "5.2.0"]
+                 [slingshot "0.10.3"]
                  [factual/fnparse "2.3.0"]
                  [commons-codec/commons-codec "1.6"]
                  [factual/sosueme "0.0.15"]
-                 [factual/c4 "0.1.2"]
+                 [factual/c4 "0.2.0"]
                  ;; for HDFS support
                  [hdfs-clj "0.1.0"]
                  ;; you may need to change this to be compatible with your cluster

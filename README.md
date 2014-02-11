@@ -19,13 +19,14 @@ If you like screencasts, check out this [Drake walk-through video](http://www.yo
 
 ## Installation
 
-You will need to have a JVM installed. Drake has been tested under Linux and Mac OS X. We've not tested it on Windows.
+You will need to have a JVM installed. Drake has been tested under Linux, Mac OS X and Windows 8.
+We've not tested it on other operating systems.
 
 ### Download or build the uberjar
 
 You can build Drake from source, which is the preferred way to run the most
 up-to-date version, or you can
-[download a prebuilt uberjar](https://docs.google.com/uc?export=download&confirm=gS92&id=0B2xtKcFEL6wwdlNEWi1QdjlnSEU)
+[download a prebuilt uberjar](https://docs.google.com/uc?export=download&confirm=0H_c&id=0B2xtKcFEL6wwc28ybDFQUWZBR3c)
 ,which may not be the most recent version of Drake.
 
 Following are instructions for building from source. Drake is a Clojure project, so you will need to have [leiningen](https://github.com/technomancy/leiningen).
@@ -144,7 +145,7 @@ There are annotated workflow examples in the demos directory.
 
 There's a [Google Group for Drake](https://groups.google.com/forum/?fromgroups#!forum/drake-workflow) where you can ask questions. And if you found a bug or want to submit a feature request, go to [Drake's GitHub issues page](https://github.com/Factual/drake/issues?sort=created&state=open).
 
-## Asynchronous Excecution of Steps
+## Asynchronous Execution of Steps
 
 Please see [the wiki page on async](https://github.com/Factual/drake/wiki/Async-Execution-of-Steps).
 
@@ -174,6 +175,8 @@ You can use Drake from your Clojure REPL, via `drake.core/run-workflow`. Please 
 Thanks to [Lars Yencken](https://github.com/larsyencken), we now have [Vim syntax support](https://bitbucket.org/larsyencken/vim-drake-syntax) for Drake:
 
 <img src="https://lh3.googleusercontent.com/-mqNpFqf7P0k/UQoXkpAqr1I/AAAAAAAAADU/U5zrvozVmzE/s400/image.png"/>
+
+Also thanks to [Lars Yencken](https://github.com/larsyencken), [utilities for making life easier in Python with Drake workflows](https://pypi.python.org/pypi/drakeutil).
 
 Courtesy of [@daguar](https://gist.github.com/daguar), an [alternative approach to installing Drake on Mac OS X](https://gist.github.com/daguar/5368778).
 

@@ -45,7 +45,7 @@
 
    Returns the filename."
   [{:keys [cmds] :as step}]
-  (let [filename (format "%s/%s-%s"
+  (let [filename (format (str "%s" java.io.File/separator "%s-%s.bat")
                          (*options* :tmpdir)
                          (get-protocol-name step)
                          (digest/md5 (apply str cmds)))]
@@ -63,7 +63,7 @@
     (fs/mkdirs dir))
   ;; we need to use fs.core/file here, since fs.core/with-cwd only changes the
   ;; working directory for fs.core namespace
-  (fs/file (str dir "/" prefix "-" start-time-filename)))
+  (fs/file (str dir java.io.File/separator prefix "-" start-time-filename)))
 
 (defn run-interpreter
   "Common implementation for most of interpreter protocols, that is, when

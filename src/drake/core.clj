@@ -3,15 +3,18 @@
   (:import [java.util.concurrent Semaphore])
   (:require [clojure.set :as set]
             [clojure.string :as str]
+            [clojure.core.memoize :as memo]
             [clj-logging-config.log4j :as log4j]
             [fs.core :as fs]
             ;; register built-in protocols
             drake.protocol_interpreters
             drake.protocol_c4
             drake.protocol_eval
+            drake.event
             [drake-interface.core :as di])
   (:use [clojure.tools.logging :only [info debug trace error]]
         [slingshot.slingshot :only [try+ throw+]]
+        clojure.set
         clojopts.core
         sosueme.throwables
         drake.stdin
@@ -21,11 +24,20 @@
         [drake.protocol :only [get-protocol-name get-protocol]]
         drake.parser
         drake.options
+        [drake.event :only [EventWorkflowBegin EventWorkflowEnd EventStepBegin EventStepEnd EventStepError]]
         drake.utils)
-  (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]]))
+  (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]
+                        #^{:static true} [run_opts_with_event_bus [java.util.Map com.google.common.eventbus.EventBus] void]]))
 
-(def VERSION "0.1.4")
+(def VERSION "0.1.5")
 (def PLUGINS-FILE "plugins.edn")
+(def DEFAULT-VARS-SPLIT-REGEX-STR ",(?=([^\"]*\"[^\"]*\")*[^\"]*$)")
+
+(def DEFAULT-OPTIONS {:workflow "./Drakefile"
+                      :logfile "drake.log"
+                      :jobs 1
+                      :plugins PLUGINS-FILE
+                      :tmpdir ".drake"})
 
 ;; TODO(artem)
 ;; Optimize for repeated BASE prefixes (we can't just show it
@@ -176,8 +188,8 @@
     (trace "should-build? empty inputs: " empty-inputs)
     (trace "should-build? no-outputs: " no-outputs)
     (if (and (not (empty? empty-inputs)) (or fail-on-empty (not triggered)))
-      (throw+ {:msg (str "no input data found in locations: "
-                         (str/join ", " empty-inputs))})
+      (throw (Exception. (str "no input data found in locations: "
+                              (str/join ", " empty-inputs))))
       ;; check that all output files are present
       (cond
        forced (str "forced" (if (not= match-type :output)
@@ -337,9 +349,9 @@
    which steps are runnable, and which steps are done."
   [steps]
   (let [sort-map (zipmap (map :index steps) (range))] ; order sorted-set by step order
-    (atom (hash-map 
-            :not-runnable (into #{} (map :index (filter #(seq (:deps %)) steps))) 
-            :runnable (into (sorted-set-by #(< (sort-map %1) (sort-map %2))) 
+    (atom (hash-map
+            :not-runnable (into #{} (map :index (filter #(seq (:deps %)) steps)))
+            :runnable (into (sorted-set-by #(< (sort-map %1) (sort-map %2)))
                             (map :index (filter #(empty? (:deps %)) steps)))
             :done #{}
             :steps steps))))
@@ -362,14 +374,14 @@
                            (recur))) ; if compare-and-set fails, try the whole thing again
 
         ; If there are non-runnable steps, wait until one is runnable
-        (seq not-runnable) (do 
+        (seq not-runnable) (do
                              (Thread/sleep 100) ; NOTE(Myron) spin-wait not ideal
                              (recur))
 
         ; Otherwise, there's nothing left
         :else nil))))
 
-(defn- update-state-atom-when-step-finishes 
+(defn- update-state-atom-when-step-finishes
   "Use this with swap! to update the state atom when a step finishes"
   [state step]
   (let [i (:index step)
@@ -379,10 +391,10 @@
         runnable (:runnable state)
         children (filter #((:children step) (:index %)) (:steps state))
         children-not-yet-running (filter #(not-runnable (:index %)) children)
-        runnable-steps (filter (fn [child] 
-                                 (every? (fn [dep] 
-                                           (done dep)) 
-                                         (:deps child))) 
+        runnable-steps (filter (fn [child]
+                                 (every? (fn [dep]
+                                           (done dep))
+                                         (:deps child)))
                                children-not-yet-running)
         runnable-step-numbers (map :index runnable-steps)
         state (assoc state :not-runnable (apply (partial disj not-runnable) runnable-step-numbers)) ]
@@ -400,20 +412,20 @@
   [steps promise-key]
   (map (fn [step] (assoc step promise-key (promise))) steps))
 
-(defn- assoc-promise 
+(defn- assoc-promise
   "Associates a promise instance for each step
   a promise of value 1 is delivered on success
   a promise of value 0 is delirvered on failure"
   [steps]
   (add-empty-promises-to-steps steps :promise))
 
-(defn- assoc-deps 
+(defn- assoc-deps
   "Associates dependencies as set object containing the indexes for each step"
   [parse-tree steps]
   (let [indexes (into #{} (map :index steps))]
-    (map (fn [step] 
-           (assoc step 
-                  :deps 
+    (map (fn [step]
+           (assoc step
+                  :deps
                   (->>
                     (expand-step-restricted parse-tree (:index step) nil indexes)
                     (into #{}) ; turn into set to remove duplicates
@@ -421,48 +433,46 @@
                     (filter (partial not= (:index step))))))
          steps)))
 
-(defn- assoc-children 
-  "For each step, associate a set of steps that have this step as a dependency.
-  Assumes assoc-deps was called already."
-  [steps]
-  (let [child-map (->> steps
-                    (map (fn [step] 
-                           (map (fn [parent] 
-                                  (list parent (:index step))) 
-                                (seq (:deps step)))))
-                    (apply concat) ; flatten list by one level
-                    (reduce (fn [m pair] 
-                              (let [[k v] pair] 
-                                (if (m k) 
-                                  (assoc m k (conj (m k) v)) 
-                                  (assoc m k #{v})))) 
-                            {}))] 
-    (map #(assoc % 
-                 :children 
-                 (if-let [children (child-map (:index %))] 
-                   children
-                   {})) 
+(defn- assoc-parents-and-children
+  [parse-tree steps]
+  (let [indexes (into #{} (map :index steps))]
+    (map #(let [tree-step ((:steps parse-tree) (:index %))
+                children (intersection (:children tree-step) indexes)
+                parentals (intersection (:parents tree-step) indexes)
+                opts (:opts tree-step)
+                input-tags (:input-tags tree-step)
+                output-tags (:output-tags tree-step)
+                id (:id tree-step)]
+            (assoc %
+                   :name (step-string tree-step)
+                   :children (or children #{})
+                   :parents (or parentals #{})
+                   :opts opts
+                   :input-tags input-tags
+                   :output-tags output-tags
+                   :id id))
          steps)))
 
-(defn- assoc-no-stdin-opt 
-  "Set :no-stdin option for all steps"
-  [steps]
-  (map (fn [step] (assoc-in step [:opts :no-stdin] true)) steps))
+(defn- assoc-no-stdin-opt
+  "Set :no-stdin option for all steps if jobs > 1"
+  [jobs steps]
+  (if (> jobs 1)
+    (map (fn [step] (assoc-in step [:opts :no-stdin] true)) steps)
+    steps))
 
-(defn- assoc-exception-promise 
+(defn- assoc-exception-promise
   "Associate a promise for any exceptions generated by this step"
   [steps]
   (add-empty-promises-to-steps steps :exception-promise))
 
-(defn- attempt-run-step 
+(defn- attempt-run-step
   [parse-tree step]
   (let [prom (:promise step)]
     (try
       ; run the step (the actual job)
-      (let [step-ran (run-step parse-tree (:index step) step)]
-        (when step-ran 
-          (deliver prom 1))) ; delivers a promise of 1/success 
-      (catch Exception e 
+      (run-step parse-tree (:index step) step)
+      (deliver prom 1) ; delivers a promise of 1/success
+      (catch Exception e
         (error (str "caught exception step " (:index step) ": ") (.getMessage e) (.printStackTrace e))
         (deliver (:exception-promise step) e))
       (finally
@@ -470,109 +480,127 @@
         (when (not (realized? prom))
           (deliver prom 0))))))
 
-(defn- function-for-step 
+(defn- function-for-step
   "Returns an anonymous function that can be triggered in its own thread to execute a step.
   Each step delivers its own promise.  Dependent steps will block on that promise. "
-  [parse-tree steps promises-indexed step] 
-  (fn [] 
+  [parse-tree steps promises-indexed step]
+  (fn []
     ; wait for parent promises in the tree promises to be delivered
     ; accumulate successful parent tasks into a sum : successful-parent-steps
     (let [prom (:promise step)]
       (try
         (let [deps (:deps step)
-              successful-parent-steps (reduce + 
-                                              (map (fn [i] 
-                                                     @(promises-indexed i)) 
+              successful-parent-steps (reduce +
+                                              (map (fn [i]
+                                                     @(promises-indexed i))
                                                    deps))]
           (if (= successful-parent-steps (count deps))
             (attempt-run-step parse-tree step)
             (deliver prom 0)))
         (catch Exception e
           (deliver (:exception-promise step) e))
-        (finally 
+        (finally
           (when (not (realized? prom))
             (deliver prom 0)))))))
 
-(defn- assoc-function 
+(defn- assoc-function
   "Associates a future (anonymous function) for each step"
   [parse-tree steps]
   ; for quickly accessing promises via a map :index => :promise
-  (let [promises-indexed (zipmap (map :index steps) (map :promise steps))]  
+  (let [promises-indexed (zipmap (map :index steps) (map :promise steps))]
     ; associate a :function on each step
-    (map (fn [step] 
-           (assoc step 
-                  :function 
-                  (function-for-step parse-tree steps promises-indexed step))) 
+    (map (fn [step]
+           (assoc step
+                  :function
+                  (function-for-step parse-tree steps promises-indexed step)))
          steps)))
 
+(defn- post
+  [event-bus event]
+  (when event-bus (.post event-bus event)))
+
+(defn- sanitize-step
+  [step]
+  (dissoc step :function :promise :exception-promise))
 
 (defn- trigger-futures-helper
-  [jobs lazy-steps state-atom]
+  [jobs lazy-steps state-atom event-bus]
   (let [semaphore (new Semaphore jobs true)]
     (loop [steps lazy-steps]
       (.acquire semaphore)
       (when (seq steps)
-        (let [step (first steps)]
-          (future (try 
+        (let [step (first steps)
+              sanitized-step (sanitize-step step)]
+          (future (try
+                    (post event-bus (EventStepBegin sanitized-step))
                     ((:function step))
                     (finally
                       (swap! state-atom update-state-atom-when-step-finishes step)
-                      (.release semaphore)))) 
+                      (when (realized? (:exception-promise step))
+                        (post event-bus (EventStepError sanitized-step @(:exception-promise step))))
+                      (post event-bus (EventStepEnd sanitized-step))
+                      (.release semaphore))))
           (recur (rest steps)))))))
 
 (defn- trigger-futures
   "Run all the steps in (jobs) number of threads"
-  [jobs steps]
+  [jobs steps event-bus]
   (let [state-atom (create-state-atom steps)]
-    (trigger-futures-helper jobs (lazy-step-list state-atom) state-atom)))
+    (trigger-futures-helper jobs (lazy-step-list state-atom) state-atom event-bus)))
 
-(defn- await-promises 
-  "waits for all the promises to be fullfilled otherwise 
+(defn- await-promises
+  "waits for all the promises to be fullfilled otherwise
    we get an premature exit on the main thread
-   returns the sum of all deref'd promises each 
+   returns the sum of all deref'd promises each
    returning either 0/1 for failure/success respectively"
   [steps]
   (reduce + (map (fn [step] @(:promise step)) steps)))
 
-(defn- run-steps-async 
+(defn- run-steps-async
   "Runs steps asynchronously.
    If concurrence = 1, this will run the steps in the same order as the
    array of their indexes.  If concurrence = N, this will grab the first
    N steps and run in parallel.  As steps complete, it will grab additional
-   steps in index order and run them, but no more than N at a time.  
-   NOTE: less than N steps may be running depending on whether dependencies 
+   steps in index order and run them, but no more than N at a time.
+   NOTE: less than N steps may be running depending on whether dependencies
    are met for the steps."
   [parse-tree steps]
-  (let [jobs (:jobs *options*)]
+  (let [jobs (:jobs *options*)
+        event-bus (:guava-event-bus *options*)]
     (if (empty? steps)
       (info "Nothing to do.")
       (do
-        (info (format "Running %d steps with concurrence of %d..." 
-                      (count steps) 
+        (info (format "Running %d steps with concurrence of %d..."
+                      (count steps)
                       jobs))
 
-        (let [steps-opt (if (> jobs 1) (assoc-no-stdin-opt steps) steps)
-              steps-future (->> steps-opt
+        (let [steps-data (->> steps
+                           (assoc-deps parse-tree)
+                           (assoc-parents-and-children parse-tree)
+                           (assoc-no-stdin-opt jobs))
+              steps-future (->>
+                             steps-data
                              assoc-exception-promise
                              assoc-promise
-                             (assoc-deps parse-tree)
-                             (assoc-children)
                              (assoc-function parse-tree))]
 
-          (trigger-futures jobs steps-future)
+          (post event-bus (EventWorkflowBegin steps-data))
+
+          (trigger-futures jobs steps-future event-bus)
 
           (let [successful-steps (await-promises steps-future)]
-            (info (format "Done (%d steps run)." successful-steps))      
+            (info (format "Done (%d steps run)." successful-steps))
+            (post event-bus (EventWorkflowEnd))
             (when (not= successful-steps (count steps))
-              (let [steps-with-exception (filter 
-                                           #(realized? (:exception-promise %)) 
+              (let [steps-with-exception (filter
+                                           #(realized? (:exception-promise %))
                                            steps-future)]
                 (if (not-empty steps-with-exception)
                   (throw @(:exception-promise (first steps-with-exception)))
-                  (throw+ {:msg (str "successful-steps (" 
-                                     successful-steps 
-                                     ") does not equal total steps (" 
-                                     (count steps) 
+                  (throw+ {:msg (str "successful-steps ("
+                                     successful-steps
+                                     ") does not equal total steps ("
+                                     (count steps)
                                      ")")}))))))))))
 
 (defn print-steps
@@ -629,9 +657,9 @@
         (shutdown-agents)))
     (System/exit exit-code)))
 
-(defn parse-cli-vars [vars-str]
+(defn parse-cli-vars [vars-str split-regex-str]
   (when-not (empty? vars-str)
-    (let [pairs (str/split vars-str #",")]
+    (let [pairs (str/split vars-str (re-pattern split-regex-str))]
       (reduce
        (fn [acc pair]
          (let [spl (str/split pair #"=" -1)]
@@ -644,11 +672,14 @@
        pairs))))
 
 (defn build-vars []
-  (merge
-   (into {} (System/getenv))
-   (parse-cli-vars (*options* :vars))
-   (when-let [base (*options* :base)]
-     {"BASE" base})))
+  (let [split-regex-str (or
+                          (*options* :split-vars-regex)
+                          DEFAULT-VARS-SPLIT-REGEX-STR)]
+    (merge
+      (into {} (System/getenv))
+      (parse-cli-vars (*options* :vars) split-regex-str)
+      (when-let [base (*options* :base)]
+        {"BASE" base}))))
 
 (defn- with-workflow-file
   "Reads the workflow file from command-line options, parses it,
@@ -682,7 +713,12 @@
         ;;
         ;; Then the file will be created in the correct location.
         (fs/with-cwd (fs/parent abs-filename)
-          (let [parse-tree (parse-file abs-filename (build-vars))]
+          (let [parse-tree (parse-file abs-filename (build-vars))
+                steps (map (fn [step]
+                             (assoc step :id (str (java.util.UUID/randomUUID))))
+                           (:steps parse-tree)) ; add unique ID to each step
+                steps (into [] steps)
+                parse-tree (assoc parse-tree :steps steps)]
             (f parse-tree)))))))
 
 (defn split-command-line
@@ -693,7 +729,8 @@
   [args]
   (let [non-flag-long #{"--workflow" "--branch" "--merge-branch"
                         "--logfile" "--vars" "--base" "--plugins"
-                        "--aws-credentials" "--step-delay" "--jobs" "--tmpdir"}
+                        "--aws-credentials" "--step-delay" "--jobs" "--tmpdir"
+                        "--split-vars-regex"}
         non-flag-short #{\w \b \l \v \s \j}]
     (loop [i 0]
       (if (>= i (count args))
@@ -711,14 +748,11 @@
 
 (defn- configure-logging
   []
-  (let [level-map {:debug :debug
-                   :trace :trace
-                   :quiet :error}
-        loglevel (if-let [level (first (apply set/intersection
-                                              (map #(into #{} (keys %))
-                                                   [level-map *options*])))]
-                   (level-map level)
-                   :info)
+  (let [loglevel (cond
+                   (:trace *options*) :trace
+                   (:debug *options*) :debug
+                   (:quiet *options*) :error
+                   :else :info)
         logfile (:logfile *options*)
         logfile (if (fs/absolute? logfile)
                   logfile
@@ -885,7 +919,11 @@
                    (with-arg tmpdir
                        "Specifies the temporary directory for Drake files (by default, .drake/ in the same directory the main workflow file is located)."
                        :type :str
-                       :user-name "tmpdir"))
+                       :user-name "tmpdir")
+                   (with-arg split-vars-regex
+                       "Specifies a regex to split up the --vars argument (by default, a regex that splits on commas except commas within double quotes)."
+                       :type :str
+                       :user-name "regex"))
                   (catch IllegalArgumentException e
                     (println
                       (str "\nUnrecognized option: "
@@ -896,22 +934,21 @@
         ;; if a flag is specified, clojopts adds the corresponding key
         ;; to the option map with nil value. here we convert them to true.
         ;; also, the defaults are specified here.
-        options (into {:workflow "./Drakefile"
-                       :logfile "drake.log"
-                       :jobs 1
-                       :plugins PLUGINS-FILE
-                       :tmpdir ".drake"}
+        options (into DEFAULT-OPTIONS
                       (for [[k v] options] [k (if (nil? v) true v)]))]
     (flush)    ;; we need to do it for help to always print out
     (let [targets (if (empty? targets) ["=..."] targets)]
       (when (options :version)
         (println "Drake Version" VERSION "\n")
         (shutdown 0))
+      (when (some #{"--help"} opts)
+        (shutdown 0))
 
       (check-for-conflicts options)
       (set-options options)
-      
+
       (configure-logging)
+      (memo/memo-clear! drake.parser/shell-memo)
 
       (debug "Drake" VERSION)
       (debug "Clojure version:" *clojure-version*)
@@ -934,42 +971,47 @@
 (defn run-opts [opts]
   (let [opts (merge {:auto true} opts)]
     (set-options opts)
+    (configure-logging)
+    (memo/memo-clear! drake.parser/shell-memo)
+
+    (debug "Drake" VERSION)
+    (info "Clojure version:" *clojure-version*)
+    (info "Options:" opts)
+
+    (load-plugin-deps (*options* :plugins))
     (with-workflow-file #(run % (:targetv opts)))))
 
 (defn -run_opts
   "Explicitly for use from Java"
   [opts]
-  (run-opts (into {} (for [[k v] opts] [(keyword k) v]))))
+  (run-opts (into DEFAULT-OPTIONS
+                  (for [[k v] opts] [(keyword k) v]))))
+
+(defn -run_opts_with_event_bus
+  "Explicitly for use from Java"
+  [opts event_bus]
+  (let [opts (merge {:guava-event-bus event_bus} opts)]
+    (run-opts (into DEFAULT-OPTIONS
+                    (for [[k v] opts] [(keyword k) v])))))
 
 (defn run-workflow
-  ([workflow & {:as opts}]
-     (run-opts (merge opts {:workflow workflow})))
-   ([]
-    (run-opts {})))
-
-#_(defn run-workflow
   "This can be called from the REPL or Clojure code as a way of
    using this ns as a library. Runs in auto mode, meaning there
    won't be an interactive user confirmation before running steps.
 
-   Specify an empty targetv to get the same result as running Drake
-   with no targets.
+   You must specify a non-empty :targetv.
 
    Examples:
-     (run-workflow \"demos/factual\" [])
-     (run-workflow \"demos/factual\" [\"+...\"])
-     (run-workflow \"demos/factual\" [\"+...\"] :branch \"MYBRANCH\")
-     (run-workflow \"some/workflow-file.drake\" [\"+...\" \"-^D\" \"-=B\"]
+     (run-workflow \"demos/factual\" :targetv [\"+...\"])
+     (run-workflow \"demos/factual\" :targetv [\"+...\"] :branch \"MYBRANCH\")
+     (run-workflow \"some/workflow-file.drake\" :targetv [\"+...\" \"-^D\" \"-=B\"]
                    :branch \"MYBRANCH\" :preview true)
 
    TODO: log messages don't show up on the REPL (but printlns do).
          Can this be fixed?"
-  [workflow targetv & {:as opts}]
-  (set-options
-   (merge opts
-          {:workflow workflow
-           ;; Prevent interactive user confirmation. We can later
-           ;; refactor the run function to be more library-like,
-           ;; rather than cli-like.
-           :auto true}))
-  (with-workflow-file #(run % targetv)))
+  ([workflow & {:as opts}]
+     (run-opts (merge DEFAULT-OPTIONS
+                      {:workflow workflow}
+                      opts)))
+   ([]
+    (run-opts DEFAULT-OPTIONS)))

@@ -6,4 +6,5 @@
   * Update README uberjar link
   * Update README feature docs
   * Update wiki feature docs
+  * Create release label
   * Notify newsgroup

@@ -91,6 +91,7 @@ check_local merged "L1L2S1S2"
 echo "------------------"
 echo "TEST: merged_local"
 echo "------------------"
+sleep 2 # get around the 1 second accuracy of lastModified() in Java
 create_local_file merged_local "LL"
 run
 check_targets 1
@@ -101,6 +102,7 @@ check_local merged "LLS1S2"
 echo "-----------------"
 echo "TEST: merged_s3"
 echo "-----------------"
+sleep 2 # get around the 1 second accuracy of lastModified() in Java
 create_s3_file ${S3_TEST_DIR}/merged_s3 "SS"
 run
 check_targets 1
@@ -111,6 +113,7 @@ check_local merged "LLSS"
 echo "-------------------"
 echo "TEST: change s3_2"
 echo "-------------------"
+sleep 2 # get around the 1 second accuracy of lastModified() in Java
 create_s3_file ${S3_TEST_DIR}/s3_2 "s2"
 run
 check_targets 2
@@ -121,6 +124,7 @@ check_local merged "LLS1s2"
 echo "--------------------"
 echo "TEST: change local_2"
 echo "--------------------"
+sleep 2 # get around the 1 second accuracy of lastModified() in Java
 create_local_file local_2 "l2"
 run
 check_targets 2
