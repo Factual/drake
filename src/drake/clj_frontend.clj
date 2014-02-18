@@ -14,17 +14,17 @@
    :methods {}
    :vars (d-core/build-vars)})
 
-(defn add-step
+(defn step
   "Add a new step to the parse tree, p-tree.  infiles and outfiles are
   vectors of filenames.  input-tags and output-tags are optinally
   vectors of tag strings without the opening %. To specify commands
-  use the :cmds option.  :opts is an optional map of options.  :method
-  can be an option in the opts map.  See add-method-step and
+  use the :cmds option.  :options is an optional map of options.  :method
+  can be an option in the options map.  See add-method-step and
   add-cmd-step"
-  [p-tree infiles outfiles & {:keys [input-tags
+  [p-tree outfiles infiles & {:keys [input-tags
                                      output-tags
                                      cmds
-                                     opts]}]
+                                     options]}]
   (let [vars (:vars p-tree)
         raw-base (get vars "BASE" parse/default-base)
         base (parse/add-path-sep-suffix raw-base)
@@ -50,53 +50,69 @@
               :outputs     outfiles-with-base
               :output-tags (if (nil? output-tags) () output-tags)
               :vars        vars
-              :opts        (if (nil? opts) {} opts)}
+              :opts        (if (nil? options) {} options)}
         step (if cmds (assoc step :cmds (map concat cmds)) step)]
     (update-in p-tree [:steps] #(conj % step))))
 
-(defn add-method-step
+(defn method-step
   "Shortcut for making a step using a method.  infiles, outfiles,
   input-tags and output-tags should be vectors.  method is a string
   with the method name."
-  [p-tree infiles outfiles method & {:keys [input-tags
+  [p-tree outfiles infiles method & {:keys [input-tags
                                             output-tags
-                                            opts]}]
-  (add-step p-tree infiles outfiles
+                                            options]}]
+  (step p-tree outfiles infiles
             :input-tags input-tags
             :output-tags output-tags
-            :opts (assoc opts :method method)))
+            :options (assoc options :method method)))
 
-(defn add-cmd-step
+(defn cmd-step
   "Shortcut for making a step with commands. infiles, outfiles and
   cmds should be vectors.  Optionallly, input-tags and output-tags
   should contain vectors of tags without an opening %."
-  [p-tree infiles outfiles cmds & {:keys [input-tags
+  [p-tree outfiles infiles cmds & {:keys [input-tags
                                           output-tags
-                                          opts]}]
-  (add-step p-tree infiles outfiles
+                                          options]}]
+  (step p-tree outfiles infiles
             :cmds cmds
             :input-tags input-tags
             :output-tags output-tags
-            :opts opts))
+            :options options))
 
-(defn add-method
+(defn method
   "Add a method to the parse tree.  method-name should be a string and
   cmds should be a vector of command strings"
-  [p-tree method-name cmds & {:keys [opts]
-                              :or {opts {}}}]
+  [p-tree method-name cmds & {:keys [options]
+                              :or {options {}}}]
   (when ((:methods p-tree) method-name)
     (warn (format "Warning: method redefinition ('%s')" method-name)))
-  (assoc-in p-tree [:methods method-name] {:opts opts
+  (assoc-in p-tree [:methods method-name] {:options options
                                            :vars (:vars p-tree)
                                            :cmds (map concat cmds)}))
 
-(defn add-var
+(defn add-methods
+  "Adds   all the methods in methods-hash to the p-tree tree.
+  methods-hash has method names for keys and vectors of method
+  commands for values like this {\"method-name\" [\"method commands\"]}"
+  [p-tree methods-hash]
+  (reduce
+   (fn [p-tree [method-name cmds]]
+     (method p-tree method-name cmds))
+   p-tree
+   (seq methods-hash)))
+
+(defn set-var
   "Add a variable to the parse tree.  var-name and var-value shoudld
   be strings"
   [p-tree var-name var-value]
   (assoc-in p-tree [:vars var-name] var-value))
 
-(defn add-step-ids
+(defn base
+  "Shortcut to set BASE to new-base"
+  [p-tree new-base]
+  (set-var p-tree "BASE" new-base))
+
+(defn- add-step-ids
   "Add Unique ID to each step in parse-tree"
   [parse-tree]
   (let [steps (map (fn [step]
@@ -105,7 +121,7 @@
         steps (into [] steps)]
     (assoc parse-tree :steps steps)))
 
-(defn compile-parse-tree
+(defn- compile-parse-tree
   "add-dependencies, calc-step-dirs and add-step-ids to
   p-tree"
   [p-tree]
@@ -120,9 +136,8 @@
   specified as a map to :opts"
   [p-tree & {:keys [targetv]
               :or {targetv ["=..."]}
-              :as opts}]
-  (let [opts (merge d-core/DEFAULT-OPTIONS opts)
-        opts (merge {} opts)]
+              :as run-options}]
+  (let [opts (merge d-core/DEFAULT-OPTIONS run-options)]
     (d-opts/set-options opts)
     (d-core/configure-logging)          ; currently configure-logging
                                         ; is private
@@ -138,27 +153,33 @@
           (compile-parse-tree)
           (d-core/run targetv)))))
 
-;; Example usage:
+;; ;; Example usage:
 ;; (use 'drake.clj-frontend)
-;; (def p-tree (-> (new-workflow)
-;;                 (add-cmd-step
-;;                  []
-;;                  ["out"]
-;;                  ["echo test > $OUTPUT"])
-;;                 (add-method
-;;                  "echo_test2"
-;;                  ["echo test2 > $OUTPUT"])
-;;                 (add-method-step
-;;                  []
-;;                  ["out2"]
-;;                  "echo_test2")
-;;                 (add-var "test_var" "TEST_VAR_VALUE")
-;;                 (add-cmd-step
-;;                  []
-;;                  ["out3"]
-;;                  ["echo $test_var > $OUTPUT"])))
-;; (run-workflow p-tree)
 
+;; (def p-tree (-> (new-workflow)
+;;                 (cmd-step
+;;                  ["out1"]
+;;                  []
+;;                  ["echo \"This is the first output.\" > $OUTPUT"]
+;;                  :options {:timecheck false})
+;;                 (method
+;;                  "test_method"
+;;                  ["echo \"Here we are testing a method step.\" > $OUTPUT"])
+;;                 (method-step
+;;                  ["method_out"]
+;;                  []
+;;                  "test_method")
+;;                 (set-var "test_var" "TEST_VAR_VALUE")
+;;                 (cmd-step
+;;                  ["out3"]
+;;                  ["out1"]
+;;                  ["echo \\
+;; \"This is the third output.
+;; test_var is set to $test_var.
+;; The file $INPUT contains:\" \\
+;; | cat - $INPUT > $OUTPUT"])))
+
+;; (run-workflow p-tree)
 
 ;; Things I need to test
 
