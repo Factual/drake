@@ -23,17 +23,14 @@
   "Add a new step parse-tree.  inputs and outputs are vectors and can
   be a mixture of tags and files. Tags are indicated by an opening
   %. cmds should be a vector of strings or nil/false for steps that
-  don't need commands like method and template steps. options are
-  standard drake options as key value pairs, e.g. :method-mode true.
-  See method-step, cmd-step, template and template-step."
+  don't need commands like method and template steps. Standard drake
+  options can be appended inline as key value pairs, e.g. :method-mode
+  true.  See method-step, cmd-step, template and template-step."
   [parse-tree outputs inputs cmds & {:keys [template]
                                  :as options}]
   (let [vars (:vars parse-tree)
         base (parse/add-path-sep-suffix
               (get vars "BASE" parse/default-base))
-        parse-file-fn (comp
-                       (partial parse/add-prefix base)
-                       (partial utils/var-sub->str vars))
 
         [intags infiles] (utils/split-tags-from-files inputs)
         intags (utils/remove-tag-symbol intags)
@@ -62,9 +59,12 @@
                   :outputs     outfiles-with-base
                   :output-tags (if (nil? outtags) () outtags)
                   :vars        vars
-                  :opts        (if (nil? options) {} options)
-                  :cmds        (when cmds
-                                 (mapv (partial utils/var-place vars) cmds))}
+                  :opts        (if (nil? options) {} options)}
+        step-map (if cmds
+                   (assoc step-map
+                     :cmds
+                     (mapv (partial utils/var-place vars) cmds))
+                   step-map)
         p-tree-key (if template :templates :steps)]
     (utils/check-step-validity parse-tree step-map)
     (update-in parse-tree [p-tree-key]
@@ -135,7 +135,6 @@
   [parse-tree new-base]
   (set-var parse-tree "BASE" new-base))
 
-
 ;; This function should print some interactive output to the repl as
 ;; steps are run.  Currently it just blocks with no output till all
 ;; the steps are done.  I'm not quite sure how to do this.  Can it be
@@ -190,7 +189,6 @@
     ["out1"]
     ["echo \"This is the third output.\" > $OUTPUT"
      "echo \"test_var is set to $test_var - $[test_var].\" >> $OUTPUT"
-     "echo \"The file $INPUT contains:\" | cat - $INPUT >> $[OUTPUT]"])
-   ))
+     "echo \"The file $INPUT contains:\" | cat - $INPUT >> $[OUTPUT]"])))
 
 ;; (run-workflow p-tree)

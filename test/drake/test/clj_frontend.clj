@@ -1,91 +1,9 @@
 (ns drake.test.clj-frontend
   (:require [clojure.test :refer :all]
             [drake.clj-frontend :refer :all]
-            [drake.clj-frontend-utils :as utils]
-            [drake.parser :as parse]
-            [drake.parser_utils :refer [illegal-syntax-error-fn
-                                        state-s]]
-            [name.choi.joshua.fnparse :as p]))
+            [drake.clj-frontend-utils :as utils :refer
+                                      [tpprint]]))
 
-;; Some functions to help testing
-
-(defn ensure-final-newline
-  "Make a the string ends with a newline"
-  [s]
-  (if (.endsWith s "\n")
-    s
-    (str s "\n")))
-
-(defn step-ws-remover-fn
-  "Remove whitespace from commands in step-map"
-  [step-map]
-  (let [cmd-ws-remover-fn (fn [cmds]
-                            (when cmds
-                              (let [prefix-len (count
-                                                (take-while #{\space \tab}
-                                                            (first cmds)))]
-                                (mapv #(drop prefix-len %) cmds))))]
-    (update-in step-map [:cmds] cmd-ws-remover-fn)))
-
-(defn remove-step-template-ws
-  "Remove whitespace from all step or template commands in
-  parse-tree. parse-tree-key can be either :steps or :templates"
-  [parse-tree parse-tree-key]
-  (if (parse-tree-key parse-tree)
-    (update-in parse-tree [parse-tree-key]
-               (fn [steps]
-                 (vec
-                  (for [step-map steps]
-                    (step-ws-remover-fn step-map)))))
-    parse-tree))
-
-(defn remove-method-ws
-  "Remove whitespace from all method commands in parse-tree"
-  [parse-tree]
-  (let [method-names (keys (:methods parse-tree))]
-    (reduce (fn [parse-tree meth]
-              (update-in parse-tree [:methods meth]
-                         step-ws-remover-fn))
-            parse-tree
-            method-names)))
-
-(defn remove-parse-tree-ws
-  "Remove whitespace from step and method commands"
-  [parse-tree]
-  (-> parse-tree
-      (remove-step-template-ws :steps)
-      (remove-step-template-ws :templates)
-      remove-method-ws))
-
-(defn str->parse-tree
-  "Take a string s and the map vars and a make a raw
-  parse-tree. Remove whitespace from commands"
-  ([s]
-     (let [state (struct state-s
-                         (ensure-final-newline s)
-                         {}
-                         #{}
-                         1 1)]
-       (remove-parse-tree-ws
-        (p/rule-match parse/workflow
-                      #((illegal-syntax-error-fn "start of workflow")
-                        (:remainder %2) %2) ;; fail
-                      #((illegal-syntax-error-fn "workflow")
-                        (:remainder %2) %2) ;; incomplete match
-                      state)))))
-
-
-(defn file->parse-tree
-  "Just a function to help during development.  Take a file and
-  converts it into a raw parse-tree"
-  ([file-name]
-     (let [d-file (slurp file-name)]
-       (str->parse-tree d-file))))
-
-;; (def tree (file->parse-tree "test.drake.txt" {}))
-;; (pprint tree)
-
-;; Start of the actual tests
 
 (deftest var-check-test
   (is (= (utils/var-check {"a" 1 "b" 2} "a") nil))
@@ -155,9 +73,11 @@
 (deftest basic-wf-test
   (is (=
        (-> (workflow {})
-           (cmd-step ["out"] ["in"] ["cat $[INPUT] > $OUTPUT"]))
+           (cmd-step ["out"] ["in"] ["  cat $[INPUT] > $OUTPUT"])) ;note
+                                                                   ;cmd
+                                                                   ;space
 
-       (str->parse-tree "
+       (utils/str->parse-tree "
 out <- in
   cat $[INPUT] > $OUTPUT"))))
 
@@ -165,8 +85,8 @@ out <- in
   (is (=
        (-> (workflow {})
            (set-var "var" "val")
-           (cmd-step ["$[var]"] [] ["cmd"]))
-       (str->parse-tree "
+           (cmd-step ["$[var]"] [] ["  cmd"]))
+       (utils/str->parse-tree "
 var=val
 $[var] <-
   cmd"))))
@@ -175,35 +95,35 @@ $[var] <-
   (is (=
        (-> (workflow {})
              (cmd-step ["out"] ["in"]
-                       ["echo \"first command\""
-                        "echo \"second command\""]))
+                       ["  echo \"first command\""
+                        "  echo \"second command\""]))
 
-       (str->parse-tree "
+       (utils/str->parse-tree "
 out <- in
   echo \"first command\"
   echo \"second command\""))))
 
 (deftest template-test
   (is (=
-       (-> (workflow {})
-           (template [".sorted$"] ["."]
-                     ["cat $INPUT | sort | uniq > $OUTPUT"])
-           (template-step ["output1.sorted"] ["input1"]))
+       (tpprint (-> (workflow {})
+            (template [".sorted$"] ["."]
+                      ["  cat $INPUT | sort | uniq > $OUTPUT"])
+            (template-step ["output1.sorted"] ["input1"])))
 
-       (str->parse-tree "
+       (tpprint (utils/str->parse-tree "
 .sorted$ <- . [+template]
-    cat $INPUT | sort | uniq > $OUTPUT
-output1.sorted <- input1"))))
+  cat $INPUT | sort | uniq > $OUTPUT
+output1.sorted <- input1")))))
 
 (deftest tag-test
   (is (=
        (-> (workflow {})
-           (cmd-step ["%A"] [] ["echo Step A"])
-           (cmd-step ["%B"] [] ["echo Step B"])
-           (cmd-step ["%C"] ["%A" "%B"] ["echo Step C"])
-           (cmd-step ["%D"] ["%C"] ["echo Step D"]))
+           (cmd-step ["%A"] [] ["  echo Step A"])
+           (cmd-step ["%B"] [] ["  echo Step B"])
+           (cmd-step ["%C"] ["%A" "%B"] ["  echo Step C"])
+           (cmd-step ["%D"] ["%C"] ["  echo Step D"]))
 
-       (str->parse-tree "
+       (utils/str->parse-tree "
 %A <-
   echo Step A
 
@@ -223,16 +143,16 @@ output1.sorted <- input1"))))
            (cmd-step
             ["words" "lines"]
             ["cpg.csv"]
-            ["echo INPUTS=$[INPUTS]"
-             "echo INPUTN=$[INPUTN]"
-             "echo INPUT=$[INPUT]"
-             "echo INPUT0=$[INPUT0]"
-             "echo OUTPUTS=$[OUTPUTS]"
-             "echo OUTPUTN=$[OUTPUTN]"
-             "echo OUTPUT=$[OUTPUT]"
-             "echo OUTPUT0=$[OUTPUT0]"
-             "echo OUTPUT1=$[OUTPUT1]"]))
-       (str->parse-tree "
+            ["  echo INPUTS=$[INPUTS]"
+             "  echo INPUTN=$[INPUTN]"
+             "  echo INPUT=$[INPUT]"
+             "  echo INPUT0=$[INPUT0]"
+             "  echo OUTPUTS=$[OUTPUTS]"
+             "  echo OUTPUTN=$[OUTPUTN]"
+             "  echo OUTPUT=$[OUTPUT]"
+             "  echo OUTPUT0=$[OUTPUT0]"
+             "  echo OUTPUT1=$[OUTPUT1]"]))
+       (utils/str->parse-tree "
 BASE=/tmp
 
 words, lines <- cpg.csv
