@@ -103,17 +103,40 @@ out <- in
   echo \"first command\"
   echo \"second command\""))))
 
+(deftest method-test
+  (is (=
+       (:steps (-> (workflow {})
+                   (method "sort_and_unique"
+                           ["  sort $INPUT | uniq > $OUTPUT"]
+                           :protocol "shell"
+                           :my_option "my_value")
+                   (method-step
+                    ["output1"]
+                    ["input1"]
+                    "sort_and_unique")
+                   (method-step
+                    ["output2"]
+                    ["input2"]
+                    "sort_and_unique"
+                    :my_option "new_my_value")))
+       (:steps (utils/str->parse-tree "
+sort_and_unique() [shell my_option:my_value]
+  sort $INPUT | uniq > $OUTPUT
+
+output1 <- input1 [method:sort_and_unique]
+output2 <- input2 [method:sort_and_unique my_option:new_my_value]")))))
+
 (deftest template-test
   (is (=
-       (tpprint (-> (workflow {})
-            (template [".sorted$"] ["."]
-                      ["  cat $INPUT | sort | uniq > $OUTPUT"])
-            (template-step ["output1.sorted"] ["input1"])))
+       (-> (workflow {})
+           (template [".sorted$"] ["."]
+                     ["  cat $INPUT | sort | uniq > $OUTPUT"])
+           (template-step ["output1.sorted"] ["input1"]))
 
-       (tpprint (utils/str->parse-tree "
+       (utils/str->parse-tree "
 .sorted$ <- . [+template]
   cat $INPUT | sort | uniq > $OUTPUT
-output1.sorted <- input1")))))
+output1.sorted <- input1"))))
 
 (deftest tag-test
   (is (=

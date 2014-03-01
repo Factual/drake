@@ -104,7 +104,7 @@
   [parse-tree method-name cmds & {:as options}]
   (when ((:methods parse-tree) method-name)
     (println (format "Warning: method redefinition ('%s')" method-name)))
-  (assoc-in parse-tree [:methods method-name] {:options (if (nil? options)
+  (assoc-in parse-tree [:methods method-name] {:opts (if (nil? options)
                                                       {}
                                                       options)
                                            :vars (:vars parse-tree)

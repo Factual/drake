@@ -183,26 +183,27 @@
 
 (defn str->parse-tree
   "Take a string s and makes a raw parse-tree."
-  ([s]
-     (let [state (struct state-s
-                         (ensure-final-newline s)
-                         {}
-                         #{}
-                         1 1)]
-       (p/rule-match parse/workflow
-                     #((illegal-syntax-error-fn "start of workflow")
-                       (:remainder %2) %2) ;; fail
-                     #((illegal-syntax-error-fn "workflow")
-                       (:remainder %2) %2) ;; incomplete match
-                     state))))
+  [s]
+  (let [state (struct state-s
+                      (ensure-final-newline s)
+                      {}
+                      #{}
+                      1 1)]
+    (p/rule-match parse/workflow
+                  #((illegal-syntax-error-fn "start of workflow")
+                    (:remainder %2) %2) ;; fail
+                  #((illegal-syntax-error-fn "workflow")
+                    (:remainder %2) %2) ;; incomplete match
+                  state)))
 
 
 (defn file->parse-tree
   "Just a function to help during development.  Take a file and
   convert it into a raw parse-tree"
-  ([file-name]
-     (let [d-file (slurp file-name)]
-       (str->parse-tree d-file))))
+  [file-name]
+  (let [d-file (slurp file-name)]
+    (str->parse-tree d-file)))
 
-;; (def tree (file->parse-tree "test.drake.txt" {}))
+;; (def tree (file->parse-tree "test.drake.txt"))
 ;; (pprint tree)
+;; (drake.clj-frontend/run-workflow tree)
