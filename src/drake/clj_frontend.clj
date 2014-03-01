@@ -191,4 +191,5 @@
      "echo \"test_var is set to $test_var - $[test_var].\" >> $OUTPUT"
      "echo \"The file $INPUT contains:\" | cat - $INPUT >> $[OUTPUT]"])))
 
-;; (run-workflow p-tree)
+;; (run-workflow p-tree :preview true)
+;; (run-workflow p-tree :auto true)

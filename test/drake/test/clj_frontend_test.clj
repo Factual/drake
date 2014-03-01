@@ -1,4 +1,4 @@
-(ns drake.test.clj-frontend
+(ns drake.test.clj-frontend-test
   (:require [clojure.test :refer :all]
             [drake.clj-frontend :refer :all]
             [drake.clj-frontend-utils :as utils :refer
@@ -69,6 +69,11 @@
        (-> (workflow {})
            (method "test-method" ["cmd"])
            (step [] [] ["bad-commands"] :method "test-method")))))
+
+
+;; Here are the bulk of the tests.  The basic idea is to make a
+;; workflow using clj-frontend and make sure it is exactly the same as
+;; the workflow coming form parser
 
 (deftest basic-wf-test
   (is (=
@@ -189,5 +194,17 @@ words, lines <- cpg.csv
   echo OUTPUT0=$[OUTPUT0]
   echo OUTPUT1=$[OUTPUT1]"))))
 
-;; add base test!!!
+(deftest off-base-test
+  (is (= (-> (workflow {})
+          (base "/tmp")
+          (cmd-step
+           ["!/usr/local/bin/a-bin"]
+           ["input"]
+           ["  cmd"]))
+      (utils/str->parse-tree "
+BASE=/tmp
+
+!/usr/local/bin/a-bin <- input
+  cmd"))))
+
 ;; (run-tests)
