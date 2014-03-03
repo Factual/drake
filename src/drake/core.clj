@@ -264,10 +264,10 @@
        :else
        ;; input-files can be empty if the only input is an empty dir
        ;; and the empty-input-dir-valid is set
-       (let [input-files (mapv newest-in inputs)
+       (let [input-files (remove nil? (mapv newest-in inputs))
              newest-input (if (or (nil? input-files) (empty? input-files)) 
                             0
-                            (apply max (map :mod-time (remove nil? input-files)))) 
+                            (apply max (map :mod-time input-files))) 
              output-files (mapv oldest-in (filter #(fs di/data-in? %) outputs))]
          (let [oldest-output (apply min (map :mod-time output-files))]
            (debug (format "Timestamp checking, inputs: %s, outputs: %s"
