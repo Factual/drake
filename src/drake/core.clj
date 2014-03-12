@@ -746,7 +746,7 @@
                 (recur (inc i))
                 (split-at i args))))))))
 
-(defn- configure-logging
+(defn configure-logging
   []
   (let [loglevel (cond
                    (:trace *options*) :trace
