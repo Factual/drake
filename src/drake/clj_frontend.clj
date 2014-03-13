@@ -7,7 +7,21 @@
             [drake.options :as d-opts :refer [*options*]]
             [drake.parser :as parse]
             [drake.plugins :as plug]
-            [fs.core :as fs]))
+            [fs.core :as fs]
+            [drake.clj-frontend-event]
+            [clojure.java.io :as io]
+            [clojure.pprint :refer [pprint]]
+            [clj-time.coerce :as coerce-time]
+            [clj-time.local :as local-time]
+            [clj-time.format :as format-time])
+  (:import [com.google.common.eventbus EventBus Subscribe]
+           [drake.event
+            DrakeEvent
+            DrakeEventWorkflowBegin
+            DrakeEventWorkflowEnd
+            DrakeEventStepBegin
+            DrakeEventStepEnd
+            DrakeEventStepError]))
 
 
 (defn workflow
@@ -139,6 +153,9 @@
 ;; steps are run.  Currently it just blocks with no output till all
 ;; the steps are done.  I'm not quite sure how to do this.  Can it be
 ;; through the logging configuration?
+(defn tprn [x]
+  (prn x)
+  x)
 (defn run-workflow
   "Run the workflow in parse-tree.  Optionally specify targetv as a
   key value pair, e.g. :targetv [\"=...\"]\", otherwise the default
@@ -171,9 +188,11 @@
   (->
    (workflow {})
    (cmd-step
-    ["out1"]
+    ["out1"
+     "out2"]
     []
-    ["echo \"This is the first output.\" > $OUTPUT"]
+    ["echo \"This is the first output.\" > $OUTPUT0"
+     "echo \"This is the first output.\" > $OUTPUT1"]
     :timecheck false)
    (method
     "test_method"
@@ -190,6 +209,67 @@
     ["echo \"This is the third output.\" > $OUTPUT"
      "echo \"test_var is set to $test_var - $[test_var].\" >> $OUTPUT"
      "echo \"The file $INPUT contains:\" | cat - $INPUT >> $[OUTPUT]"])))
+
+(defn event-map [event] @(.state event))
+
+(defn event-time [event]
+  (let [timestamp (coerce-time/from-long
+                   (:timestamp (event-map event)))]
+(local-time/format-local-time
+     (local-time/to-local-date-time timestamp)
+     :hour-minute-second)))
+
+(defn step-string [event]
+  (let [step-map (:step (event-map event))]
+    (format "%s: %s [%s]"
+            (inc (:index step-map))
+            (:name step-map)
+            (:cause step-map))))
+
+(definterface IEvent
+  (beginWorkflow [^drake.event.DrakeEventWorkflowBegin e])
+  (endWorkflow [^drake.event.DrakeEventWorkflowEnd e])
+  (beginStep [^drake.event.DrakeEventStepBegin e])
+  (endStep [^drake.event.DrakeEventStepEnd e])
+  (reportError [^drake.event.DrakeEventStepError e]))
+
+(deftype EventHandler []
+  IEvent
+
+  (^{Subscribe true}
+   beginWorkflow [_ e] (println "\nStarting Workflow @"
+                         (event-time e)))
+
+  (^{Subscribe true}
+   endWorkflow [_ e] (println "\nFinished Workflow @"
+                       (event-time e)))
+
+  (^{Subscribe true}
+   beginStep [_ e]
+   (println)
+   (println (step-string e))
+   (pprint (:step (event-map e))))
+
+  (^{Subscribe true}
+   endStep [_ e]
+   (println (step-string e) "Finished @" (event-time e)))
+
+  (^{Subscribe true}
+   reportError [_ e]
+   (println "\nEnconterred an Error:")
+   (pprint (event-map e))))
+
+(defn run-with-event-bus [parse-tree]
+  (let [event-bus (doto (EventBus.) (.register (EventHandler.)))]
+    (run-workflow parse-tree :guava-event-bus event-bus :auto true)))
+
+(defn test-run []
+  (println)
+  (run-workflow p-tree :preview true)
+  (run-with-event-bus p-tree))
+;; (map io/delete-file ["out1" "out2" "out3" "out_method"])
+
+;; (test-run)
 
 ;; (run-workflow p-tree :preview true)
 ;; (run-workflow p-tree :auto true)
