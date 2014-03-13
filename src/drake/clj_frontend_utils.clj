@@ -8,7 +8,18 @@
             [drake.utils :as d-utils]
             [name.choi.joshua.fnparse :as p]
             [slingshot.slingshot :refer [throw+]]
-            [clojure.pprint :refer [pprint]]))
+            [clojure.pprint :refer [pprint]]
+            [clj-time.coerce :as coerce-time]
+            [clj-time.local :as local-time]
+            [clj-time.format :as format-time])
+  (:import [com.google.common.eventbus EventBus Subscribe]
+           [drake.event
+            DrakeEvent
+            DrakeEventWorkflowBegin
+            DrakeEventWorkflowEnd
+            DrakeEventStepBegin
+            DrakeEventStepEnd
+            DrakeEventStepError]))
 
 (defn tprn
   "Transparent prn"
@@ -207,3 +218,58 @@
 ;; (def tree (file->parse-tree "test.drake.txt"))
 ;; (pprint tree)
 ;; (drake.clj-frontend/run-workflow tree)
+
+
+;; Functions here are for working with EventBus
+(defn event-map [event] @(.state event))
+
+(defn event-time [event]
+  (let [timestamp (coerce-time/from-long
+                   (:timestamp (event-map event)))]
+(local-time/format-local-time
+     (local-time/to-local-date-time timestamp)
+     :hour-minute-second)))
+
+(defn step-string [event]
+  (let [step-map (:step (event-map event))]
+    (format "%s: %s [%s]"
+            (inc (:index step-map))
+            (:name step-map)
+            (:cause step-map))))
+
+(definterface IEvent
+  (beginWorkflow [^drake.event.DrakeEventWorkflowBegin e])
+  (endWorkflow [^drake.event.DrakeEventWorkflowEnd e])
+  (beginStep [^drake.event.DrakeEventStepBegin e])
+  (endStep [^drake.event.DrakeEventStepEnd e])
+  (reportError [^drake.event.DrakeEventStepError e]))
+
+(deftype EventHandler []
+  IEvent
+
+  (^{Subscribe true}
+   beginWorkflow [_ e] (println "\nStarting Workflow @"
+                         (event-time e)))
+
+  (^{Subscribe true}
+   endWorkflow [_ e] (println "\nFinished Workflow @"
+                       (event-time e)))
+
+  (^{Subscribe true}
+   beginStep [_ e]
+   (println)
+   (println (step-string e))
+   (pprint (:step (event-map e))))
+
+  (^{Subscribe true}
+   endStep [_ e]
+   (println (step-string e) "Finished @" (event-time e)))
+
+  (^{Subscribe true}
+   reportError [_ e]
+   (println "\nEnconterred an Error:")
+   (pprint (event-map e))))
+
+(defn start-event-bus []
+  (doto (EventBus.)
+    (.register (EventHandler.))))
