@@ -207,4 +207,12 @@ BASE=/tmp
 !/usr/local/bin/a-bin <- input
   cmd"))))
 
+(deftest run-workflow-test
+  "Just make sure we don't get any errors"
+  (let [wf (-> (workflow {})
+               (cmd-step ["fake_output"] [] ["echo \"I don't do much\""]))]
+    (run-workflow wf :auto true)
+    (doseq [verbosity [:quiet :default :verbose]]
+      (run-workflow wf :auto true :repl-feedback verbosity))))
+
 ;; (run-tests)
