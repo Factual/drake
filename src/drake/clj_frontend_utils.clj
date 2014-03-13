@@ -6,9 +6,15 @@
                                         state-s]]
             [drake.steps :as d-steps]
             [drake.utils :as d-utils]
+            [drake.options :refer [*options*]]
+            [drake.event]
             [name.choi.joshua.fnparse :as p]
             [slingshot.slingshot :refer [throw+]]
-            [clojure.pprint :refer [pprint]]))
+            [clojure.pprint :refer [pprint]]
+            [clj-time.coerce :as coerce-time]
+            [clj-time.local :as local-time])
+  (:import [com.google.common.eventbus EventBus Subscribe]
+           [drake.event DrakeEvent]))
 
 (defn tprn
   "Transparent prn"
@@ -207,3 +213,74 @@
 ;; (def tree (file->parse-tree "test.drake.txt"))
 ;; (pprint tree)
 ;; (drake.clj-frontend/run-workflow tree)
+
+
+;; Functions below here are for working with EventBus
+
+(defn event-time
+  "Take the event-map and return a human readable time"
+  [event-map]
+  (let [timestamp (coerce-time/from-long
+                   (:timestamp event-map))]
+    (local-time/format-local-time
+     (local-time/to-local-date-time timestamp)
+     :hour-minute-second)))
+
+(defn step-string
+  "Take the event-map and return a short display string for the event"
+  [{step-map :step}]
+  (format "%s: %s [%s]"
+          (inc (:index step-map))
+          (:name step-map)
+          (:cause step-map)))
+
+(defn get-event-map [event] @(.state event))
+
+(defn handle-drake-event
+  "Take an event and print info out to the repl dependent on the
+  setting of :repl-feedback in *options*"
+  [event]
+  (let [event-map (get-event-map event)
+        repl-feedback (:repl-feedback *options*)]
+    (case (keyword (:type event-map))
+      :workflow-begin (println "\nWorkflow Started @"
+                               (event-time event-map))
+      :workflow-end   (println "\nWorkflow Finished @"
+                               (event-time event-map))
+      :step-begin     (do (println)
+                          (println (step-string event-map)
+                                   "Step Started @" (event-time event-map))
+                          (if (= repl-feedback :verbose)
+                            (pprint (:step event-map))))
+      :step-end       (println (step-string event-map)
+                               "Step Finished @" (event-time event-map))
+      :step-error     (do (println "\nEnconterred an Error:")
+                          (pprint event-map)))))
+
+
+;; Interface for handling events of class DrakeEvent.  See event.clj
+;; for all the event classes
+
+(definterface IDrakeEvent
+  (handleDrakeEvent [^drake.event.DrakeEvent event]))
+
+
+;; This class can be registered with EventBus in order to handle
+;; Events coming from a Drake Workflow because of the Subscribe
+;; annotation on the handleDrakeEvent method, equivalent to a Java
+;; annoation of "@Subscribe"
+
+;; DrakeEventHandler--Class with an event handler method to respond to
+;; events from EventBus.
+
+(deftype DrakeEventHandler []
+  IDrakeEvent
+  (^{Subscribe true}
+   handleDrakeEvent [_ event]
+   (handle-drake-event event)))
+
+(defn start-event-bus
+  "Return an EventBus instance with a handler registered for events of
+  class DrakeEvent"
+  []
+  (doto (EventBus.) (.register (DrakeEventHandler.))))

@@ -1,7 +1,7 @@
 (ns drake.clj-frontend
   "Clojure frontend to drake"
   (:require [clojure.core.memoize :as memo]
-            [clojure.tools.logging :refer [debug info warn]]
+            [clojure.tools.logging :refer [debug info]]
             [drake.clj-frontend-utils :as utils]
             [drake.core :as d-core]
             [drake.options :as d-opts :refer [*options*]]
@@ -135,26 +135,29 @@
   [parse-tree new-base]
   (set-var parse-tree "BASE" new-base))
 
-;; This function should print some interactive output to the repl as
-;; steps are run.  Currently it just blocks with no output till all
-;; the steps are done.  I'm not quite sure how to do this.  Can it be
-;; through the logging configuration?
 (defn run-workflow
   "Run the workflow in parse-tree.  Optionally specify targetv as a
   key value pair, e.g. :targetv [\"=...\"]\", otherwise the default
   targetv is [\"=...\"]\".  Other run options to run-workflow can also
-  be specified as key value pairs"
-  [parse-tree & {:keys [targetv]
-              :or {targetv ["=..."]}
-              :as run-options}]
-  (let [opts (merge d-core/DEFAULT-OPTIONS run-options)]
-    (d-opts/set-options opts)
+  be specified as key value pairs.  Set :repl-feedback to :quiet,
+  :default or :verbose to adjust the repl feedback level."
+  [parse-tree & {:keys [targetv repl-feedback]
+                 :or {targetv ["=..."]
+                      repl-feedback :default}
+                 :as run-options}]
+  (let [opts (merge d-core/DEFAULT-OPTIONS
+                    {:auto true}
+                    run-options)
+        opts-with-eb (if (not= repl-feedback :quiet)
+                       (merge opts {:guava-event-bus (utils/start-event-bus)})
+                       opts)]
+    (d-opts/set-options opts-with-eb)
     (d-core/configure-logging)
     (memo/memo-clear! parse/shell-memo)
 
     (debug "Drake" d-core/VERSION)
     (info "Clojure version:" *clojure-version*)
-    (info "Options:" opts)
+    (info "Options:" opts-with-eb)
 
     (plug/load-plugin-deps (*options* :plugins))
     (fs/with-cwd fs/*cwd*
@@ -162,34 +165,35 @@
           (utils/compile-parse-tree)
           (d-core/run targetv)))))
 
-
 ;; Example usage:
 
 ;; (use 'drake.clj-frontend)
 
-(def p-tree
-  (->
-   (workflow {})
-   (cmd-step
-    ["out1"]
-    []
-    ["echo \"This is the first output.\" > $OUTPUT"]
-    :timecheck false)
-   (method
-    "test_method"
-    ["echo \"Here we are testing a method step.\" > $OUTPUT"])
-   (method-step
-    ["out_method"]
-    []
-    "test_method")
-   (set-var "test_var" "TEST_VAR_VALUE")
-   (set-var "output_three" "out3")
-   (cmd-step
-    ["$[output_three]"]
-    ["out1"]
-    ["echo \"This is the third output.\" > $OUTPUT"
-     "echo \"test_var is set to $test_var - $[test_var].\" >> $OUTPUT"
-     "echo \"The file $INPUT contains:\" | cat - $INPUT >> $[OUTPUT]"])))
+;; (def p-tree
+;;   (->
+;;    (workflow {})
+;;    (cmd-step
+;;     ["out1"
+;;      "out2"]
+;;     []
+;;     ["echo \"This is the first output.\" > $OUTPUT0"
+;;      "echo \"This is the first output.\" > $OUTPUT1"]
+;;     :timecheck false)
+;;    (method
+;;     "test_method"
+;;     ["echo \"Here we are testing a method step.\" > $OUTPUT"])
+;;    (method-step
+;;     ["out_method"]
+;;     []
+;;     "test_method")
+;;    (set-var "test_var" "TEST_VAR_VALUE")
+;;    (set-var "output_three" "out3")
+;;    (cmd-step
+;;     ["$[output_three]"]
+;;     ["out1"]
+;;     ["echo \"This is the third output.\" > $OUTPUT"
+;;      "echo \"test_var is set to $test_var - $[test_var].\" >> $OUTPUT"
+;;      "echo \"The file $INPUT contains:\" | cat - $INPUT >> $[OUTPUT]"])))
 
 ;; (run-workflow p-tree :preview true)
-;; (run-workflow p-tree :auto true)
+;; (run-workflow p-tree)

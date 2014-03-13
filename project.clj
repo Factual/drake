@@ -11,6 +11,7 @@
                  [clojopts/clojopts "0.3.2"]
                  [fs "1.3.2"]
                  [factual/jlk-time "0.1"]
+                 [clj-time "0.6.0"]
                  [digest "1.4.0"]
                  [com.google.guava/guava "14.0.1"]
                  [cheshire "5.2.0"]
