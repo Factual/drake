@@ -145,7 +145,9 @@
                  :or {targetv ["=..."]
                       repl-feedback :default}
                  :as run-options}]
-  (let [opts (merge d-core/DEFAULT-OPTIONS run-options)
+  (let [opts (merge d-core/DEFAULT-OPTIONS
+                    {:auto true}
+                    run-options)
         opts-with-eb (if (not= repl-feedback :quiet)
                        (merge opts {:guava-event-bus (utils/start-event-bus)})
                        opts)]
@@ -194,4 +196,4 @@
 ;;      "echo \"The file $INPUT contains:\" | cat - $INPUT >> $[OUTPUT]"])))
 
 ;; (run-workflow p-tree :preview true)
-;; (run-workflow p-tree :auto true)
+;; (run-workflow p-tree)

@@ -211,8 +211,8 @@ BASE=/tmp
   "Just make sure we don't get any errors"
   (let [wf (-> (workflow {})
                (cmd-step ["fake_output"] [] ["echo \"I don't do much\""]))]
-    (run-workflow wf :auto true)
+    (run-workflow wf)
     (doseq [verbosity [:quiet :default :verbose]]
-      (run-workflow wf :auto true :repl-feedback verbosity))))
+      (run-workflow wf :repl-feedback verbosity))))
 
 ;; (run-tests)
