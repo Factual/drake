@@ -10,25 +10,26 @@
             [fs.core :as fs]))
 
 
-(defn workflow
-  "Create a new workflow.  Optionally specify vars to overide defaults
+(defn new-workflow
+  "Create a new workflow.  Optionally specify vars to overide default
   environmental variables"
-  ([] (workflow false))
+  ([] (new-workflow false))
   ([vars]
      {:steps []
       :methods {}
       :vars (if vars vars (d-core/build-vars))}))
 
 (defn step
-  "Add a new step parse-tree.  inputs and outputs are vectors and can
-  be a mixture of tags and files. Tags are indicated by an opening
-  %. cmds should be a vector of strings or nil/false for steps that
-  don't need commands like method and template steps. Standard drake
-  options can be appended inline as key value pairs, e.g. :method-mode
-  true.  See method-step, cmd-step, template and template-step."
-  [parse-tree outputs inputs cmds & {:keys [template]
+  "Add a new step to the workflow, w-flow.  inputs and outputs are
+  vectors and can be a mixture of tags and files. Tags are indicated
+  by an opening %. cmds should be a vector of strings or nil/false for
+  steps that don't need commands like method and template
+  steps. Standard drake options can be appended inline as key value
+  pairs, e.g. :method-mode true.  See method-step, cmd-step, template
+  and template-step."
+  [w-flow outputs inputs cmds & {:keys [template]
                                  :as options}]
-  (let [vars (:vars parse-tree)
+  (let [vars (:vars w-flow)
         base (parse/add-path-sep-suffix
               (get vars "BASE" parse/default-base))
 
@@ -66,82 +67,84 @@
                      (mapv (partial utils/var-place vars) cmds))
                    step-map)
         p-tree-key (if template :templates :steps)]
-    (utils/check-step-validity parse-tree step-map)
-    (update-in parse-tree [p-tree-key]
+    (utils/check-step-validity w-flow step-map)
+    (update-in w-flow [p-tree-key]
                #(if % (conj % step-map) [step-map]))))
 
 (defn method-step
-  "Shortcut for adding a step using a method to parse-tree. method
-  name should be string.  method-step does not support method-steps
-  with commands in conjunction with :method-mode \"append\" or
-  \"replace\".  For a method-step with commands use step and specify
-  :method and :method-mode options. See step for outputs inputs and
-  options."
-  [parse-tree outputs inputs method-name & options]
-  (apply step parse-tree outputs inputs nil :method method-name options))
+  "Shortcut for adding a step using a method to the workflow,
+  w-flow. method-name should be string.  method-step does not support
+  method-steps with commands in conjunction with :method-mode
+  \"append\" or \"replace\".  For a method-step with commands use step
+  and specify :method and :method-mode options. See step for outputs
+  inputs and options."
+  [w-flow outputs inputs method-name & options]
+  (apply step w-flow outputs inputs nil :method method-name options))
 
 (def cmd-step
-  "Shortcut for adding a command step to parse-tree. See step for
-  outputs inputs cmds and options."
+  "Shortcut for adding a command step to the workflow, w-flow. See
+  step for outputs inputs cmds and options."
   step)
 
 (defn template
-  "Shortcut for adding a template to parse-tree.  See step for
-  outputs, inputs, cmds and options."
-  [parse-tree outputs inputs cmds & options]
-  (apply step parse-tree outputs inputs cmds :template true options))
+  "Shortcut for adding a template to the workflow, w-flow.  See step
+  for outputs, inputs, cmds and options."
+  [w-flow outputs inputs cmds & options]
+  (apply step w-flow outputs inputs cmds :template true options))
 
 (defn template-step
-  "Shortcut for adding a step that uses a template to parse-tree.  See
-  step for outputs, inputs, cmds and options"
-  [parse-tree outputs inputs & options]
-  (apply step parse-tree outputs inputs nil options))
+  "Shortcut for adding a step that uses a template to the workflow,
+  w-flow.  See step for outputs, inputs, cmds and options"
+  [w-flow outputs inputs & options]
+  (apply step w-flow outputs inputs nil options))
 
 (defn method
-  "Add a method to parse-tree.  method-name should be a string and cmds
-  should be a vector of command strings.  Options are standard drake
-  options as key value pairs, e.g. :my-option \"my-value\""
-  [parse-tree method-name cmds & {:as options}]
-  (when ((:methods parse-tree) method-name)
+  "Add a method to the workflow, w-flow.  method-name should be a
+  string and cmds should be a vector of command strings.  Options are
+  standard drake options as key value pairs, e.g. :my-option
+  \"my-value\""
+  [w-flow method-name cmds & {:as options}]
+  (when ((:methods w-flow) method-name)
     (println (format "Warning: method redefinition ('%s')" method-name)))
-  (assoc-in parse-tree [:methods method-name] {:opts (if (nil? options)
+  (assoc-in w-flow [:methods method-name] {:opts (if (nil? options)
                                                       {}
                                                       options)
-                                           :vars (:vars parse-tree)
+                                           :vars (:vars w-flow)
                                            :cmds (mapv utils/var-place cmds)}))
 
 (defn add-methods
-  "Adds all the methods in methods-hash to parse-tree.  methods-hash
-  has method names for keys and vectors of method commands for values
-  like this {\"method-name\" [\"method commands\"]}"
-  [parse-tree methods-hash]
+  "Adds all the methods in methods-hash to workflow, w-flow.
+  methods-hash has method names for keys and vectors of method
+  commands for values like this {\"method-name\" [\"method
+  commands\"]}"
+  [w-flow methods-hash]
   (reduce
-   (fn [parse-tree [method-name cmds]]
-     (method parse-tree method-name cmds))
-   parse-tree
+   (fn [w-flow [method-name cmds]]
+     (method w-flow method-name cmds))
+   w-flow
    (seq methods-hash)))
 
 (defn set-var
-  "Add a variable to parse-tree.  var-name and var-value should
-  be strings"
-  [parse-tree var-name var-value]
-  (let [vars (:vars parse-tree)
+  "Add a variable to the workflow, w-flow.  var-name and var-value
+  should be strings"
+  [w-flow var-name var-value]
+  (let [vars (:vars w-flow)
         sub-var-name (utils/var-sub->str vars var-name)
         sub-var-value (utils/var-sub->str vars var-value)]
-    (assoc-in parse-tree [:vars sub-var-name] sub-var-value)))
+    (assoc-in w-flow [:vars sub-var-name] sub-var-value)))
 
 (defn base
-  "Shortcut to set BASE to new-base"
-  [parse-tree new-base]
-  (set-var parse-tree "BASE" new-base))
+  "Shortcut to set BASE in the workflow, w-flow, to new-base"
+  [w-flow new-base]
+  (set-var w-flow "BASE" new-base))
 
 (defn run-workflow
-  "Run the workflow in parse-tree.  Optionally specify targetv as a
+  "Run the workflow in w-flow.  Optionally specify targetv as a
   key value pair, e.g. :targetv [\"=...\"]\", otherwise the default
   targetv is [\"=...\"]\".  Other run options to run-workflow can also
   be specified as key value pairs.  Set :repl-feedback to :quiet,
   :default or :verbose to adjust the repl feedback level."
-  [parse-tree & {:keys [targetv repl-feedback]
+  [w-flow & {:keys [targetv repl-feedback]
                  :or {targetv ["=..."]
                       repl-feedback :default}
                  :as run-options}]
@@ -161,39 +164,6 @@
 
     (plug/load-plugin-deps (*options* :plugins))
     (fs/with-cwd fs/*cwd*
-      (-> parse-tree
+      (-> w-flow
           (utils/compile-parse-tree)
           (d-core/run targetv)))))
-
-;; Example usage:
-
-;; (use 'drake.clj-frontend)
-
-;; (def p-tree
-;;   (->
-;;    (workflow {})
-;;    (cmd-step
-;;     ["out1"
-;;      "out2"]
-;;     []
-;;     ["echo \"This is the first output.\" > $OUTPUT0"
-;;      "echo \"This is the first output.\" > $OUTPUT1"]
-;;     :timecheck false)
-;;    (method
-;;     "test_method"
-;;     ["echo \"Here we are testing a method step.\" > $OUTPUT"])
-;;    (method-step
-;;     ["out_method"]
-;;     []
-;;     "test_method")
-;;    (set-var "test_var" "TEST_VAR_VALUE")
-;;    (set-var "output_three" "out3")
-;;    (cmd-step
-;;     ["$[output_three]"]
-;;     ["out1"]
-;;     ["echo \"This is the third output.\" > $OUTPUT"
-;;      "echo \"test_var is set to $test_var - $[test_var].\" >> $OUTPUT"
-;;      "echo \"The file $INPUT contains:\" | cat - $INPUT >> $[OUTPUT]"])))
-
-;; (run-workflow p-tree :preview true)
-;; (run-workflow p-tree)
