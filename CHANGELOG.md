@@ -9,6 +9,7 @@
 * Add node (Javascript) protocol (thanks arowla)
 * Upgrade c4 to version 0.2.0, which drops bundling of Facebook Places API support
 * Supprot for command line var regex
+* New feature: temp targets (https://github.com/Factual/drake/issues/88)
 
 ## 0.1.4
 

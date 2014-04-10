@@ -18,7 +18,8 @@
   (comment (log4j/set-loggers! 
     :root {:level :debug :name "console" :pattern "%m%n"}
     "drake" {:level :debug :name "console" :pattern "%m%n"}))
-  (log4j/set-loggers! :root {:level :off})
+  (log4j/set-loggers! :root {:level :off}
+                      "drake" {:level :off})
   (set-options {:auto true
                 :tmpdir ".drake"
                 :jobs 1})

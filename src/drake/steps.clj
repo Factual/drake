@@ -40,6 +40,9 @@
   [raw-parse-tree]
   (trace "Calculating dependency graph...")
   (let [steps (:steps raw-parse-tree)
+        tempfiles (reduce into [] (map #(into (:temp-inputs %) (:temp-outputs %)) steps)) 
+        tempfiles (set (map normalized-path tempfiles)) 
+
         ;; goes over steps and maps values returned by function f (a sequence)
         ;; into a lists of step step indexes that have them, for example, if
         ;; f returns list of inputs, the output map could be:
@@ -58,6 +61,11 @@
         normalized-input-map (step-index-map (map-key normalized-path :inputs))
         normalized-output-map (step-index-map (map-key normalized-path :outputs))
 
+        normalized-temp-input-map (step-index-map (comp (partial filter tempfiles) 
+                                                        (map-key normalized-path :inputs)))
+        normalized-temp-output-map (step-index-map (comp (partial filter tempfiles) 
+                                                         (map-key normalized-path :outputs)))
+
         build-variants (fn [variants] (map step-index-map variants))
         output-map-lookup-regexp
           (apply merge-multimaps-distinct
@@ -69,11 +77,14 @@
                                                     normalized-output-map)
         ;;_ (prn output-map-lookup)
         ]
+    (trace "tempfiles=" tempfiles)
     (assoc raw-parse-tree
       :output-map-lookup output-map-lookup
       :output-map-lookup-regexp output-map-lookup-regexp
       :output-tags-map output-tags-map
       :method-map method-map
+      :temp-input-map-lookup normalized-temp-input-map
+      :temp-output-map-lookup normalized-temp-output-map
       ;; this basically calculates dependencies
       ;; (mapv is used to convert it to vector for indexed lookup in the future)
       :steps (mapv
@@ -89,7 +100,11 @@
                             (concat (map normalized-input-map
                                          (map normalized-path (% :outputs)))
                                     (map input-tags-map
-                                         (% :output-tags)))))
+                                         (% :output-tags))))
+                 :temp-inputs (filter (comp tempfiles normalized-path) (% :inputs)) 
+                 :real-inputs (filter (comp not tempfiles normalized-path) (% :inputs)) 
+                 :temp-outputs (filter (comp tempfiles normalized-path) (% :outputs)) 
+                 :real-outputs (filter (comp not tempfiles normalized-path) (% :outputs)))  
               steps))))
 
 ;; No way to get to MAX_PATH from Java

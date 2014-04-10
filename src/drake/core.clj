@@ -29,7 +29,7 @@
   (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]
                         #^{:static true} [run_opts_with_event_bus [java.util.Map com.google.common.eventbus.EventBus] void]]))
 
-(def VERSION "0.1.5")
+(def VERSION "0.1.6-iflow-SNAPSHOT")
 (def PLUGINS-FILE "plugins.edn")
 (def DEFAULT-VARS-SPLIT-REGEX-STR ",(?=([^\"]*\"[^\"]*\")*[^\"]*$)")
 
@@ -158,6 +158,47 @@
       :cmds cmds
       :vars vars
       :opts (if-not method opts (merge (method :opts) opts)))))
+
+(defn- data-in?
+  "Shortcut for (fs di/data-in?)"
+  [file]
+  (fs di/data-in? file))
+
+(defn- no-data-in?
+  "Shortcut for (not (fs di/data-in?))"
+  [file]
+  (not (data-in? file)))
+
+(defn- expand-outputs
+  "Given a set of outputs, expand any temp outputs that have no data by
+  recursively replacing the temp output with the outputs of any steps
+  that depend on that temp output - and then doing the same for the
+  temp outputs of the dependent steps that have no data.  Temp outputs
+  that have data will not be expanded.  This is the key algorithm that
+  allows Drake to deal with deleted temp targets without triggering
+  unnecessary rebuilds."
+  [parse-tree step-list step]
+  (let [step-set (into #{} step-list)
+        steps (parse-tree :steps)
+        real-outputs (step :real-outputs)
+        temp-outputs (step :temp-outputs)
+        temp-input-map-lookup (parse-tree :temp-input-map-lookup)
+        [existing-temp-outputs empty-temp-outputs] (split-with data-in? temp-outputs)
+        empty-temp-output-step-deps (->> empty-temp-outputs
+                                      (map (comp temp-input-map-lookup normalized-path))
+                                      flatten
+                                      (filter step-set))
+        expanded-temp-outputs (->> empty-temp-output-step-deps
+                                (map (comp (partial expand-outputs parse-tree step-list) steps))
+                                flatten)]
+    (trace "expand-outputs step:" step)
+    (trace "expand-outputs step-list:" step-list)
+    (trace "expand-outputs existing-temp-outputs:" existing-temp-outputs)
+    (trace "expand-outputs empty-temp-outputs:" empty-temp-outputs)
+    (trace "expand-outputs empty-temp-output-step-deps:" empty-temp-output-step-deps)
+    (trace "expand-outputs expanded-temp-outputs" expanded-temp-outputs)
+
+    (concat real-outputs existing-temp-outputs expanded-temp-outputs)))
 
 (defn- should-build?
   "Given the parse tree and a step index, determines whether it should
@@ -575,6 +616,40 @@
   [steps]
   (reduce + (map (fn [step] @(:promise step)) steps)))
 
+(defn- setup-temp-deleting-futures
+  "Set up a future for each temp file which waits for all
+  the steps which depend on this temp file to finish and
+  then deletes the temp file."
+  [parse-tree steps]
+  (let [steps-list (map :index steps)
+        steps-map (zipmap steps-list steps)
+        steps-set (into #{} steps-list)]
+    (doseq [[file deps] (parse-tree :temp-input-map-lookup)]
+      (let [trimmed-deps (filter steps-set deps)]
+        (when (not (empty? trimmed-deps))
+          (future
+            (try
+              (trace "Running future to delete target:" file "dependencies:" trimmed-deps)
+              (let [successful-deps-count (reduce +
+                                                  (map (fn [i]
+                                                         @((steps-map i) :promise))
+                                                       trimmed-deps))]
+                (trace "Finished waiting for dependents of target:"
+                       file
+                       "dependencies:"
+                       trimmed-deps
+                       "successful-count:"
+                       successful-deps-count)
+                (when (= successful-deps-count (count trimmed-deps))
+                  (info "Deleting temp target:" file)
+                  (fs di/rm file)))
+              (catch Exception e
+                ; Likely to happen if there is some problem with deleting the file.
+                ; Catch the exception and inform the user of the problem,
+                ; but do not hald execution as deletion of the file is probably not
+                ; critical to the workflow.
+                (error e "Exception deleting temp target:" file)))))))))
+
 (defn- run-steps-async
   "Runs steps asynchronously.
    If concurrence = 1, this will run the steps in the same order as the
@@ -604,6 +679,9 @@
                              assoc-exception-promise
                              assoc-promise
                              (assoc-function parse-tree event-bus))]
+
+          (when (not (:keep-temp-targets *options*))
+            (setup-temp-deleting-futures parse-tree steps-future))
 
           (post event-bus (EventWorkflowBegin steps-data))
 
@@ -937,6 +1015,10 @@
                      "Turn on even more verbose debugging output.")
                    (no-arg version
                      "Show version information.")
+                   (no-arg empty-input-dir-valid
+                     "Make it so empty input directories are valid input files")
+                   (no-arg keep-temp-targets
+                     "Do not auto-delete temp targets")
                    (with-arg tmpdir
                        "Specifies the temporary directory for Drake files (by default, .drake/ in the same directory the main workflow file is located)."
                        :type :str

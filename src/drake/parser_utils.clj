@@ -46,11 +46,11 @@
 ;; parse errors
 
 (defn throw-parse-error [state message message-args]
-  (throw+ {:msg 
+  (throw (Exception.
            (str (if (:file-path state) (str "In " (:file-path state) ", ") "")
                 (format "parse error at line %s, column %s: "
                         (:line state) (:column state))
-                (apply format message message-args))}))
+                (apply format message message-args)))))
 
 (defn first-word [lit-array]
   "Input is array of literals, usually the remaining tokens. It
@@ -63,13 +63,13 @@
 
 (defn expectation-error-fn [expectation]
   (fn [remainder state]
-    (throw+ {:msg (format "%s expected where \"%s\" is"
-                          expectation (or (first-word remainder) "EOF"))})))
+    (throw (Exception. (format "%s expected where \"%s\" is"
+                               expectation (or (first-word remainder) "EOF"))))))
 
 (defn illegal-syntax-error-fn [var-type]
   (fn [remainder state]
-    (throw+ {:msg (format "illegal syntax starting with \"%s\" for %s"
-                          (or (first-word remainder) "EOF") var-type)})))
+    (throw (Exception. (format "illegal syntax starting with \"%s\" for %s"
+                              (or (first-word remainder) "EOF") var-type)))))
 
 
 ;; And here are where this parser's rules are defined.
