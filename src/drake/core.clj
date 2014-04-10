@@ -497,41 +497,6 @@
         (when (not (realized? prom))
           (deliver prom 0))))))
 
-(defn- function-for-step
-  "Returns an anonymous function that can be triggered in its own thread to execute a step.
-  Each step delivers its own promise.  Dependent steps will block on that promise. "
-  [parse-tree steps promises-indexed step]
-  (fn []
-    ; wait for parent promises in the tree promises to be delivered
-    ; accumulate successful parent tasks into a sum : successful-parent-steps
-    (let [prom (:promise step)]
-      (try
-        (let [deps (:deps step)
-              successful-parent-steps (reduce +
-                                              (map (fn [i]
-                                                     @(promises-indexed i))
-                                                   deps))]
-          (if (= successful-parent-steps (count deps))
-            (attempt-run-step parse-tree step)
-            (deliver prom 0)))
-        (catch Exception e
-          (deliver (:exception-promise step) e))
-        (finally
-          (when (not (realized? prom))
-            (deliver prom 0)))))))
-
-(defn- assoc-function
-  "Associates a future (anonymous function) for each step"
-  [parse-tree steps]
-  ; for quickly accessing promises via a map :index => :promise
-  (let [promises-indexed (zipmap (map :index steps) (map :promise steps))]
-    ; associate a :function on each step
-    (map (fn [step]
-           (assoc step
-                  :function
-                  (function-for-step parse-tree steps promises-indexed step)))
-         steps)))
-
 (defn- post
   [event-bus event]
   (when event-bus (.post event-bus event)))
@@ -540,22 +505,59 @@
   [step]
   (dissoc step :function :promise :exception-promise))
 
+(defn- function-for-step
+  "Returns an anonymous function that can be triggered in its own thread to execute a step.
+  Each step delivers its own promise.  Dependent steps will block on that promise. "
+  [parse-tree event-bus steps promises-indexed step]
+  (fn []
+    ; wait for parent promises in the tree promises to be delivered
+    ; accumulate successful parent tasks into a sum : successful-parent-steps
+    (let [prom (:promise step)
+          sanitized-step (sanitize-step step)]
+      (try
+        (let [deps (:deps step)
+              successful-parent-steps (reduce +
+                                              (map (fn [i]
+                                                     @(promises-indexed i))
+                                                   deps))]
+          (if (= successful-parent-steps (count deps))
+            (do
+              (post event-bus (EventStepBegin sanitized-step))
+              (attempt-run-step parse-tree step)
+              (if-not (realized? (:exception-promise step))
+                (post event-bus (EventStepEnd sanitized-step))
+                (post event-bus (EventStepError sanitized-step @(:exception-promise step)))))
+            (deliver prom 0)))
+        (catch Exception e
+          (deliver (:exception-promise step) e)
+          (post event-bus (EventStepError sanitized-step @(:exception-promise step))))
+        (finally
+          (when (not (realized? prom))
+            (deliver prom 0)))))))
+
+(defn- assoc-function
+  "Associates a future (anonymous function) for each step"
+  [parse-tree event-bus steps]
+  ; for quickly accessing promises via a map :index => :promise
+  (let [promises-indexed (zipmap (map :index steps) (map :promise steps))]
+    ; associate a :function on each step
+    (map (fn [step]
+           (assoc step
+                  :function
+                  (function-for-step parse-tree event-bus steps promises-indexed step)))
+         steps)))
+
 (defn- trigger-futures-helper
   [jobs lazy-steps state-atom event-bus]
   (let [semaphore (new Semaphore jobs true)]
     (loop [steps lazy-steps]
       (.acquire semaphore)
       (when (seq steps)
-        (let [step (first steps)
-              sanitized-step (sanitize-step step)]
+        (let [step (first steps)]
           (future (try
-                    (post event-bus (EventStepBegin sanitized-step))
                     ((:function step))
                     (finally
                       (swap! state-atom update-state-atom-when-step-finishes step)
-                      (when (realized? (:exception-promise step))
-                        (post event-bus (EventStepError sanitized-step @(:exception-promise step))))
-                      (post event-bus (EventStepEnd sanitized-step))
                       (.release semaphore))))
           (recur (rest steps)))))))
 
@@ -601,7 +603,7 @@
                              steps-data
                              assoc-exception-promise
                              assoc-promise
-                             (assoc-function parse-tree))]
+                             (assoc-function parse-tree event-bus))]
 
           (post event-bus (EventWorkflowBegin steps-data))
 
