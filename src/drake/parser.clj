@@ -1,5 +1,6 @@
 (ns drake.parser
   (:use [clojure.tools.logging :only [warn debug trace]]
+        [slingshot.slingshot :only [throw+]]
         drake.shell
         [drake.steps :only [add-dependencies calc-step-dirs]]
         drake.utils
@@ -149,8 +150,8 @@
              ;; (unless it's a method in which case
              ;; we just don't know what variables will be available)
              (if (and var-check (not (contains? vars var-name)))
-               (throw (Exception. (format "variable \"%s\" undefined at this point."
-                                           var-name)))
+               (throw+ {:msg (format "variable \"%s\" undefined at this point."
+                                     var-name)})
                (if-not substitute-value
                  #{var-name}
                  (get vars var-name)))))
@@ -469,9 +470,10 @@
                (or (vector? l-val) (seq? l-val) (list? l-val))
                  (concat l-val r-val)
                :else
-                (throw (Exception.  (str "joining maps with non-vector and non-map values"
-                                         l-val " " r-val)))))
-             %1 %2)
+               (throw+ {:msg
+                        (str "joining maps with non-vector and non-map values"
+                             l-val " " r-val)})))
+            %1 %2)
           nil
           vector-of-maps))
 

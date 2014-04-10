@@ -47,26 +47,26 @@
   (is (thrown-with-msg?
        Exception
        #"method 'future' undefined at this point."
-       (-> (workflow {})
+       (-> (new-workflow {})
            (method-step ["A"] ["B"] "future")
            (method "future" ["cmd"]))))
   (is (thrown-with-msg?
     Exception
     #"bad-method-mode is not a valid method-mode, valid values are: .*"
-    (-> (workflow {})
+    (-> (new-workflow {})
         (method "a-method" ["cmd"])
         (method-step ["out"] ["in"] "a-method"
                      :method-mode "bad-method-mode"))))
   (is (thrown-with-msg?
        Exception
        #"method-mode specified but method name not given"
-       (-> (workflow {})
+       (-> (new-workflow {})
            (step [] [] [] :method-mode "append")
            )))
   (is (thrown-with-msg?
        Exception
        #"commands not allowed for method calls .*"
-       (-> (workflow {})
+       (-> (new-workflow {})
            (method "test-method" ["cmd"])
            (step [] [] ["bad-commands"] :method "test-method")))))
 
@@ -77,7 +77,7 @@
 
 (deftest basic-wf-test
   (is (=
-       (-> (workflow {})
+       (-> (new-workflow {})
            (cmd-step ["out"] ["in"] ["  cat $[INPUT] > $OUTPUT"])) ;note
                                                                    ;cmd
                                                                    ;space
@@ -88,7 +88,7 @@ out <- in
 
 (deftest subsitution-in-file-test
   (is (=
-       (-> (workflow {})
+       (-> (new-workflow {})
            (set-var "var" "val")
            (cmd-step ["$[var]"] [] ["  cmd"]))
        (utils/str->parse-tree "
@@ -98,7 +98,7 @@ $[var] <-
 
 (deftest two-commands-test
   (is (=
-       (-> (workflow {})
+       (-> (new-workflow {})
              (cmd-step ["out"] ["in"]
                        ["  echo \"first command\""
                         "  echo \"second command\""]))
@@ -110,7 +110,7 @@ out <- in
 
 (deftest method-test
   (is (=
-       (:steps (-> (workflow {})
+       (:steps (-> (new-workflow {})
                    (method "sort_and_unique"
                            ["  sort $INPUT | uniq > $OUTPUT"]
                            :protocol "shell"
@@ -133,7 +133,7 @@ output2 <- input2 [method:sort_and_unique my_option:new_my_value]")))))
 
 (deftest template-test
   (is (=
-       (-> (workflow {})
+       (-> (new-workflow {})
            (template [".sorted$"] ["."]
                      ["  cat $INPUT | sort | uniq > $OUTPUT"])
            (template-step ["output1.sorted"] ["input1"]))
@@ -145,7 +145,7 @@ output1.sorted <- input1"))))
 
 (deftest tag-test
   (is (=
-       (-> (workflow {})
+       (-> (new-workflow {})
            (cmd-step ["%A"] [] ["  echo Step A"])
            (cmd-step ["%B"] [] ["  echo Step B"])
            (cmd-step ["%C"] ["%A" "%B"] ["  echo Step C"])
@@ -166,7 +166,7 @@ output1.sorted <- input1"))))
 
 (deftest base-in-out-test
   (is (=
-       (-> (workflow {})
+       (-> (new-workflow {})
            (base "/tmp")
            (cmd-step
             ["words" "lines"]
@@ -195,7 +195,7 @@ words, lines <- cpg.csv
   echo OUTPUT1=$[OUTPUT1]"))))
 
 (deftest off-base-test
-  (is (= (-> (workflow {})
+  (is (= (-> (new-workflow {})
           (base "/tmp")
           (cmd-step
            ["!/usr/local/bin/a-bin"]
@@ -209,7 +209,7 @@ BASE=/tmp
 
 (deftest run-workflow-test
   "Just make sure we don't get any errors"
-  (let [wf (-> (workflow {})
+  (let [wf (-> (new-workflow {})
                (cmd-step ["fake_output"] [] ["echo \"I don't do much\""]))]
     (run-workflow wf)
     (doseq [verbosity [:quiet :default :verbose]]
