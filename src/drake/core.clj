@@ -29,7 +29,7 @@
   (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]
                         #^{:static true} [run_opts_with_event_bus [java.util.Map com.google.common.eventbus.EventBus] void]]))
 
-(def VERSION "0.1.6-iflow-SNAPSHOT")
+(def VERSION "0.1.6-SNAPSHOT")
 (def PLUGINS-FILE "plugins.edn")
 (def DEFAULT-VARS-SPLIT-REGEX-STR ",(?=([^\"]*\"[^\"]*\")*[^\"]*$)")
 
@@ -678,7 +678,7 @@
    NOTE: less than N steps may be running depending on whether dependencies
    are met for the steps."
   [parse-tree steps]
-  (let [jobs (:jobs *options*)
+  (let [jobs (Integer. (:jobs *options*))
         event-bus (:guava-event-bus *options*)]
     (if (empty? steps)
       (info "Nothing to do.")
