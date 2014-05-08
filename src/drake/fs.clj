@@ -141,7 +141,8 @@
 
 (def ^:private hdfs-configuration
   (memoize #(doto (Configuration.)
-              (.addResource (Path. (str (get-hadoop-conf-file-or-fail)))))))
+              (.addResource (Path. (str (get-hadoop-conf-file-or-fail))))
+              (.set "fs.hdfs.impl" "org.apache.hadoop.hdfs.DistributedFileSystem"))))
 
 (defn- remove-hdfs-prefix
   "Removes the prefix HDFS libraries may insert."
