@@ -72,8 +72,18 @@
      - adding #branch suffixes to all outputs
      - adding #branch suffixes only to those inputs that do exist in this branch,
        unless add-to-all is true"
-  [{:keys [inputs outputs] :as step} add-to-all]
+  [{:keys [inputs outputs real-inputs real-outputs] :as step} add-to-all]
   (let [branch (*options* :branch)
+        branch-adjusted-real-outputs (if (empty? branch)
+                                       real-outputs
+                                       (map #(str % "#" branch) real-outputs))
+        branch-adjusted-real-inputs (if (empty? branch)
+                                      real-inputs
+                                      (map #(if (or add-to-all
+                                                    (fs di/data-in? (str % "#" branch)))
+                                              (str % "#" branch)
+                                              %)
+                                           real-inputs))
         branch-adjusted-outputs (if (empty? branch)
                                   outputs
                                   (map #(str % "#" branch) outputs))
@@ -84,7 +94,9 @@
                                          (str % "#" branch)
                                          %)
                                       inputs))]
-    (assoc step :inputs branch-adjusted-inputs
+    (assoc step :real-inputs branch-adjusted-real-inputs
+                :real-outputs branch-adjusted-real-outputs
+                :inputs branch-adjusted-inputs
                 :outputs branch-adjusted-outputs)))
 
 (defn- normalize-filename-for-run
