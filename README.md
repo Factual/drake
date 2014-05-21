@@ -26,7 +26,8 @@ We've not tested it on other operating systems.
 
 You can build Drake from source, which is the preferred way to run the most
 up-to-date version, or you can
-[download a prebuilt uberjar](https://docs.google.com/uc?export=download&confirm=0H_c&id=0B2xtKcFEL6wwc28ybDFQUWZBR3c)
+[download a prebuilt uberjar](https://docs.google.com/uc?export=download&confirm=nT8F&id=0B2xtKcFEL6wwWnRzVzRZcGFFaWc)
+
 ,which may not be the most recent version of Drake.
 
 Following are instructions for building from source. Drake is a Clojure project, so you will need to have [leiningen](https://github.com/technomancy/leiningen).
