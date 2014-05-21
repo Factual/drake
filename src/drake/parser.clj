@@ -210,7 +210,11 @@
 
 (defn string-substitution
   [chars]
-  (p/semantics (p/rep+ (p/alt (var-sub true true) command-sub chars))
+  (p/semantics (p/rep+ (p/alt (var-sub true true)
+                              strong-quote
+                              escape-sequence
+                              command-sub
+                              chars))
                apply-str))
 
 (def option-true-bool
