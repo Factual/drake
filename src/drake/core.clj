@@ -29,7 +29,7 @@
   (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]
                         #^{:static true} [run_opts_with_event_bus [java.util.Map com.google.common.eventbus.EventBus] void]]))
 
-(def VERSION "0.1.5")
+(def VERSION "0.1.6")
 (def PLUGINS-FILE "plugins.edn")
 (def DEFAULT-VARS-SPLIT-REGEX-STR ",(?=([^\"]*\"[^\"]*\")*[^\"]*$)")
 
@@ -746,7 +746,7 @@
                 (recur (inc i))
                 (split-at i args))))))))
 
-(defn- configure-logging
+(defn configure-logging
   []
   (let [loglevel (cond
                    (:trace *options*) :trace

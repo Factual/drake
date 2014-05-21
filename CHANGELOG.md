@@ -1,3 +1,8 @@
+## 0.1.6
+
+* Add [a Clojure frontend](https://github.com/Factual/drake/wiki/A-Clojure-Frontend-to-Drake) (thanks morrifeldman)
+* bugfix: [#129](https://github.com/Factual/drake/issues/129) (thanks calfzhou)
+
 ## 0.1.5
 
 * bugfix: [#98](https://github.com/Factual/drake/issues/98) --help now doesn't run workflow (thanks marshallshen)
