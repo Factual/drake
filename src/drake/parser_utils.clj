@@ -151,7 +151,7 @@
 (def double-quote (nb-char-lit \"))
 (def backslash (nb-char-lit \\))
 (def backquote (nb-char-lit \`))
-(def doublequote-escaped-chars (p/conc backslash
+(def double-quote-escaped-chars (p/conc backslash
                                        (p/alt dollar-sign
                                               backquote
                                               double-quote
@@ -173,12 +173,6 @@
   (p/semantics (p/conc single-quote
                        (p/rep* non-single-quote)
                        single-quote)
-               flatten-apply-str))
-
-(def double-quote-shell-string
-  (p/semantics (p/conc double-quote
-                       (p/rep* (p/alt non-double-quote-or-backslash doublequote-escaped-chars))
-                       double-quote)
                flatten-apply-str))
 
 (def number-lit

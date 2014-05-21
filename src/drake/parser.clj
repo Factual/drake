@@ -178,6 +178,13 @@
 
 (def shell-memo (memo/memo shell-helper))
 
+(def double-quote-shell-string
+  (p/semantics (p/conc double-quote
+                       (p/rep* (p/alt (var-sub true true)
+                                      non-double-quote-or-backslash double-quote-escaped-chars))
+                       double-quote)
+               flatten-apply-str))
+
 (def command-sub
   "input: shell cmd invocations of form $(...)
    output: output of the shell command with trailing line-breaks trimmed"
@@ -187,6 +194,7 @@
     prod (p/semantics
           (p/rep+ (p/alt single-quote-shell-string 
                          double-quote-shell-string
+                         (var-sub true true)
                          (p/except string-char close-paren)))
           apply-str)
     _ (p/failpoint close-paren
