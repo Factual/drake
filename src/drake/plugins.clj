@@ -42,7 +42,7 @@
     (add-deps conf)))
 
 (defn req-ns
-  "Attempts to require the namespace named ns-name.
+  "Attempts to require the namespace named ns-symbol.
    Returns truthy only if succussful."
   [ns-symbol]
   (try+ (require ns-symbol)
