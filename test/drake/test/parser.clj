@@ -78,10 +78,10 @@
   (is (= (dissoc
           (first
            (d/step-def-line (make-state
-                             "a, %outtag1, %outtag2 <- b, c, %intag\n")))
+                             "'tom '\\''&'\\'' jerry', a, %outtag1, %outtag2 <- b, c, %intag\n")))
           :vars)
-         {:raw-outputs ["a"]
-          :outputs ["/base/a"]
+         {:raw-outputs ["tom '&' jerry" "a"]
+          :outputs ["/base/tom '&' jerry" "/base/a"]
           :output-tags ["outtag1" "outtag2"]
           :inputs '("/base/b" "/base/c")
           :input-tags ["intag"]

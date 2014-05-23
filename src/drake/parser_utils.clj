@@ -201,7 +201,7 @@
     (-> digits apply-str (Integer/parseInt 16) char)))
 (def escaped-characters
   {\\ \\, \/ \/, \b \backspace, \f \formfeed, \n \newline, \r \return,
-   \t \tab, \" \", \$ \$, \) \)})
+   \t \tab, \" \", \' \', \$ \$, \) \)})
 
 (def normal-escape-sequence
   (p/semantics (p/lit-alt-seq (keys escaped-characters) nb-char-lit)
@@ -215,3 +215,9 @@
 
 (def string-char
   (p/alt escape-sequence unescaped-char))
+
+(def strong-quote
+  (p/complex [_ single-quote
+              chars (p/rep* (p/except p/anything single-quote))
+              _ single-quote]
+             (apply str chars)))
