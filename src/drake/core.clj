@@ -648,14 +648,7 @@
     (.endsWith java-cmd "nailgun.NGServer")))
 
 (defn- shutdown [exit-code]
-  (when (not (true? (:repl *options*)))
-    (if (running-under-nailgun?)
-      (debug (str "core/shutdown: Running under Nailgun; "
-                  "not calling (shutdown-agents)"))
-      (do
-        (debug "core/shutdown: Running standalone; calling (shutdown-agents)")
-        (shutdown-agents)))
-    (System/exit exit-code)))
+  (throw+ {:exit-code exit-code}))
 
 (defn parse-cli-vars [vars-str split-regex-str]
   (when-not (empty? vars-str)
@@ -835,7 +828,7 @@
                            (option-list (second used))))))
                 crossovers))))
 
-(defn -main
+(defn drake
   "Runs Drake's CLI.
 
    This can be called from the REPL for development purposes. You should include
@@ -967,6 +960,19 @@
          (.printStackTrace e)
          (error (stack-trace-str e))
          (shutdown 1))))))
+
+(defn -main [& args]
+  (try+
+    (apply drake args)
+    (catch :exit-code {:keys [exit-code]}
+        (when (not (true? (:repl *options*)))
+          (if (running-under-nailgun?)
+            (debug (str "core/shutdown: Running under Nailgun; "
+                        "not calling (shutdown-agents)"))
+            (do
+              (debug "core/shutdown: Running standalone; calling (shutdown-agents)")
+              (shutdown-agents)))
+          (System/exit exit-code)))))
 
 (defn run-opts [opts]
   (let [opts (merge {:auto true} opts)]
