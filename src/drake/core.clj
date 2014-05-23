@@ -31,7 +31,16 @@
 
 (def VERSION "0.1.6")
 (def PLUGINS-FILE "plugins.edn")
-(def DEFAULT-VARS-SPLIT-REGEX-STR ",(?=([^\"]*\"[^\"]*\")*[^\"]*$)")
+(def DEFAULT-VARS-SPLIT-REGEX-STR ; matches and consumes a comma; requires that an even number of "
+                                  ; characters exist between the comma and end of string
+  "(?x)       ## (?x) enables inline formatting and comments
+  ,           ## a comma
+  (?=         ## as long as what comes next is
+    ([^\"]*   ## any number of characters other than \"
+    \"        ## then a \"
+    [^\"]*\"  ## and more non-\"s followed by a \"
+  )*          ## all this any number of times
+  [^\"]*$)    ## and finally a bunch of non-quotes before end of string")
 
 (def DEFAULT-OPTIONS {:workflow "./Drakefile"
                       :logfile "drake.log"
