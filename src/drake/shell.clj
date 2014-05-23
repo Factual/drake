@@ -81,13 +81,12 @@
 
    Loosely based on clojure.java.shell/sh."
   [& args]
-  (let [[cmd raw-opts] (split-with string? args)
-        opts (apply hash-map raw-opts)
-        {:keys [out err die use-shell no-stdin]} opts
+  (let [[cmd {:keys [out err die use-shell no-stdin env replace-env] :as opts}]
+        (split-with string? args)
         windows? (.startsWith (System/getProperty "os.name") "Win")
-        env (as-env-strings (if (:replace-env opts)
-                              (:env opts)
-                              (merge (into {} (System/getenv)) (:env opts))))
+        env (as-env-strings (if replace-env
+                              env
+                              (merge (into {} (System/getenv)) env)))
         cmd-for-exec ^"[Ljava.lang.String;"
                      (into-array (if-not use-shell
                                    cmd
