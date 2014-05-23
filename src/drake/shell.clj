@@ -131,6 +131,14 @@
           ;; now we can wait for its completion
           (.join stdin))
         (if (and (not= 0 exit-code) die)
-          (throw+ {:msg (str "shell command failed with exit code " exit-code)
-                   :args args
-                   :exit exit-code}))))))
+          (let [message (str "shell command failed with exit code " exit-code)]
+            (Thread/sleep 500) ;; let stdout/stderr finish printing?
+            (throw (ex-info message (merge {:msg message
+                                            :cmd (seq cmd-for-exec)
+                                            :opts (dissoc opts :env)
+                                            :exit exit-code}
+                                           (when (and (not use-shell)
+                                                      (= 2 (count cmd)))
+                                             (let [file (fs/file (second cmd))]
+                                               (when (fs/exists? file)
+                                                 {:file (slurp file)}))))))))))))
