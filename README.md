@@ -59,9 +59,17 @@ You can pass in arguments and options to Drake by putting them at the end of the
 $ java -jar drake.jar --version
 ```
 
+### Use Drake as a Clojure library
+
+You can programmatically use Drake from your Clojure project by using [Drake's Clojure front end](https://github.com/Factual/drake/wiki/A-Clojure-Frontend-to-Drake). Your project.clj dependencies should include the latest Drake library, e.g.:
+
+```clojure
+[factual/drake "0.1.6"]
+```
+
 ### A nicer way to run Drake
 
-We recommend you "install" Drake in your environment so that you can run it by just typing "drake". Here's a convenience script you can put on your path:
+For command line usage, we recommend you "install" Drake in your environment so that you can run it by just typing "drake". Here's a convenience script you can put on your path:
 
 ```bash
 #!/bin/bash
