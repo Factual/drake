@@ -81,13 +81,12 @@
 
    Loosely based on clojure.java.shell/sh."
   [& args]
-  (let [[cmd raw-opts] (split-with string? args)
-        opts (apply hash-map raw-opts)
-        {:keys [out err die use-shell no-stdin]} opts
+  (let [[cmd {:keys [out err die use-shell no-stdin env replace-env] :as opts}]
+        (split-with string? args)
         windows? (.startsWith (System/getProperty "os.name") "Win")
-        env (as-env-strings (if (:replace-env opts)
-                              (:env opts)
-                              (merge (into {} (System/getenv)) (:env opts))))
+        env (as-env-strings (if replace-env
+                              env
+                              (merge (into {} (System/getenv)) env)))
         cmd-for-exec ^"[Ljava.lang.String;"
                      (into-array (if-not use-shell
                                    cmd
@@ -131,6 +130,14 @@
           ;; now we can wait for its completion
           (.join stdin))
         (if (and (not= 0 exit-code) die)
-          (throw+ {:msg (str "shell command failed with exit code " exit-code)
-                   :args args
-                   :exit exit-code}))))))
+          (let [message (str "shell command failed with exit code " exit-code)]
+            (Thread/sleep 500) ;; let stdout/stderr finish printing?
+            (throw (ex-info message (merge {:msg message
+                                            :cmd (seq cmd-for-exec)
+                                            :opts (dissoc opts :env)
+                                            :exit exit-code}
+                                           (when (and (not use-shell)
+                                                      (= 2 (count cmd)))
+                                             (let [file (fs/file (second cmd))]
+                                               (when (fs/exists? file)
+                                                 {:file (slurp file)}))))))))))))
