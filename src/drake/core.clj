@@ -819,15 +819,14 @@
   "Runs Drake's CLI.
 
    This can be called from the REPL for development purposes. You should include
-   the following options:
-     --repl (otherwise your REPL will likely be killed by Drake's exit)
+   the following option:
      --auto (otherwise the interactive user confirmation will hang on you)
    You don't need --auto if you use --preview.
 
    Examples:
-     (-main \"--repl\" \"--version\")
-     (-main \"--repl\" \"--preview\" \"-w\" \"demos/factual\" \"+...\")
-     (-main \"--repl\" \"--auto\" \"-w\"
+     (drake \"--version\")
+     (drake \"--preview\" \"-w\" \"demos/factual\" \"+...\")
+     (drake \"--auto\" \"-w\"
             \"some/workflow-file.drake\" drake \"+...\" \"-^D\" \"-=B\")
 
    TODO: log messages don't show up on the REPL (but printlns do).
@@ -914,7 +913,8 @@
                      (str "\nUnrecognized option: "
                           "did you mean target exclusion?\nto build "
                           "everything except 'target'"
-                          " run:\n  drake ... -target"))
+                          " run:\n  drake ... -target\n"
+                          "or:\n  drake -- -target"))
                     (shutdown -1)))
         targets (:clojopts/more options)
         ;; if a flag is specified, clojopts adds the corresponding key
