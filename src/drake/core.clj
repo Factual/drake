@@ -954,18 +954,20 @@
           (error (stack-trace-str e))
           (shutdown 1))))))
 
-(defn -main [& args]
+(defn -main
+  "Runs drake, and catches (shutdown) exceptions to cleanly shut down."
+  [& args]
   (try+
     (apply drake args)
     (catch :exit-code {:keys [exit-code]}
-        (when (not (true? (:repl *options*)))
-          (if (running-under-nailgun?)
-            (debug (str "core/shutdown: Running under Nailgun; "
-                        "not calling (shutdown-agents)"))
-            (do
-              (debug "core/shutdown: Running standalone; calling (shutdown-agents)")
-              (shutdown-agents)))
-          (System/exit exit-code)))))
+      (when (not (true? (:repl *options*)))
+        (if (running-under-nailgun?)
+          (debug (str "core/shutdown: Running under Nailgun; "
+                      "not calling (shutdown-agents)"))
+          (do
+            (debug "core/shutdown: Running standalone; calling (shutdown-agents)")
+            (shutdown-agents)))
+        (System/exit exit-code)))))
 
 (defn run-opts [opts]
   (let [opts (merge {:auto true} opts)]
