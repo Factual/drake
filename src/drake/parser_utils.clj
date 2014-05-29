@@ -160,6 +160,18 @@
 (def non-double-quote-or-backslash (p/except p/anything 
                                              (p/alt double-quote backslash)))
 
+(defn delimited [delim body]
+  (p/conc delim body delim))
+
+(defn ignore-delimiter [parser]
+  (p/semantics parser #(apply str (second %))))
+
+(defn include-delimiter [parser]
+  (p/semantics parser #(apply str `(~(first %) ~@(second %) ~(last %)))))
+
+(def single-quote-shell-string
+  (include-delimiter (delimited single-quote (p/rep* non-single-quote))))
+
 (def fractional-part (p/conc decimal-point (p/rep* decimal-digit)))
 
 (def exponential-part
@@ -168,12 +180,6 @@
           (expectation-error-fn
             (str "in number literal, after an exponent sign, decimal"
                  "digit")))))
-
-(def single-quote-shell-string
-  (p/semantics (p/conc single-quote
-                       (p/rep* non-single-quote)
-                       single-quote)
-               flatten-apply-str))
 
 (def number-lit
   (p/complex [minus (p/opt minus-sign)
