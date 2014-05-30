@@ -29,12 +29,12 @@
   (format "%s%s%s" prefix (if-not (empty? prefix) ":" "") path))
 
 (defn path-fs
-  "Return's path's filesystem prefix (or an empty string if not specified)."
+  "Returns path's filesystem prefix (or an empty string if not specified)."
   [path]
   (first (split-path path)))
 
 (defn path-filename
-  "Return's path's filesystem prefix (or an empty string if not specified)."
+  "Returns the path-part of path, without the filesystem prefix."
   [path]
   (second (split-path path)))
 
@@ -436,7 +436,7 @@
     [fs prefix filename]))
 
 (defn fs
-  "Automatically determines the filesystem from the filename and dispatched
+  "Automatically determines the filesystem from the filename and dispatches
    the call to fn."
   [fn filename]
   (let [[system _ name] (get-fs filename)]
