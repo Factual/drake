@@ -3,10 +3,10 @@
   (:require [fs.core :as fs]
             [drake.plugins :as plugins]
             [hdfs.core :as hdfs]
+            [clojure.string :as s :refer [join split]]
             [aws.sdk.s3 :as s3])
   (:use drake-interface.core
         [slingshot.slingshot :only [throw+]]
-        [clojure.string :only [join split]]
         drake.shell
         drake.options)
   (:import org.apache.hadoop.conf.Configuration
@@ -44,9 +44,7 @@
 (defn remove-extra-slashes
   "Removes duplicate and trailing slashes from the filename."
   [filename]
-  (let [spl (split filename #"/" -1)]
-    (str (if (empty? (first spl)) "/" "")
-         (join "/" (filter (complement empty?) spl)))))
+  (s/replace filename #"/(?=/|$)" ""))
 
 (defn assert-files-exist [fs files]
   (doseq [f files]
