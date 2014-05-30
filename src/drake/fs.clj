@@ -60,7 +60,7 @@
   (map #(file-info fs %) (file-seq fs path)))
 
 (defn data-in?-impl [fs path]
-  (not (empty? (file-info-seq fs path))))
+  (seq (file-info-seq fs path)))
 
 (def file-info-impls
   {:file-info file-info-impl
