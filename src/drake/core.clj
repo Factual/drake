@@ -57,11 +57,10 @@
 (defn- step-string
   "Returns step's symbolic representation for printing."
   [step]
-  (str (str/join ", " (concat (map #(str "%" %) (step :output-tags))
-                              (step :outputs)))
-       " <- "
-       (str/join ", " (concat (map #(str "%" %) (step :input-tags))
-                              (step :inputs)))))
+  (str/join " <- "
+            (for [[tags files] [[:output-tags :outputs] [:input-tags :inputs]]]
+              (str/join ", " (concat (map (partial str "%") (step tags))
+                                     (step files))))))
 
 (defn- user-confirms?
   "Returns true if the user enters 'Y', otherwise returns false."
@@ -616,16 +615,14 @@
 (defn print-steps
   "Prints inputs and outputs of steps to run."
   [parse-tree steps-to-run]
-  (dorun (map
-          (fn [step]
-            (do
-              (println "S")
-              (doseq [[prefix key] [["I" :inputs]
-                                    ["%I" :input-tags]
-                                    ["O" :outputs]
-                                    ["%O" :output-tags]]]
-                (dorun (map #(println (str prefix \tab %)) (step key))))))
-          (map (:steps parse-tree) (map :index steps-to-run)))))
+  (doseq [step (map (:steps parse-tree) (map :index steps-to-run))]
+    (println "S")
+    (doseq [[prefix key] [["I" :inputs]
+                          ["%I" :input-tags]
+                          ["O" :outputs]
+                          ["%O" :output-tags]]
+            target (step key)]
+      (println (str prefix \tab target)))))
 
 (defn run
   "Runs Drake with the specified parse-tree and an array of target
