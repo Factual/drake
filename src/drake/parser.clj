@@ -90,8 +90,8 @@
 
 (defn ensure-ends-with-newline
   [s]
-  (if (.endsWith s "\n") 
-    s 
+  (if (.endsWith s "\n")
+    s
     (str s "\n")))
 
 ;;
@@ -192,14 +192,14 @@
    [_ dollar-sign
     _ open-paren
     prod (p/semantics
-          (p/rep+ (p/alt single-quote-shell-string 
+          (p/rep+ (p/alt single-quote-shell-string
                          double-quote-shell-string
                          (var-sub true true)
                          (p/except string-char close-paren)))
           apply-str)
     _ (p/failpoint close-paren
                    (illegal-syntax-error-fn "command substitution"))
-    line (p/get-info :line) 
+    line (p/get-info :line)
     column (p/get-info :column)]
 
     ;; stderr preserved by default
@@ -591,17 +591,17 @@
     (parse-state
       (struct state-s
               (ensure-ends-with-newline tokens)
-              vars 
-              methods 
-              0 
-              line)))) ; try to preserve line number as best we can 
+              vars
+              methods
+              0
+              line)))) ; try to preserve line number as best we can
 
 (def inline-shell-cmd-line
   "input: shell command on its own line, e.g.
   $(echo '%include dude.d')
   The output of the shell command will be placed inline the workflow file.
   This can be recursive, i.e. shell commands can print more shell commands.
-  
+
   Split into two parts for much the same reason as call-or-include-line is."
   (p/complex
    [prod inline-shell-helper

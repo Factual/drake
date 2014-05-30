@@ -46,7 +46,7 @@
 ;; parse errors
 
 (defn throw-parse-error [state message message-args]
-  (throw+ {:msg 
+  (throw+ {:msg
            (str (if (:file-path state) (str "In " (:file-path state) ", ") "")
                 (format "parse error at line %s, column %s: "
                         (:line state) (:column state))
@@ -157,7 +157,7 @@
                                               double-quote
                                               backslash
                                               line-break)))
-(def non-double-quote-or-backslash (p/except p/anything 
+(def non-double-quote-or-backslash (p/except p/anything
                                              (p/alt double-quote backslash)))
 
 (defn delimited [delim body]
