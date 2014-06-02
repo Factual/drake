@@ -155,6 +155,20 @@
            [[\space \space \q \space #{"INPUTS"}]]))
     ))
 
+(deftest blank-line-test
+  (let [actual-prod
+        (first
+         (d/workflow
+          (make-state
+           (str "A <- B\n"
+                "  echo 1\n"
+                "\n"
+                "  echo 2\n"
+                "\n"
+                "C <- D\n"
+                "  echo 3\n"))))]
+    (is (= [2 1] (map (comp count :cmds) (:steps actual-prod))))))
+
 (deftest newline-test
   (let [actual-prod
         (first
