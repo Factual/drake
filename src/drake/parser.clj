@@ -465,8 +465,11 @@
 
     ;; generate vars from step-def-line, so that commands can refer to them
     _ (p/update-info :vars #(merge % (:vars step-def-product)))
-    commands (p/failpoint (p/rep* (command-line true))
-                          (illegal-syntax-error-fn "step"))
+
+    ;; make sure that non-indented blank lines don't terminate the command list
+    commands (p/rep* (p/alt (p/constant-semantics line-break :empty)
+                            (command-line true)))
+    :let [commands (remove #{:empty} commands)]
 
     ;; auto generated vars only persist during the step; unwind var scope
     _ (p/set-info :vars orig-vars)
