@@ -299,16 +299,14 @@
       (user-confirms?))))
 
 (defn- spit-step-vars [{:keys [vars dir] :as step}]
-  (let [filename (str dir "/vars-" start-time-filename)
+  (let [file (fs/file dir (str "vars-" start-time-filename))
         contents (apply str
                         "Environment vars set by Drake:\n\n"
-                        (map #(str (key %) "=" (val %) "\n") vars))]
-    (if-not (fs/exists? dir)
-      (fs/mkdirs dir))
-    ;; we need to use fs.core/file here, since fs.core/with-cwd only changes the
-    ;; working directory for fs.core namespace
-    (spit (fs/file filename) contents)
-    (debug "step's vars saved to" (relative-path filename))))
+                        (for [[k v] vars]
+                          (str k "=" v)))]
+    (fs/mkdirs dir)
+    (spit file contents)
+    (debug "step's vars saved to" (relative-path file))))
 
 (defn- run-step
   "Runs one step performing all necessary checks, returns
