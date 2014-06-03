@@ -13,6 +13,7 @@
                  [org.clojure/tools.logging "0.2.3"]
                  [clj-logging-config "1.9.6"]
                  [clojopts/clojopts "0.3.4"]
+                 [org.flatland/useful "0.11.1"]
                  [fs "1.3.2"]
                  [factual/jlk-time "0.1"]
                  [clj-time "0.6.0"]
