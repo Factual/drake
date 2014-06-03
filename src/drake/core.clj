@@ -924,8 +924,8 @@
           (with-workflow-file #(fn % targets)))
         (shutdown 0)
         (catch map? m
-          (error (str "drake: " (m :msg)))
-          (shutdown (or (get m :exit) 1)))
+          (error (str "drake: " (:msg m)))
+          (shutdown (get m :exit 1)))
         (catch Exception e
           (error (stack-trace-str e))
           (shutdown 1))))))
