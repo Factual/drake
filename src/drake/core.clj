@@ -387,7 +387,10 @@
         :else nil))))
 
 (defn- update-state-atom-when-step-finishes
-  "Use this with swap! to update the state atom when a step finishes"
+  "Use this with swap! to update the state atom when a step finishes.
+   It moves all children of this step which were not runnable but have become
+   so (because this step was their last dependency) from :not-runnable to
+   :runnable."
   [state step]
   (let [i (:index step)
         state (assoc state :done (conj (:done state) i)) ; put this step on the "done" list
@@ -418,9 +421,9 @@
   (map (fn [step] (assoc step promise-key (promise))) steps))
 
 (defn- assoc-promise
-  "Associates a promise instance for each step
-  a promise of value 1 is delivered on success
-  a promise of value 0 is delirvered on failure"
+  "Associates a promise instance for each step.
+  - a promise of value 1 is delivered on success
+  - a promise of value 0 is delirvered on failure"
   [steps]
   (add-empty-promises-to-steps steps :promise))
 
