@@ -7,6 +7,7 @@
             [clj-logging-config.log4j :as log4j]
             [fs.core :as fs]
             [clojopts.ui :as clojopts]
+            [flatland.useful.state :as state]
             ;; register built-in protocols
             drake.protocol_interpreters
             drake.protocol_c4
@@ -370,22 +371,19 @@
    Block if waiting on dependencies."
   [state-atom]
   (loop []
-    (let [state @state-atom
-          steps (:steps state)
-          not-runnable (:not-runnable state)
-          runnable (:runnable state)]
+    (let [{:keys [runnable not-runnable steps] :as state}
+          (state/wait-until state-atom #(or (seq (:runnable %))
+                                            (empty? (:not-runnable %))))]
       (cond
         ; If there are runnable steps, pop one off and return it
-        (seq runnable) (let [popped-step-index (first runnable)
-                             new-state (assoc state :runnable (disj runnable popped-step-index))]
-                         (if (compare-and-set! state-atom state new-state)
+        (seq runnable) (let [popped-step-index (first runnable)]
+                         (if (compare-and-set! state-atom state
+                                               (update-in state [:runnable] disj popped-step-index))
                            (first (filter #(= (:index %) popped-step-index) steps))
                            (recur))) ; if compare-and-set fails, try the whole thing again
 
-        ; If there are non-runnable steps, wait until one is runnable
-        (seq not-runnable) (do
-                             (Thread/sleep 100) ; NOTE(Myron) spin-wait not ideal
-                             (recur))
+        ; If there are non-runnable steps, go back and wait until one is runnable
+        (seq not-runnable) (recur)
 
         ; Otherwise, there's nothing left
         :else nil))))
