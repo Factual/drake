@@ -458,17 +458,17 @@
 
 (defn- attempt-run-step
   [parse-tree step]
-  (let [prom (:promise step)]
+  (let [{:keys [index promise exception-promise]} step]
     (try
       ; run the step (the actual job)
-      (run-step parse-tree (:index step) step)
-      (deliver prom 1) ; delivers a promise of 1/success
+      (run-step parse-tree index step)
+      (deliver promise 1) ; delivers a promise of 1/success
       (catch Exception e
         (deliver (:exception-promise step) e))
       (finally
         ; if promise not delivered, deliver a promise of 0/failure
-        (when (not (realized? prom))
-          (deliver prom 0))))))
+        (when (not (realized? promise))
+          (deliver promise 0))))))
 
 (defn- function-for-step
   "Returns an anonymous function that can be triggered in its own thread to execute a step.
@@ -477,21 +477,20 @@
   (fn []
     ; wait for parent promises in the tree promises to be delivered
     ; accumulate successful parent tasks into a sum : successful-parent-steps
-    (let [prom (:promise step)]
+    (let [{:keys [promise deps exception-promise]} step]
       (try
-        (let [deps (:deps step)
-              successful-parent-steps (reduce +
+        (let [successful-parent-steps (reduce +
                                               (map (fn [i]
                                                      @(promises-indexed i))
                                                    deps))]
           (if (= successful-parent-steps (count deps))
             (attempt-run-step parse-tree step)
-            (deliver prom 0)))
+            (deliver promise 0)))
         (catch Exception e
-          (deliver (:exception-promise step) e))
+          (deliver exception-promise e))
         (finally
-          (when (not (realized? prom))
-            (deliver prom 0)))))))
+          (when (not (realized? promise))
+            (deliver promise 0)))))))
 
 (defn- assoc-function
   "Associates a future (anonymous function) for each step"
