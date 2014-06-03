@@ -464,7 +464,6 @@
       (run-step parse-tree (:index step) step)
       (deliver prom 1) ; delivers a promise of 1/success
       (catch Exception e
-        (error (str "caught exception step " (:index step) ": ") (.getMessage e) (.printStackTrace e))
         (deliver (:exception-promise step) e))
       (finally
         ; if promise not delivered, deliver a promise of 0/failure
@@ -929,7 +928,6 @@
           (error (str "drake: " (m :msg)))
           (shutdown (or (get m :exit) 1)))
         (catch Exception e
-          (.printStackTrace e)
           (error (stack-trace-str e))
           (shutdown 1))))))
 
