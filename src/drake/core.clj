@@ -392,29 +392,21 @@
    so (because this step was their last dependency) from :not-runnable to
    :runnable."
   [state step]
-  (let [i (:index step)
-        state (assoc state :done (conj (:done state) i)) ; put this step on the "done" list
-        done (:done state)
-        not-runnable (:not-runnable state)
-        runnable (:runnable state)
-        children (filter #((:children step) (:index %)) (:steps state))
-        children-not-yet-running (filter #(not-runnable (:index %)) children)
-        runnable-steps (filter (fn [child]
-                                 (every? (fn [dep]
-                                           (done dep))
-                                         (:deps child)))
-                               children-not-yet-running)
-        runnable-step-numbers (map :index runnable-steps)
-        state (assoc state :not-runnable (apply (partial disj not-runnable) runnable-step-numbers)) ]
-    (if (seq runnable-step-numbers)
-      (assoc state :runnable (apply (partial conj runnable) runnable-step-numbers))
-      state)))
+  (let [children (:children step)
+        state (update-in state [:done] conj (:index step)) ; put this step on the "done" list
+        {:keys [done not-runnable steps]} state
+        newly-runnable-step-numbers (for [{:keys [index deps]} steps
+                                          :when (and (children index)
+                                                     (not-runnable index)
+                                                     (every? done deps))]
+                                      index)]
+    (-> (apply update-in state [:not-runnable] disj newly-runnable-step-numbers)
+        (update-in [:runnable] into newly-runnable-step-numbers))))
 
 (defn- lazy-step-list
   "Create a lazy list that pops runnable steps from the state-atom."
   [state-atom]
-  (when-let [step (pop-next-step-from-atom state-atom)]
-    (cons step (lazy-seq (lazy-step-list state-atom)))))
+  (take-while identity (repeatedly #(pop-next-step-from-atom state-atom))))
 
 (defn- add-empty-promises-to-steps
   [steps promise-key]
@@ -431,35 +423,26 @@
   "Associates dependencies as set object containing the indexes for each step"
   [parse-tree steps]
   (let [indexes (into #{} (map :index steps))]
-    (map (fn [step]
-           (assoc step
-                  :deps
-                  (->>
-                    (expand-step-restricted parse-tree (:index step) nil indexes)
-                    (into #{}) ; turn into set to remove duplicates
-                    ; do not mark the step itself as its dependency
-                    (filter (partial not= (:index step))))))
-         steps)))
+    (for [{:keys [index] :as step} steps]
+      (assoc step :deps
+             (-> (expand-step-restricted parse-tree index nil indexes)
+                 (set)             ; turn into set to remove duplicates
+                 (disj index)))))) ; do not mark the step itself as its dependency
 
 (defn- assoc-parents-and-children
   [parse-tree steps]
-  (let [indexes (into #{} (map :index steps))]
-    (map #(let [tree-step ((:steps parse-tree) (:index %))
-                children (intersection (:children tree-step) indexes)
-                parentals (intersection (:parents tree-step) indexes)
-                opts (:opts tree-step)
-                input-tags (:input-tags tree-step)
-                output-tags (:output-tags tree-step)
-                id (:id tree-step)]
-            (assoc %
-                   :name (step-string tree-step)
-                   :children (or children #{})
-                   :parents (or parentals #{})
-                   :opts opts
-                   :input-tags input-tags
-                   :output-tags output-tags
-                   :id id))
-         steps)))
+  (let [indexes (into #{} (map :index steps))
+        tree-steps (:steps parse-tree)]
+    (for [step steps]
+      (let [tree-step (tree-steps (:index step))
+            children (intersection (:children tree-step) indexes)
+            parentals (intersection (:parents tree-step) indexes)]
+        (into (assoc step
+                :name (step-string tree-step)
+                :children (or children #{})
+                :parents (or parentals #{}))
+              (for [k [:opts :input-tags :output-tags :id]]
+                [k (get tree-step k)]))))))
 
 (defn- assoc-no-stdin-opt
   "Set :no-stdin option for all steps if jobs > 1"
