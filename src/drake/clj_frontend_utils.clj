@@ -247,7 +247,7 @@
                             (pprint (:step event-map))))
       :step-end       (println (step-string event-map)
                                "Step Finished @" (event-time event-map))
-      :step-error     (do (println "\nEnconterred an Error:")
+      :step-error     (do (println "\nEncountered an Error:")
                           (pprint event-map)))))
 
 
