@@ -10,7 +10,8 @@
         drake.shell
         drake.options)
   (:import org.apache.hadoop.conf.Configuration
-           org.apache.hadoop.fs.Path))
+           (org.apache.hadoop.fs Path FileStatus)
+           java.io.File))
 
 (def drake-ignore "Names of files or directories to be ignored by Drake"
   #{"_logs"})
@@ -94,7 +95,7 @@
             []
             (if-not (.isDirectory f)
             [(.getPath f)]
-            (mapcat #(file-seq this (.getPath %)) (.listFiles f))))))
+            (mapcat #(file-seq this (.getPath ^File %)) (.listFiles f))))))
 
       :normalized-filename
       (fn [_ path]
@@ -143,18 +144,18 @@
 
 (defn- remove-hdfs-prefix
   "Removes the prefix HDFS libraries may insert."
-  [path]
+  [^String path]
   (let [prefix "hdfs://"]
     (assert (.startsWith path "hdfs://"))
-    (let [spl (split (.substring path (count prefix)) #"/")]
+    (let [spl (split (subs path (count prefix)) #"/")]
       (str "/" (join "/" (rest spl))))))
 
-(defn- hdfs-file-info [status]
-  {:path (remove-hdfs-prefix (.toString (.getPath status)))
+(defn- hdfs-file-info [^FileStatus status]
+  {:path (remove-hdfs-prefix (str (.getPath status)))
    :mod-time (.getModificationTime status)
    :directory (.isDir status)})
 
-(defn- hdfs-filesystem [path]
+(defn- ^org.apache.hadoop.fs.FileSystem hdfs-filesystem [path]
   ;; there's a bug in hdfs-clj's filesystem function (can't provide
   ;; configuration), so we're doing it manually here
   (org.apache.hadoop.fs.FileSystem/get (.toUri (hdfs/make-path path))
@@ -180,7 +181,7 @@
 
       :mod-time
       (fn [_ path]
-        (.getModificationTime (hdfs/file-status path)))
+        (.getModificationTime ^FileStatus (hdfs/file-status path)))
 
       :file-seq
       (fn [this path]
@@ -232,12 +233,13 @@
 (defn- load-props
   "Loads a java style properties file into a struct map."
   [filename]
-  (when-not (fs/exists? (fs/file filename))
-    (throw+ {:msg (format "unable to locate properties file %s" filename)}))
-  (let [io (java.io.FileInputStream. filename)
-        prop (java.util.Properties.)]
-    (.load prop io)
-    (into {} prop)))
+  (let [file (fs/file filename)]
+    (when-not (fs/exists? file)
+      (throw+ {:msg (format "unable to locate properties file %s" filename)}))
+    (let [io (java.io.FileInputStream. file)
+          prop (java.util.Properties.)]
+      (.load prop io)
+      (into {} prop))))
 ;; Load credentials from a properties file
 (def ^:private s3-credentials
   (memoize #(if-not (*options* :aws-credentials)
@@ -262,8 +264,8 @@
   into filesystem info objects"
   [{bucket :bucket key :key {last-mod :last-modified} :metadata}]
   {:path     (join "/" ["" bucket key])
-   :directory (.endsWith key "/")
-   :mod-time  (.getTime last-mod)})
+   :directory (.endsWith ^String key "/")
+   :mod-time  (.getTime ^java.util.Date last-mod)})
 
 (deftype S3 [])
 
@@ -278,15 +280,15 @@
 
       :directory?
       (fn [_ path]
-        (.endsWith path "/"))
+        (.endsWith ^String path "/"))
 
       :mod-time
       (fn [_ path]
-        (let [{bucket :bucket key :key} (s3-bucket-key path)]
-          (-> (s3-credentials)
-              (s3/get-object-metadata bucket key)
-              :last-modified
-              .getTime)))
+        (let [{bucket :bucket key :key} (s3-bucket-key path)
+              ^java.util.Date last-mod (-> (s3-credentials)
+                                           (s3/get-object-metadata bucket key)
+                                           :last-modified)]
+          (.getTime last-mod)))
 
       ;; S3 list-object api call by default will give
       ;; us everything to fill out the file-info-seq
@@ -384,7 +386,7 @@
       (fn [this path]
         (keys (filter (fn [[name opts]]
                         (and (not (opts :directory))
-                             (.startsWith name path)))
+                             (.startsWith ^String name path)))
                       (:fs-data this))))
 
       :normalized-filename
