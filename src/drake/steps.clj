@@ -108,7 +108,7 @@
     (if (> (count drake-dir) (dec MAX_PATH))
       (throw+ {:msg (format "workflow directory name %s is too long."
                             drake-dir)}))
-    (let [cut #(.substring % 0 (min (count %) MAX_PATH))
+    (let [cut #(subs % 0 (min (count %) MAX_PATH))
           dirs (map (fn [{:keys [raw-outputs output-tags] :as step}]
                       (cut (str drake-dir "/"
                                 ;; e.g. "output1,dir1_dir2_output2,tag1"
@@ -248,10 +248,10 @@
                 (cond
                   (= \% (first clipped-name))
                     [:tag (clip clipped-name)]
-                  (= "()" (.substring clipped-name
-                                      (max 0 (- (count clipped-name) 2))))
-                    [:method (.substring clipped-name 0
-                                         (- (count clipped-name) 2))]
+                  (= "()" (subs clipped-name
+                                (max 0 (- (count clipped-name) 2))))
+                    [:method (subs clipped-name 0
+                                   (- (count clipped-name) 2))]
                   :else
                     [:output clipped-name])]
           {:name  clipped-name
