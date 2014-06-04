@@ -35,10 +35,10 @@
    preserves the key order (e.g. :key1 will always be before :key2 in the
    value vectors from the example above)."
   [m]
-  (reduce
-   (fn [result [key values]]
-     (reduce #(assoc %1 %2 (conj (%1 %2 []) key)) result values))
-   {} m))
+  (apply merge-with into {}
+         (for [[key values] m
+               value values]
+           {value [key]})))
 
 (defn merge-multimaps-distinct
   "Given a list of maps to sequences, merges them into one,
