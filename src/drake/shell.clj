@@ -4,8 +4,7 @@
         [slingshot.slingshot :only [throw+]]
         [clojure.java.io :only [as-file]]
         drake.stdin)
-  (:require [fs.core :as fs])
-  (:import java.io.File))
+  (:require [fs.core :as fs]))
 
 ;; Copied in full from clojure.java.shell
 (defn- ^"[Ljava.lang.String;" as-env-strings
@@ -97,7 +96,7 @@
         proc (.exec (Runtime/getRuntime)
                     cmd-for-exec
                     ^"[Ljava.lang.String;" env
-                    ^File fs/*cwd*)]
+                    (fs/file fs/*cwd*))]
     ;; Pass stdin to process unless :no-stdin option is set
     ;; Usually set when async is on
     (let [^Thread stdin  (and (not no-stdin) (Thread. #(copy-stdin proc)))

@@ -12,7 +12,7 @@
 (defn clip
   "Returns string s without its first character."
   [s]
-  (.substring s 1))
+  (subs s 1))
 
 (defn delete [vc pos]
   "Removes an element from vector by index in the most effecient way.
@@ -96,5 +96,5 @@
 
 (defn relative-path
   [file]
-  (.substring (.getAbsolutePath (fs/file file))
-              (inc (count (.getAbsolutePath fs/*cwd*)))))
+  (subs (.getAbsolutePath (fs/file file))
+        (inc (count (.getAbsolutePath (fs/file fs/*cwd*))))))

@@ -26,7 +26,7 @@
                             :repositories repos)
       (catch org.sonatype.aether.resolution.DependencyResolutionException e
         (throw+
-         {:msg (str "Plugin error. " (.getMessage e))})))))
+         {:msg (str "Plugin error. " (.getMessage ^Exception e))})))))
 
 (defn load-plugin-deps
   "Loads onto the classpath all plugins specified in plugins configuration file f.
