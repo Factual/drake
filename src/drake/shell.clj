@@ -4,7 +4,8 @@
         [slingshot.slingshot :only [throw+]]
         [clojure.java.io :only [as-file]]
         drake.stdin)
-  (:require [fs.core :as fs]))
+  (:require [fs.core :as fs])
+  (:import java.io.File))
 
 ;; Copied in full from clojure.java.shell
 (defn- ^"[Ljava.lang.String;" as-env-strings
@@ -33,7 +34,7 @@
 
 (defn- copy-stdin
   "Copies stdin to a child process."
-  [proc]
+  [^Process proc]
   (let [child-stdin-stream (.getOutputStream proc)]
     (try
       (while (process-line-stdin
@@ -87,19 +88,19 @@
         env (as-env-strings (if replace-env
                               env
                               (merge (into {} (System/getenv)) env)))
-        cmd-for-exec ^"[Ljava.lang.String;"
-                     (into-array (if-not use-shell
-                                   cmd
-                                   [(if windows? "cmd" (get (System/getenv) "SHELL")) 
-                                    (if windows? "/C" "-c")
-                                    (join " " cmd)]))
+        ^"[Ljava.lang.String;" cmd-for-exec
+        (into-array (if-not use-shell
+                      cmd
+                      [(if windows? "cmd" (get (System/getenv) "SHELL"))
+                       (if windows? "/C" "-c")
+                       (join " " cmd)]))
         proc (.exec (Runtime/getRuntime)
                     cmd-for-exec
-                    env
-                    fs/*cwd*)]
+                    ^"[Ljava.lang.String;" env
+                    ^File fs/*cwd*)]
     ;; Pass stdin to process unless :no-stdin option is set
     ;; Usually set when async is on
-    (let [stdin  (and (not no-stdin) (Thread. #(copy-stdin proc)))
+    (let [^Thread stdin  (and (not no-stdin) (Thread. #(copy-stdin proc)))
           ;; because we're starting two threads to process stdout & stderr,
           ;; there's NO GUARANTEE that lines output to these streams will appear
           ;; in correct order relative to each other. if the child process
@@ -116,12 +117,12 @@
                             (.getErrorStream proc)
                             (if err err [System/err])))]
       ;; start threads
-      (doseq [t [stdin stdout stderr]] (when t (.start t)))
+      (doseq [^Thread t [stdin stdout stderr]] (when t (.start t)))
       ;; we have to wait until stdout and stderr threads finish,
       ;; otherwise when the process exits, we may not have finished
       ;; copying; this does not apply to stdin since it's blocked on user
       ;; input
-      (doseq [t [stdout stderr]] (.join t))
+      (doseq [^Thread t [stdout stderr]] (.join t))
       (let [exit-code (.waitFor proc)]
         (when stdin
           ;; the process exited at this point, interrupt the thread
