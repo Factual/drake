@@ -85,16 +85,6 @@
 (def default-base "")
 
 ;;
-;; Helper functions
-;;
-
-(defn ensure-ends-with-newline
-  [^String s]
-  (if (.endsWith s "\n")
-    s
-    (str s "\n")))
-
-;;
 ;; Drake-specific grammar rules
 ;;
 
@@ -593,7 +583,7 @@
 
     (parse-state
       (struct state-s
-              (ensure-ends-with-newline tokens)
+              (ensure-final-newline tokens)
               vars
               methods
               0
@@ -633,7 +623,7 @@
          ^String tokens (slurp (fs/file file-path))
          prod (parse-state
                (assoc (struct state-s
-                        (if (.endsWith tokens "\n") tokens (str tokens "\n"))
+                        (ensure-final-newline tokens)
                         vars methods 0 0)
                  :file-path file-path))]
      (if (= directive "include")
@@ -680,7 +670,7 @@
   (with-time-elapsed
     (in-ms debug "Parsing")
     (parse-state (struct state-s
-                         (if (.endsWith tokens "\n") tokens (str tokens "\n"))
+                         (ensure-final-newline tokens)
                          (merge {"BASE" default-base} vars)
                          #{}
                          1 1))))

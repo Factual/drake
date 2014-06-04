@@ -180,18 +180,11 @@
 
 ;; Below here are functions for testing
 
-(defn ensure-final-newline
-  "Make a the string ends with a newline"
-  [^String s]
-  (if (.endsWith s "\n")
-    s
-    (str s "\n")))
-
 (defn str->parse-tree
   "Take a string s and makes a raw parse-tree."
   [s]
   (let [state (struct state-s
-                      (ensure-final-newline s)
+                      (d-utils/ensure-final-newline s)
                       {}
                       #{}
                       1 1)]

@@ -14,6 +14,12 @@
   [s]
   (subs s 1))
 
+(defn ensure-final-newline
+  [^String s]
+  (if (.endsWith s "\n")
+    s
+    (str s "\n")))
+
 (defn delete [vc pos]
   "Removes an element from vector by index in the most effecient way.
    Doesn't do anything if pos == -1."
