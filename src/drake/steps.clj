@@ -185,7 +185,7 @@
   (if (or (not valid-step-indices) (valid-step-indices index))
     (let [step (tree-steps index)
           current-chain-and-me (conj current-chain index)]
-      (if (not= -1 (.indexOf current-chain index))
+      (when (some #{index} current-chain)
         (throw+ {:msg (str "cycle dependency detected: "
                            (str/join " -> " (map #(step-str (tree-steps %))
                                                  current-chain-and-me)))}))
