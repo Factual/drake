@@ -175,12 +175,12 @@
    current-chain is a vector right now, a hashset would be faster,
    but I would like to preserve the order for being able to print
    a nice error message.
-  
+
    valid-step-indices is a set of steps that are valid for expansion.
    nil means that all steps are valid for expansion."
   [tree-steps index up-tree current-chain valid-step-indices]
   ;;(prn index)
-  
+
   ;; Check if current step is in list of valid steps
   (if (or (not valid-step-indices) (valid-step-indices index))
     (let [step (tree-steps index)
@@ -199,7 +199,7 @@
     []))
 
 (defn expand-step-restricted
-  "Like expand-step below, but only expand the steps that are in the 
+  "Like expand-step below, but only expand the steps that are in the
    valid-step-indices.  If valid-step-indices is nil, expand them all"
   [parse-tree index tree-mode valid-step-indices]
   ;;(prn (parse-tree :steps))
