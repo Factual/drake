@@ -20,24 +20,6 @@
     s
     (str s "\n")))
 
-(defn delete [vc pos]
-  "Removes an element from vector by index in the most effecient way.
-   Doesn't do anything if pos == -1."
-  (if (= pos -1)
-    vc
-    (vec (concat
-          (subvec vc 0 pos)
-          (subvec vc (inc pos))))))
-
-(defn insert [vc pos value]
-  "Inserts an element into the vector into the specified position
-   in the most effecient way."
-  (into (conj (subvec vc 0 pos) value)
-        (subvec vc pos (count vc))))
-
-(defn inc-if [cond value]
-  (if cond (inc value) value))
-
 (defn concat-distinct
   "Concatinates given sequences, removing all duplicates but
    preserving the order. Ignores nil values.
