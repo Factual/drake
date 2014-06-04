@@ -89,7 +89,7 @@
 ;;
 
 (defn ensure-ends-with-newline
-  [s]
+  [^String s]
   (if (.endsWith s "\n")
     s
     (str s "\n")))
@@ -174,7 +174,7 @@
   (let [cmd-out (java.io.StringWriter.)
         new-options (concat options [:out [cmd-out]])]
     (apply shell new-options)
-    (.toString cmd-out)))
+    (str cmd-out)))
 
 (def shell-memo (memo/memo shell-helper))
 
@@ -316,7 +316,7 @@
     (clip file)
     (str prefix file)))
 
-(defn add-path-sep-suffix [path]
+(defn add-path-sep-suffix [^String path]
   (if (or (empty? path)
           (.endsWith path "/")
           (.endsWith path ":"))
@@ -630,7 +630,7 @@
    (let [raw-base (get vars "BASE" default-base)
          base (add-path-sep-suffix raw-base)
          ;; Need to use fs/file here to honor cwd
-         tokens (slurp (fs/file file-path))
+         ^String tokens (slurp (fs/file file-path))
          prod (parse-state
                (assoc (struct state-s
                         (if (.endsWith tokens "\n") tokens (str tokens "\n"))
@@ -675,7 +675,7 @@
    add-dependencies
    calc-step-dirs))
 
-(defn parse-str [tokens vars]
+(defn parse-str [^String tokens vars]
   (trace "Parsing started...")
   (with-time-elapsed
     (in-ms debug "Parsing")

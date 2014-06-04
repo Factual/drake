@@ -121,7 +121,10 @@
   [cmds]
   (let [prefix (apply str (take-while #{\space \tab} (first cmds)))
         prefix-len (count prefix)]
-    (map #(if (.startsWith %1 prefix) (.substring %1 prefix-len) %1) cmds)))
+    (for [^String cmd cmds]
+      (if (.startsWith cmd prefix)
+        (.substring cmd prefix-len)
+        cmd))))
 
 (defn- prepare-step-for-run
   "Given a step, prepares its inputs and outputs for running by:
@@ -157,7 +160,7 @@
                                      "variable \"%s\" undefined at this point."
                                      var-name)}))))
         cmds (despace-cmds (map #(apply str (map substitute-var %)) cmds))]
-    (if (and (empty? cmds) (.cmds-required? (get-protocol step)))
+    (if (and (empty? cmds) (di/cmds-required? (get-protocol step)))
       (throw+ {:msg
                (format "protocol '%s' requires non-empty commands, for step: %s "
                        (get-protocol-name step)
@@ -345,11 +348,11 @@
                            step-number
                            step-descr
                            (/ % 1000.0)
-                           (if-not (> wait 0)
+                           (if-not (pos? wait)
                              ""
-                             (do (. Thread (sleep wait))
+                             (do (Thread/sleep wait)
                                  (format " + waited %dms" wait))))))
-          (.run (get-protocol step) step)))
+          (di/run (get-protocol step) step)))
       should-build)))
 
 (defn- create-state-atom
@@ -505,7 +508,7 @@
          steps)))
 
 (defn- post
-  [event-bus event]
+  [^com.google.common.eventbus.EventBus event-bus event]
   (when event-bus (.post event-bus event)))
 
 (defn- sanitize-step
@@ -632,7 +635,7 @@
   []
   (when-let [java-cmd (-> (System/getProperties)
                           (get "sun.java.command"))]
-    (.endsWith java-cmd "nailgun.NGServer")))
+    (.endsWith ^String java-cmd "nailgun.NGServer")))
 
 (defn- shutdown [exit-code]
   (throw+ {:exit-code exit-code}))

@@ -63,7 +63,7 @@
       (send-line)
       result)))
 
-(defn read-line-stdin
+(defn ^String read-line-stdin
   "Reads one line from stdin."
   []
   (process-line-stdin identity))

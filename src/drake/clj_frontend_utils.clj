@@ -182,7 +182,7 @@
 
 (defn ensure-final-newline
   "Make a the string ends with a newline"
-  [s]
+  [^String s]
   (if (.endsWith s "\n")
     s
     (str s "\n")))

@@ -108,7 +108,7 @@
     (if (> (count drake-dir) (dec MAX_PATH))
       (throw+ {:msg (format "workflow directory name %s is too long."
                             drake-dir)}))
-    (let [cut #(.substring % 0 (min (count %) MAX_PATH))
+    (let [cut #(subs % 0 (min (count %) MAX_PATH))
           dirs (map (fn [{:keys [raw-outputs output-tags] :as step}]
                       (cut (str drake-dir "/"
                                 ;; e.g. "output1,dir1_dir2_output2,tag1"
@@ -175,17 +175,17 @@
    current-chain is a vector right now, a hashset would be faster,
    but I would like to preserve the order for being able to print
    a nice error message.
-  
+
    valid-step-indices is a set of steps that are valid for expansion.
    nil means that all steps are valid for expansion."
   [tree-steps index up-tree current-chain valid-step-indices]
   ;;(prn index)
-  
+
   ;; Check if current step is in list of valid steps
   (if (or (not valid-step-indices) (valid-step-indices index))
     (let [step (tree-steps index)
           current-chain-and-me (conj current-chain index)]
-      (if (not= -1 (.indexOf current-chain index))
+      (when (some #{index} current-chain)
         (throw+ {:msg (str "cycle dependency detected: "
                            (str/join " -> " (map #(step-str (tree-steps %))
                                                  current-chain-and-me)))}))
@@ -199,7 +199,7 @@
     []))
 
 (defn expand-step-restricted
-  "Like expand-step below, but only expand the steps that are in the 
+  "Like expand-step below, but only expand the steps that are in the
    valid-step-indices.  If valid-step-indices is nil, expand them all"
   [parse-tree index tree-mode valid-step-indices]
   ;;(prn (parse-tree :steps))
@@ -248,10 +248,10 @@
                 (cond
                   (= \% (first clipped-name))
                     [:tag (clip clipped-name)]
-                  (= "()" (.substring clipped-name
-                                      (max 0 (- (count clipped-name) 2))))
-                    [:method (.substring clipped-name 0
-                                         (- (count clipped-name) 2))]
+                  (= "()" (subs clipped-name
+                                (max 0 (- (count clipped-name) 2))))
+                    [:method (subs clipped-name 0
+                                   (- (count clipped-name) 2))]
                   :else
                     [:output clipped-name])]
           {:name  clipped-name
