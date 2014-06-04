@@ -334,12 +334,11 @@
        'INPUT2' 'tim.yaml'
      }"
   [items prefix]
-  (reduce
-   #(assoc %1 (str prefix (first %2)) (second %2))
-   {prefix (first items)
-    (str prefix "S") (s/join " " items)
-    (str prefix "N") (count items)}
-   (keep-indexed vector items)))
+  (into {prefix (first items),
+         (str prefix "S") (s/join " " items),
+         (str prefix "N") (count items)}
+        (for [[i v] (map-indexed vector items)]
+          [(str prefix i) v])))
 
 ;; TODO(artem)
 ;; Should we move this to a common library?
