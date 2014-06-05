@@ -366,12 +366,15 @@
   "Checks that all selected steps have unique outputs.
    Returns the steps given or throws an exception."
   [parse-tree steps]
-  (reduce #(if (%1 %2)
-             (throw+ {:msg (str "duplicated output: " %2)})
-             (conj %1 %2))
-          #{}
-          (map normalized-path
-               (mapcat #(get-in parse-tree [:steps (% :index) :outputs]) steps)))
+  (let [output-counts (frequencies (for [{:keys [index]} steps
+                                         output (get-in parse-tree [:steps index :outputs])]
+                                     (normalized-path output)))
+        repeated-outputs (for [[output n] output-counts
+                               :when (> n 1)]
+                           output)]
+    (when (seq repeated-outputs)
+      (throw+ {:msg (str "duplicated outputs: "
+                         (str/join ", " repeated-outputs))})))
   steps)
 
 (defn select-steps
