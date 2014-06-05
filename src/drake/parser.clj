@@ -466,8 +466,7 @@
    (let [step-prod (merge
                     step-def-product
                     (deep-merge commands))
-         method (get-in step-def-product [:opts :method])
-         method-mode (get-in step-def-product [:opts :method-mode])]
+         {:keys [method method-mode template]} (:opts step-def-product)]
      (cond
       (not (or (empty? method) (methods method)))
       (throw-parse-error state (format "method '%s' undefined at this point."
@@ -491,7 +490,7 @@
                               "(use method-mode:append or method-mode:replace "
                               "to allow)") nil)
 
-      (= true (get-in step-def-product [:opts :template]))
+      template
       {:templates [step-prod]}
 
       :else

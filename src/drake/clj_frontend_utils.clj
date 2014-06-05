@@ -128,8 +128,7 @@
   invalid method-mode, method-mode is set without method, commands
   with method-mode set to \"use\""
   [parse-tree step-map]
-  (let [step-method (get-in step-map [:opts :method])
-        method-mode (get-in step-map [:opts :method-mode])
+  (let [{step-method :method, :keys [method-mode]} (:opts step-map)
         methods (set (keys (:methods parse-tree)))
         commands (:cmds step-map)
         state nil]
