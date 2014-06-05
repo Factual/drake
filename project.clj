@@ -7,7 +7,7 @@
         :url "https://github.com/Factual/drake"}
   :signing {:gpg-key "1402451C"}
   :deploy-repositories [["clojars" {:creds :gpg}]]
-  :dependencies [[org.clojure/clojure "1.4.0"]
+  :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/core.memoize "0.5.6"]
                  [factual/drake-interface "0.0.1"]
                  [org.clojure/tools.logging "0.2.3"]
