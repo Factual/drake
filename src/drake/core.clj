@@ -264,7 +264,7 @@
   (str "The following steps will be run, in order:\n"
        (str/join "\n"
          (for [[i {:keys [index cause]}]
-               (keep-indexed vector steps-to-run)]
+               (map-indexed vector steps-to-run)]
            ;; TODO(artem)
            ;; Optimize for repeated BASE prefixes (we can't just show it
            ;; without base, since it can be ambiguous)
@@ -327,8 +327,9 @@
       (throw+ {:msg (str "optional input files are not supported yet: "
                          inputs)}))
     (let [step-descr (step-string (branch-adjust-step step false))
-          step (update-in step [:opts] #(merge % opts))
-          step (prepare-step-for-run step parse-tree)
+          step (-> step
+                   (update-in [:opts] merge opts)
+                   (prepare-step-for-run parse-tree))
           should-build (should-build? step (= build :forced)
                                       false match-type true)]
       (info "")

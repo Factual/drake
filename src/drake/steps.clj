@@ -145,7 +145,7 @@
                         dots (= match-type :output))
         targets (if everything
                   ;; optimization for a frequent case
-                  (range 0 (count (parse-tree :steps)))
+                  (map-indexed (fn [i _] i) (:steps parse-tree))
                   (if-not (or regexp-search dots)
                     (apply concat-distinct
                            (vals (select-keys
@@ -337,7 +337,7 @@
                          ;; same logic for tag and methods as for build -
                          ;; if it's specified directly, the step will be built
                          ;; (method takes precedence here)
-                         :match-type (some (set [old-match-type match-type])
+                         :match-type (some (hash-set old-match-type match-type)
                                            [:method :tag :output])))
            (inc pos)]))
       ;; step doesn't exist

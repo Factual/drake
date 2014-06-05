@@ -198,12 +198,12 @@
         (let [statuses (hdfs-list-status path)]
           (if-not (directory? this path)
             statuses
-            (mapcat #(if (should-ignore? (% :path))
-                       []
-                       (if-not (% :directory)
-                         [%]
-                         (file-info-seq this (% :path))))
-                    statuses)))))
+            (for [{:keys [path directory] :as status} statuses
+                  :when (not (should-ignore? path))
+                  file (if directory
+                         (file-info-seq this path)
+                         [status])]
+              file)))))
 
       :normalized-filename
       (fn [_ path]
