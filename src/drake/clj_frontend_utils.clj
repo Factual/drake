@@ -2,8 +2,7 @@
   (:require [clojure.string :as str]
             [drake.parser :as parse]
             [drake.parser_utils :refer [illegal-syntax-error-fn
-                                        throw-parse-error
-                                        state-s]]
+                                        throw-parse-error make-state]]
             [drake.steps :as d-steps]
             [drake.utils :as d-utils]
             [drake.options :refer [*options*]]
@@ -183,7 +182,7 @@
 (defn str->parse-tree
   "Take a string s and makes a raw parse-tree."
   [s]
-  (let [state (struct state-s
+  (let [state (make-state
                       (d-utils/ensure-final-newline s)
                       {}
                       #{}

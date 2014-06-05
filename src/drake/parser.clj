@@ -581,7 +581,7 @@
      line (p/get-info :line)]
 
     (parse-state
-      (struct state-s
+      (make-state
               (ensure-final-newline tokens)
               vars
               methods
@@ -621,7 +621,7 @@
          ;; Need to use fs/file here to honor cwd
          ^String tokens (slurp (fs/file file-path))
          prod (parse-state
-               (assoc (struct state-s
+               (assoc (make-state
                         (ensure-final-newline tokens)
                         vars methods 0 0)
                  :file-path file-path))]
@@ -654,21 +654,23 @@
 ;; The functions below uses the rules to parse workflows.
 
 (defn parse-state  [state]
-  (->
-   (p/rule-match workflow
-                 #((illegal-syntax-error-fn "start of workflow")
-                   (:remainder %2) %2) ;; fail
-                 #((illegal-syntax-error-fn "workflow")
-                   (:remainder %2) %2) ;; incomplete match
-                 state)
-   add-dependencies
-   calc-step-dirs))
+  (with-redefs [p/*remainder-accessor* remainder-accessor
+                p/*remainder-setter* remainder-setter]
+    (->
+     (p/rule-match workflow
+                   #((illegal-syntax-error-fn "start of workflow")
+                     (:remainder %2) %2) ;; fail
+                   #((illegal-syntax-error-fn "workflow")
+                     (:remainder %2) %2) ;; incomplete match
+                   state)
+     add-dependencies
+     calc-step-dirs)))
 
 (defn parse-str [^String tokens vars]
   (trace "Parsing started...")
   (with-time-elapsed
     (in-ms debug "Parsing")
-    (parse-state (struct state-s
+    (parse-state (make-state
                          (ensure-final-newline tokens)
                          (merge {"BASE" default-base} vars)
                          #{}

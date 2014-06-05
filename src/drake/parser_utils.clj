@@ -1,5 +1,6 @@
 (ns drake.parser_utils
   (:require [name.choi.joshua.fnparse :as p]
+            [flatland.useful.datatypes :refer [assoc-record]]
             [clojure.tools.logging :refer [warn debug trace]])
   (:use [slingshot.slingshot :only [throw+]]))
 
@@ -8,8 +9,20 @@
 ;; respective fields. :vars is a map of additional key/value pairs that
 ;; can help keep state. As FnParse applies rules to this state and consumes
 ;; tokens, the state gets modified accordingly.
-(defstruct state-s :remainder :vars :methods :column :line)
+;;
+;; This is a record for performance reasons: this map gets updated very often,
+;; and copying the array-map is otherwise needlessly expensive
 
+(defrecord State [remainder vars methods column line])
+
+(defn make-state [remainder vars methods column line]
+  (->State remainder vars methods column line))
+
+(defn remainder-accessor [^State s]
+  (.remainder s))
+
+(defn remainder-setter [^State s new-remainder]
+  (assoc-record s :remainder new-remainder))
 
 ;; rep+ and rep* return a vector of the products of the rules being repeated.
 ;; Even if a rule's product is nil, the nil would show up in the vector.
