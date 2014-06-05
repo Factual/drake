@@ -385,7 +385,7 @@
       :file-seq
       (fn [this path]
         (keys (filter (fn [[name opts]]
-                        (and (not (opts :directory))
+                        (and (not (:directory opts))
                              (.startsWith ^String name path)))
                       (:fs-data this))))
 

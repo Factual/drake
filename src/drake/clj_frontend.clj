@@ -162,7 +162,7 @@
     (info "Clojure version:" *clojure-version*)
     (info "Options:" opts-with-eb)
 
-    (plug/load-plugin-deps (*options* :plugins))
+    (plug/load-plugin-deps (:plugins *options*))
     (fs/with-cwd fs/*cwd*
       (-> w-flow
           (utils/compile-parse-tree)

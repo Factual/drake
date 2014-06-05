@@ -26,7 +26,7 @@
    list of its outputs and tags.
    TODO(artem) tags are not supported now."
   [step]
-  (str/join ", " (step :outputs)))
+  (str/join ", " (:outputs step)))
 
 (defn add-dependencies
   "Given a parse tree after string substitutions, adds step dependencies to
@@ -81,15 +81,15 @@
                  :parents (apply
                            concat-distinct
                            (concat (map normalized-output-map
-                                        (map normalized-path (% :inputs)))
+                                        (map normalized-path (:inputs %)))
                                    (map output-tags-map
-                                        (% :input-tags))))
+                                        (:input-tags %))))
                  :children (apply
                             concat-distinct
                             (concat (map normalized-input-map
-                                         (map normalized-path (% :outputs)))
+                                         (map normalized-path (:outputs %)))
                                     (map input-tags-map
-                                         (% :output-tags)))))
+                                         (:output-tags %)))))
               steps))))
 
 ;; No way to get to MAX_PATH from Java
@@ -104,7 +104,7 @@
    Returns the parse tree with added :dir to each step."
   [{:keys [steps] :as parse-tree}]
   (trace "Naming steps' temporary directories...")
-  (let [drake-dir (fs/absolute-path (*options* :tmpdir))]
+  (let [drake-dir (fs/absolute-path (:tmpdir *options*))]
     (if (> (count drake-dir) (dec MAX_PATH))
       (throw+ {:msg (format "workflow directory name %s is too long."
                             drake-dir)}))
@@ -205,7 +205,7 @@
   ;;(prn (parse-tree :steps))
   (if (= tree-mode :only)
     [index]
-    (expand-step-recur (parse-tree :steps) index (nil? tree-mode) [] valid-step-indices)))
+    (expand-step-recur (:steps parse-tree) index (nil? tree-mode) [] valid-step-indices)))
 
 (defn expand-step
    "Given a step index, return an ordered list of all steps involved
@@ -354,8 +354,8 @@
               insert-position (if (empty? used-dependencies)
                                 pos
                                 ;; this should be enough for a million steps
-                                (- (apply min (map #((current-steps-map %) :pos)
-                                                   used-dependencies))
+                                (- (apply min (for [dep used-dependencies]
+                                                (get-in current-steps-map [dep :pos])))
                                    0.0000001))]
           ;; add a new step to the map, with a new field specifying its
           ;; order (:pos)

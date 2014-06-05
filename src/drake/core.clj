@@ -83,7 +83,7 @@
      - adding #branch suffixes only to those inputs that do exist in this branch,
        unless add-to-all is true"
   [{:keys [inputs outputs] :as step} add-to-all]
-  (let [branch (*options* :branch)
+  (let [branch (:branch *options*)
         branch-adjusted-outputs (if (empty? branch)
                                   outputs
                                   (map #(str % "#" branch) outputs))
@@ -142,14 +142,14 @@
         vars (merge vars
                     (inouts-map normalized-inputs "INPUT")
                     (inouts-map normalized-outputs "OUTPUT"))
-        method (methods (opts :method))
-        method-mode (opts :method-mode)
+        method (methods (:method opts))
+        method-mode (:method-mode opts)
         cmds (if (or (not method) (= method-mode "replace"))
                cmds
                (if (= method-mode "append")
-                 (concat (method :cmds) cmds)
-                 (method :cmds)))
-        vars (if-not method vars (merge (method :vars) vars))
+                 (concat (:cmds method) cmds)
+                 (:cmds method)))
+        vars (if-not method vars (merge (:vars method) vars))
         substitute-var #(if-not (set? %)
                          %
                          (let [var-name (first %)]
@@ -170,7 +170,7 @@
       :outputs normalized-outputs
       :cmds cmds
       :vars vars
-      :opts (if-not method opts (merge (method :opts) opts)))))
+      :opts (if-not method opts (merge (:opts method) opts)))))
 
 (defn- should-build?
   "Given the parse tree and a step index, determines whether it should
@@ -246,7 +246,7 @@
   (first
    (reduce (fn [[new-target-steps triggered-deps]
                 {:keys [index build match-type] :as step}]
-             (let [step-map ((parse-tree :steps) index)
+             (let [step-map (get-in parse-tree [:steps index])
                    cause (should-build? step-map (= build :forced)
                                         (triggered-deps index) match-type false)]
                (trace (format "predict-steps, index=%d, cause=%s" index cause))
@@ -278,7 +278,7 @@
            (format "  %d: %s [%s]"
                    (inc i)
                    (step-string (branch-adjust-step
-                                 ((parse-tree :steps) index)
+                                 (get-in parse-tree [:steps index])
                                  (contains? #{"projected timestamped"
                                               "forced"}
                                             cause)))
@@ -295,7 +295,7 @@
   "Estimates the list of steps to be run, asks the user for confirmation,
    returns this new list if confirmed, or nil if rejected."
   [parse-tree steps-to-run]
-  (if (*options* :auto)
+  (if (:auto *options*)
     true
     (do
       (println (steps-report parse-tree steps-to-run))
@@ -315,8 +315,7 @@
   "Runs one step performing all necessary checks, returns
    true if the step was actually run; false if skipped."
   [parse-tree step-number {:keys [index build match-type opts]}]
-  (let [step ((parse-tree :steps) index)
-        inputs (step :inputs)]
+  (let [{:keys [inputs] :as step} (get-in parse-tree [:steps index])]
     ;; TODO(artem)
     ;; Somewhere here, before running the step or checking timestamps, we need to
     ;; check for optional files and replace them with empty strings if they're
@@ -611,8 +610,7 @@
   "Runs Drake with the specified parse-tree and an array of target
    selection expressions."
   [parse-tree targets]
-  (let [steps (parse-tree :steps)
-        target-steps (select-steps parse-tree targets)]
+  (let [target-steps (select-steps parse-tree targets)]
     (debug "selected (expanded) targets:" target-steps)
     (trace "--- Parse Tree: ---")
     (trace (with-out-str (clojure.pprint/pprint parse-tree)))
@@ -660,17 +658,17 @@
                           DEFAULT-VARS-SPLIT-REGEX-STR)]
     (merge
       (into {} (System/getenv))
-      (parse-cli-vars (*options* :vars) split-regex-str)
-      (into {} (for [v (*options* :var)]
+      (parse-cli-vars (:vars *options*) split-regex-str)
+      (into {} (for [v (:var *options*)]
                  (str/split v #"=")))
-      (when-let [base (*options* :base)]
+      (when-let [base (:base *options*)]
         {"BASE" base}))))
 
 (defn- with-workflow-file
   "Reads the workflow file from command-line options, parses it,
    and passes the parse tree to the provided function 'f'."
   [f]
-  (let [filename (*options* :workflow)
+  (let [filename (:workflow *options*)
         filename (if-not (fs/directory? filename)
                    filename
                    (let [workflow-file (str filename
@@ -730,7 +728,7 @@
 (defn- confirm-move
   ;; TODO(artem) doc
   [outputs]
-  (if (*options* :auto)
+  (if (:auto *options*)
     true
     (do
       (println "The following directories will be moved:")
@@ -746,7 +744,8 @@
         ;; Collect selected steps' outputs, if they exist in the branch
         ;; We also need to normalize output filenames and add branch suffixes
         ;; to them
-        steps (map (parse-tree :steps) (map :index target-steps))
+        steps (map (comp (:steps parse-tree) :index)
+                   target-steps)
         all-outputs (mapcat :outputs steps)
         ;; vector of tuples [from, to]
         outputs-for-move (filter identity
@@ -904,7 +903,7 @@
                       (for [[k v] options] [k (if (nil? v) true v)]))]
     (flush) ;; we need to do it for help to always print out
     (let [targets (or (not-empty targets) ["=..."])]
-      (when (options :version)
+      (when (:version options)
         (println "Drake Version" VERSION "\n")
         (shutdown 0))
       (when (some #{"--help"} args)
@@ -922,7 +921,7 @@
       (debug "parsed targets:" targets)
 
       (try+
-        (load-plugin-deps (*options* :plugins))
+        (load-plugin-deps (:plugins *options*))
         (let [fn (if (empty? (:merge-branch options)) run merge-branch)]
           (with-workflow-file #(fn % targets)))
         (shutdown 0)
@@ -958,7 +957,7 @@
     (info "Clojure version:" *clojure-version*)
     (info "Options:" opts)
 
-    (load-plugin-deps (*options* :plugins))
+    (load-plugin-deps (:plugins *options*))
     (with-workflow-file #(run % (:targetv opts)))))
 
 (defn -run_opts

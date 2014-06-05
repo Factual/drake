@@ -46,7 +46,7 @@
    Returns the filename."
   [{:keys [cmds] :as step}]
   (let [filename (format (str "%s" java.io.File/separator "%s-%s.bat")
-                         (*options* :tmpdir)
+                         (:tmpdir *options*)
                          (get-protocol-name step)
                          (digest/md5 (apply str cmds)))]
     ;; we need to use fs.core/file here, since fs.core/with-cwd only changes the
