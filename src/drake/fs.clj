@@ -160,7 +160,7 @@
 (defn- hdfs-filesystem [path]
   ;; there's a bug in hdfs-clj's filesystem function (can't provide
   ;; configuration), so we're doing it manually here
-  (org.apache.hadoop.fs.FileSystem/get (.toUri (hdfs/make-path path))
+  (org.apache.hadoop.fs.FileSystem/get (.toUri (hdfs/make-path (str "hdfs:" path)))
                                        (hdfs-configuration)))
 
 (defn- hdfs-list-status [path]
