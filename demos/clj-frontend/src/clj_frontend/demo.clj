@@ -53,7 +53,16 @@
     ;; $[XXX] substitution is allowed in commands.
     ["echo \"This is the third output.\" > $OUTPUT"
      "echo \"test_var is set to $test_var - $[test_var].\" >> $OUTPUT"
-     "echo \"The file $INPUT contains:\" | cat - $INPUT >> $[OUTPUT]"])))
+     "echo \"The file $INPUT contains:\" | cat - $INPUT >> $[OUTPUT]"])
+   (cmd-step
+    ["output"]
+    []
+    ["echo $MSG > $OUTPUT"]
+    ;; Variables can be defined inline as key value pairs with strings
+    ;; for keys
+    "MSG" "My Message"
+    ;; While options are key value pairs with keywords for keys
+    :timecheck false)))
 
 ;; (run-workflow advanced-workflow :preview true)
 ;; (run-workflow advanced-workflow)

@@ -24,12 +24,15 @@
   vectors and can be a mixture of tags and files. Tags are indicated
   by an opening %. cmds should be a vector of strings or nil/false for
   steps that don't need commands like method and template
-  steps. Standard drake options can be appended inline as key value
-  pairs, e.g. :method-mode true.  See method-step, cmd-step, template
-  and template-step."
+  steps. Standard drake options can be appended inline as keyword
+  value pairs, e.g. :method-mode true.  Variables for the step can be
+  appended as pairs of strings, e.g. \"MY_VAR\" \"my_value\". See
+  method-step, cmd-step, template and template-step."
   [w-flow outputs inputs cmds & {:keys [template]
                                  :as options}]
-  (let [vars (:vars w-flow)
+  (let [step-vars (into {} (filter #(string? (first %)) options))
+        options (into {} (remove #(string? (first %)) options))
+        vars (merge (:vars w-flow) step-vars)
         base (parse/add-path-sep-suffix
               (get vars "BASE" parse/default-base))
 
@@ -101,16 +104,20 @@
 (defn method
   "Add a method to the workflow, w-flow.  method-name should be a
   string and cmds should be a vector of command strings.  Options are
-  standard drake options as key value pairs, e.g. :my-option
-  \"my-value\""
+  standard drake options as keyword value pairs, e.g. :my-option
+  \"my-value\". Variables for the method can be appended as pairs of
+  strings, e.g. \"MY_VAR\" \"my_value\"."
   [w-flow method-name cmds & {:as options}]
   (when ((:methods w-flow) method-name)
     (println (format "Warning: method redefinition ('%s')" method-name)))
-  (assoc-in w-flow [:methods method-name] {:opts (if (nil? options)
-                                                      {}
-                                                      options)
-                                           :vars (:vars w-flow)
-                                           :cmds (mapv utils/var-place cmds)}))
+  (let [method-vars (into {} (filter #(string? (first %)) options))
+        options (into {} (remove #(string? (first %)) options))]
+    (assoc-in w-flow [:methods method-name]
+              {:opts (if (empty? options)
+                       {}
+                       options)
+               :vars (merge (:vars w-flow) method-vars)
+               :cmds (mapv utils/var-place cmds)})))
 
 (defn add-methods
   "Adds all the methods in methods-hash to workflow, w-flow.
