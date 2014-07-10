@@ -35,7 +35,7 @@ Following are instructions for building from source. Drake is a Clojure project,
 #### Clone the project:
 
 ```bash
-$ git clone git@github.com:Factual/drake.git
+$ git clone https://github.com/Factual/drake.git
 $ cd drake
 ```
 
