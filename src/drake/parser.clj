@@ -190,13 +190,15 @@
     _ (p/failpoint close-paren
                    (illegal-syntax-error-fn "command substitution"))
     line (p/get-info :line)
-    column (p/get-info :column)]
-
-    ;; stderr preserved by default
-    (let [result (shell-memo prod :line line :column column :die true :use-shell true)]
-      (debug "line =" line " column=" column " shell =" prod)
-      (debug "shell result = " result)
-      (s/trim-newline result))))
+    column (p/get-info :column)
+    value-ignored (p/get-info :value-ignored)]
+   (if value-ignored
+     (format "[[shell expansion $(%s) which would be ignored by := assignment]]" prod)
+     ;; stderr preserved by default
+     (let [result (shell-memo prod :line line :column column :die true :use-shell true)]
+       (debug "line =" line " column=" column " shell =" prod)
+       (debug "shell result = " result)
+       (s/trim-newline result)))))
 
 (defn string-substitution
   [chars]
@@ -534,18 +536,21 @@
    my_var=my_value\n
    output: nil, but state is updated with var definition"
   (p/complex
-   [var-name (p/rep+ var-name-chars)
+   [vars (p/get-info :vars)
+    var-name (p/rep+ var-name-chars)
     has-colon (p/opt colon)
     _ equal-sign
+    :let [use-value (or (not has-colon) (empty? (get vars (apply-str var-name))))]
+    _ (p/update-info :value-ignored (constantly (not use-value)))
     var-value (p/alt (string-substitution var-value-chars) string-lit)
+    _ (p/update-info :value-ignored (constantly false))
     _ (p/opt inline-ws)
     _ (p/opt inline-comment)
     _ (p/failpoint line-break (illegal-syntax-error-fn "variable definition"))
-    vars (p/get-info :vars)
-    _ (if (and has-colon (not (empty? (get vars (apply-str var-name)))))
-        p/emptiness  ; nothing if := assignment but the var is not empty
+    _ (if use-value
         (p/update-info :vars
-                     #(assoc % (apply-str var-name) var-value)))]
+                       #(assoc % (apply-str var-name) var-value))
+        p/emptiness)]
     nil))
 
 (declare call-or-include-line)

@@ -13,10 +13,10 @@
 ;; This is a record for performance reasons: this map gets updated very often,
 ;; and copying the array-map is otherwise needlessly expensive
 
-(defrecord State [remainder vars methods column line])
+(defrecord State [remainder vars methods column line value-ignroed])
 
 (defn make-state [remainder vars methods column line]
-  (->State remainder vars methods column line))
+  (->State remainder vars methods column line false))
 
 (defn remainder-accessor [^State s]
   (.remainder s))
