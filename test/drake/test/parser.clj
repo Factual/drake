@@ -1,10 +1,12 @@
 (ns drake.test.parser
   (:use [clojure.tools.logging :only [warn debug trace]]
         clojure.test)
-  (:require [drake.parser :as d]))
+  (:require [drake.parser :as d]
+            [drake.parser_utils :as p])
+  (:import java.io.File))
 
-(defstruct state-s :vars :methods :line :column :remainder)
-(def make-state (partial struct state-s {"BASE" "/base"} #{} 0 0))
+(defn make-state [remainder]
+  (p/make-state remainder {"BASE" "/base"} #{} 0 0))
 
 (defn prod-eq?
   [actual-tuple expected-product]
