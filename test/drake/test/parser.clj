@@ -41,6 +41,18 @@
                 (make-state "MYVAR=$(echo \"foo bar\" | sed s/o/u/g)\n"))
                "MYVAR" "fuu bar")))
 
+(deftest ignored-shell-commands-not-run
+  (let [f (doto (File/createTempFile "drake-test" nil)
+            (.delete))
+        filename (.getPath f)]
+    (is (var-eq? (d/var-def-line (-> (format "CREATE:=$(echo 5 | tee %s)\n" filename)
+                                     (make-state)
+                                     (assoc :vars {"CREATE" "already-set"})))
+                 "CREATE" "already-set"))
+    (is (not (.exists f)))
+    (when (.exists f)
+      (.delete f))))
+
 (deftest options-test
   (is (prod-eq? (d/options (make-state "[shell]")) {:protocol "shell"}))
   (is (prod-eq? (d/options
