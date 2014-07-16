@@ -41,17 +41,22 @@
                 (make-state "MYVAR=$(echo \"foo bar\" | sed s/o/u/g)\n"))
                "MYVAR" "fuu bar")))
 
+(defmacro with-ignored-command [[command-binding] & body]
+  `(let [f# (doto (File/createTempFile "drake-test" nil)
+              (.delete))
+         filename# (.getPath f#)
+         ~command-binding (format "$(echo ignored | tee %s)" filename#)]
+     ~@body
+     (is (not (.exists f#)))
+     (when (.exists f#)
+       (.delete f#))))
+
 (deftest ignored-shell-commands-not-run
-  (let [f (doto (File/createTempFile "drake-test" nil)
-            (.delete))
-        filename (.getPath f)]
-    (is (var-eq? (d/var-def-line (-> (format "CREATE:=$(echo 5 | tee %s)\n" filename)
+  (with-ignored-command [command]
+    (is (var-eq? (d/var-def-line (-> (format "CREATE:=%s\n" command)
                                      (make-state)
                                      (assoc :vars {"CREATE" "already-set"})))
-                 "CREATE" "already-set"))
-    (is (not (.exists f)))
-    (when (.exists f)
-      (.delete f))))
+                 "CREATE" "already-set"))))
 
 (deftest options-test
   (is (prod-eq? (d/options (make-state "[shell]")) {:protocol "shell"}))
@@ -149,6 +154,22 @@
                                        :opts {:protocol "shell"
                                               :my_option "my_value"}
                                        :vars {"BASE" "/base"}}}})))
+
+(deftest ambiguity-test
+  (with-ignored-command [command]
+    (let [actual-prod
+          (d/workflow
+           (-> (make-state
+                (format (str "\n"
+                             "X:=%s \n"
+                             "combined.csv , z.csv <- a.csv, b.csv [protocol:bash +ignore] \n"
+                             "  q $[INPUTS]\n"
+                             "\n"
+                             "<- combined.csv\n"
+                             "  grep -v \"Scott's Cakes\" $INPUT > $OUTPUT\n")
+                        command))
+               (assoc :vars {"X" "exists"})))]
+      (is (var-eq? actual-prod "X" "exists")))))
 
 (deftest workflow-test
   (let [actual-prod
