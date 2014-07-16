@@ -561,13 +561,13 @@
   (p/complex
    [body (semantic-rm-nil
           (p/rep* (p/alt inline-shell-cmd-line
-                         step-lines
                          method-lines
                          call-or-include-line
                          (nil-semantics (p/conc (p/opt inline-ws) line-break))
                                         ;; any ws ending with line-break
                          (nil-semantics (p/conc inline-comment line-break))
-                         (nil-semantics var-def-line))))
+                         (nil-semantics var-def-line)
+                         step-lines)))
     vars (p/get-info :vars)]
    (assoc (deep-merge (concat [{:vars {} :methods {}}] body))
      :vars vars)))
