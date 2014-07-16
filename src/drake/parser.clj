@@ -102,7 +102,7 @@
 ;; escaped.
 ;; 3. Maybe allow using string literals for filenames as well ("filename")?
 (def filename-chars
-  (p/alt alphanumeric underscore hyphen period colon forward-slash equal-sign))
+  (p/alt alphanumeric underscore hyphen period colon forward-slash))
 
 (def inline-comment
   (p/conc semicolon (p/rep* non-line-break)))
