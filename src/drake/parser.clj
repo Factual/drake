@@ -139,7 +139,7 @@
              ;; (unless it's a method in which case
              ;; we just don't know what variables will be available)
              (if (and var-check (not (contains? vars var-name)))
-               (throw-parse-error state "variable \"%s\" undefined at this point." [var-name])
+               (throw-parse-error state "variable \"%s\" undefined at this point." var-name)
                (if-not substitute-value
                  #{var-name}
                  (get vars var-name)))))
@@ -260,9 +260,9 @@
                          vals
                          (throw-parse-error
                           p/get-state
-                          (format "option \"%s\" cannot have multiple values."
-                                  (name key))
-                          nil)))]) val-vectors))))
+                          "option \"%s\" cannot have multiple values."
+                          (name key))))])
+                  val-vectors))))
 
 (def options
   "input: options for a step definition. ie., [shell +hadoop my_var:my_value]
@@ -470,24 +470,22 @@
      (cond
       (not (or (empty? method) (methods method)))
       (throw-parse-error state "method '%s' undefined at this point."
-                         [method])
+                         method)
 
       (not (or (empty? method-mode) (#{"use" "append" "replace"} method-mode)))
       (throw-parse-error state (str "invalid method-mode, valid values are: "
-                                    "use (default), append, and replace.")
-                         nil)
+                                    "use (default), append, and replace."))
 
       (not (or method (empty? method-mode)))
       (throw-parse-error state
-                         "method-mode specified but method name not given"
-                         nil)
+                         "method-mode specified but method name not given")
 
       (and method (not (#{"append" "replace"} method-mode))
            (not (empty? commands)))
       (throw-parse-error state
                          (str "commands not allowed for method calls "
                               "(use method-mode:append or method-mode:replace "
-                              "to allow)") nil)
+                              "to allow)"))
 
       template
       {:templates [step-prod]}

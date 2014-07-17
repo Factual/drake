@@ -134,30 +134,25 @@
         state nil]
     (cond
      (not (or (empty? step-method) (methods step-method)))
-     (throw-parse-error state
-                        (format "method '%s' undefined at this point." step-method)
-                        nil)
+     (throw-parse-error state "method '%s' undefined at this point."
+                        step-method)
 
      (not (or (empty? method-mode) (#{"use" "append" "replace"} method-mode)))
      (throw-parse-error state
-                        (format
-                         (str "%s is not a valid method-mode, valid values are: "
-                              "use (default), append, and replace.")
-                         method-mode)
-                        nil)
+                        (str "%s is not a valid method-mode, valid values are: "
+                             "use (default), append, and replace.")
+                        method-mode)
 
      (not (or step-method (empty? method-mode)))
      (throw-parse-error state
-                        "method-mode specified but method name not given"
-                        nil)
+                        "method-mode specified but method name not given")
 
      (and step-method (not (#{"append" "replace"} method-mode))
           (not (empty? commands)))
      (throw-parse-error state
                         (str "commands not allowed for method calls "
                              "(use method-mode:append or method-mode:replace "
-                             "to allow)")
-                        nil))))
+                             "to allow)")))))
 (defn add-step-ids
   "Add Unique ID to each step in parse-tree"
   [parse-tree]

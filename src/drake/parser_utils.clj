@@ -58,7 +58,7 @@
 
 ;; parse errors
 
-(defn throw-parse-error [state message message-args]
+(defn throw-parse-error [state message & message-args]
   (throw+ {:msg
            (str (if (:file-path state) (str "In " (:file-path state) ", ") "")
                 (format "parse error at line %s, column %s: "
@@ -77,12 +77,12 @@
 (defn expectation-error-fn [expectation]
   (fn [remainder state]
     (throw-parse-error state "%s expected where \"%s\" is"
-                       [expectation (or (first-word remainder) "EOF")])))
+                       expectation (or (first-word remainder) "EOF"))))
 
 (defn illegal-syntax-error-fn [var-type]
   (fn [remainder state]
     (throw-parse-error state "illegal syntax starting with \"%s\" for %s"
-                       [(or (first-word remainder) "EOF") var-type])))
+                       (or (first-word remainder) "EOF") var-type)))
 
 
 ;; And here are where this parser's rules are defined.
