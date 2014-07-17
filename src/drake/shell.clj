@@ -135,7 +135,7 @@
             (throw (ex-info message (merge {:msg message
                                             :cmd (seq cmd-for-exec)
                                             :opts (dissoc opts :env)
-                                            :exit exit-code}
+                                            :exit-code exit-code}
                                            (when (and (not use-shell)
                                                       (= 2 (count cmd)))
                                              (let [file (fs/file (second cmd))]
