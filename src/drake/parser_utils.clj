@@ -76,13 +76,13 @@
 
 (defn expectation-error-fn [expectation]
   (fn [remainder state]
-    (throw+ {:msg (format "%s expected where \"%s\" is"
-                          expectation (or (first-word remainder) "EOF"))})))
+    (throw-parse-error state "%s expected where \"%s\" is"
+                       [expectation (or (first-word remainder) "EOF")])))
 
 (defn illegal-syntax-error-fn [var-type]
   (fn [remainder state]
-    (throw+ {:msg (format "illegal syntax starting with \"%s\" for %s"
-                          (or (first-word remainder) "EOF") var-type)})))
+    (throw-parse-error state "illegal syntax starting with \"%s\" for %s"
+                       [(or (first-word remainder) "EOF") var-type])))
 
 
 ;; And here are where this parser's rules are defined.
