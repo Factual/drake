@@ -246,6 +246,10 @@
     (is (= (get-in actual-prod [:steps 1 :raw-outputs 0]) "babe.txt"))
     (is (= (get-in actual-prod [:steps 2 :raw-outputs 0]) "belle.txt"))))
 
+(deftest test-shell-with-parens
+  (is (var-eq? (d/var-def-line (make-state "FOO=a$(echo '()')\n"))
+               "FOO" "a()")))
+
 (deftest errors-test
   (is (thrown-with-msg? Exception
         #"variable .* undefined at this point."
