@@ -923,8 +923,8 @@
 
       (try+
         (load-plugin-deps (:plugins *options*))
-        (let [fn (if (empty? (:merge-branch options)) run merge-branch)]
-          (with-workflow-file #(fn % targets)))
+        (let [f (if (empty? (:merge-branch options)) run merge-branch)]
+          (with-workflow-file #(f % targets)))
         (shutdown 0)
         (catch map? m
           (error (str "drake: " (:msg m)))

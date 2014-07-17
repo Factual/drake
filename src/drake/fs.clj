@@ -439,10 +439,10 @@
 
 (defn fs
   "Automatically determines the filesystem from the filename and dispatches
-   the call to fn."
-  [fn filename]
+   the call to f."
+  [f filename]
   (let [[system _ name] (get-fs filename)]
-    (fn system name)))
+    (f system name)))
 
 (defn normalized-path
   "Returns absolute path preserving the prefix."
