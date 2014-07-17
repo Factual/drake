@@ -538,8 +538,10 @@
   (p/complex
    [vars (p/get-info :vars)
     var-name (p/rep+ var-name-chars)
+    _ (p/opt inline-ws)
     has-colon (p/opt colon)
     _ equal-sign
+    _ (p/opt inline-ws)
     :let [use-value (or (not has-colon) (empty? (get vars (apply-str var-name))))]
     _ (p/update-info :value-ignored (constantly (not use-value)))
     var-value (p/alt (string-substitution var-value-chars) string-lit)
