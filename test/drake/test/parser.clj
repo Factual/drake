@@ -223,14 +223,17 @@
                            (System/getProperty "user.dir")
                            "/test/drake/test/resources/nested.d\n")))]
     (is (var-eq? actual-prod "NESTEDVAR" "/foo"))
-    (is (var-eq? actual-prod "BASE" "/base/nest/")))
+    (is (var-eq? actual-prod "BASE" "/base/nest/"))
+    (is (contains? (:methods (second actual-prod))
+                   "sample_method")))
   (let [actual-prod (d/call-or-include-line
                      (make-state
                       (str "%call "
                            (System/getProperty "user.dir")
                            "/test/drake/test/resources/nested.d\n")))]
     (is (var-eq? actual-prod "NESTEDVAR" nil))
-    (is (var-eq? actual-prod "BASE" "/base"))))
+    (is (var-eq? actual-prod "BASE" "/base"))
+    (is (empty? (:methods (second actual-prod))))))
 
 (def INLINE-SHELL-TEST-DATA "$(for DUDE in dude.txt babe.txt belle.txt; do echo \\\"$DUDE <\\\"\\\"-\\\"; echo \\\"  echo $DUDE\\\"; echo; done)\n")
 

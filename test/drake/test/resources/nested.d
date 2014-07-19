@@ -7,3 +7,6 @@ NESTEDVAR=/foo
 b.csv <- a.csv
   cat $[INPUTS]
   echo $[BASE]
+
+sample_method() [eval]
+  echo "method"
