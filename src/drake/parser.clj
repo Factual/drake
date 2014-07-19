@@ -627,8 +627,8 @@
                         vars methods 0 0)
                  :file-path file-path))]
      (if (= directive "include")
-       prod ;call-or-include line will merge vars from prod into parent's vars
-       (dissoc prod :vars))))) ;vars from %call should not affect parent
+       prod ;call-or-include line will merge vars+methods from prod into parent's vars
+       (dissoc prod :vars :methods))))) ;vars+methods from %call should not affect parent
 
 (def call-or-include-line
   "input: directive to call/include another Drake workflow. ie.,
@@ -646,10 +646,11 @@
    \"complex\". Thus we add a wrapper rule to set the variable."
   (p/complex
    [prod call-or-include-helper
-    _ (if (:vars prod)
-        (p/set-info :vars (:vars prod))
+    _ (if (some prod [:vars :methods])
+        (p/conc (p/set-info :vars (:vars prod))
+                (p/set-info :methods (:methods prod)))
         p/emptiness)]
-   (dissoc prod :vars)))
+   (dissoc prod :vars :methods)))
 
 
 ;; The functions below uses the rules to parse workflows.
