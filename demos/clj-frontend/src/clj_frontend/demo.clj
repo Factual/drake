@@ -35,7 +35,7 @@
     []
     ["echo \"This is the first output.\" > $OUTPUT0"
      "echo \"This is the second output.\" > $OUTPUT1"] ;multiple commands
-    :timecheck false)                   ;options are key value pairs
+    {:timecheck false})                   ; the last argument to step and method is an option map
    (method
     "test_method"
     ["echo \"Here we are using a method.\" > $OUTPUT"])
@@ -53,7 +53,13 @@
     ;; $[XXX] substitution is allowed in commands.
     ["echo \"This is the third output.\" > $OUTPUT"
      "echo \"test_var is set to $test_var - $[test_var].\" >> $OUTPUT"
-     "echo \"The file $INPUT contains:\" | cat - $INPUT >> $[OUTPUT]"])))
+     "echo \"The file $INPUT contains:\" | cat - $INPUT >> $[OUTPUT]"])
+   (cmd-step
+    ["output"]
+    []
+    ["echo $MSG > $OUTPUT"]
+    {:timecheck false,
+     :vars {"MSG" "My Message"}}))) ; you can also set vars in the option map
 
 ;; (run-workflow advanced-workflow :preview true)
 ;; (run-workflow advanced-workflow)
@@ -96,7 +102,7 @@
        ["raw_data"]
        []
        ["wget -O $OUTPUT "  url]        ;get the data
-       :timecheck false)
+       {:timecheck false})
       (cmd-step
        ["sorted_data"]
        ["raw_data"]

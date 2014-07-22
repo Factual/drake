@@ -33,10 +33,12 @@
   steps that don't need commands like method and template
   steps. Standard drake options can be appended inline as key value
   pairs, e.g. :method-mode true; or (preferred) you may pass a single
-  option-map argument.  See method-step, cmd-step, template and template-step."
+  option-map argument. Variables for the step can be given in the :vars
+  key. See method-step, cmd-step, template and template-step."
   [w-flow outputs inputs cmds & options]
   (let [{:keys [template] :as options} (varargs->map options)
-        vars (:vars w-flow)
+        vars (merge (:vars w-flow) (:vars options))
+        options (dissoc options :vars)
         base (parse/add-path-sep-suffix
               (get vars "BASE" parse/default-base))
 
@@ -110,15 +112,16 @@
 (defn method
   "Add a method to the workflow, w-flow.  method-name should be a
   string and cmds should be a vector of command strings.  Options are
-  standard drake options as key value pairs, e.g. :my-option
-  \"my-value\""
+  standard drake options as vararg key value pairs, e.g. :my-option
+  \"my-value\", or (preferred) a single map. Variables for the method can be
+  given in the :vars key."
   [w-flow method-name cmds & options]
-
   (when ((:methods w-flow) method-name)
     (println (format "Warning: method redefinition ('%s')" method-name)))
-  (assoc-in w-flow [:methods method-name] {:opts (varargs->map options)
-                                           :vars (:vars w-flow)
-                                           :cmds (mapv utils/var-place cmds)}))
+  (let [options (varargs->map options)]
+    (assoc-in w-flow [:methods method-name] {:opts (dissoc options :vars)
+                                             :vars (merge (:vars w-flow) (:vars options))
+                                             :cmds (mapv utils/var-place cmds)})))
 
 (defn add-methods
   "Adds all the methods in methods-hash to workflow, w-flow.
