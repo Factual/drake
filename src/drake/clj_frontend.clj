@@ -148,7 +148,7 @@
                  :or {targetv ["=..."]
                       repl-feedback :default}
                  :as run-options}]
-  (let [opts (merge d-core/DEFAULT-OPTIONS
+  (let [opts (merge d-opts/DEFAULT-OPTIONS
                     {:auto true}
                     run-options)
         opts-with-eb (if (not= repl-feedback :quiet)

@@ -17,7 +17,6 @@
   (:use [clojure.tools.logging :only [info debug trace error]]
         [slingshot.slingshot :only [try+ throw+]]
         clojure.set
-        clojopts.core
         sosueme.throwables
         drake.stdin
         drake.steps
@@ -25,14 +24,13 @@
         drake.fs
         [drake.protocol :only [get-protocol-name get-protocol]]
         drake.parser
-        drake.options
+        [drake.options :only [*options* set-options DEFAULT-OPTIONS parse-command-line-options]]
         [drake.event :only [EventWorkflowBegin EventWorkflowEnd EventStepBegin EventStepEnd EventStepError]]
         drake.utils)
   (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]
                         #^{:static true} [run_opts_with_event_bus [java.util.Map com.google.common.eventbus.EventBus] void]]))
 
 (def VERSION "0.1.6")
-(def PLUGINS-FILE "plugins.edn")
 (def DEFAULT-VARS-SPLIT-REGEX-STR ; matches and consumes a comma; requires that an even number of "
                                   ; characters exist between the comma and end of string
   "(?x)       ## (?x) enables inline formatting and comments
@@ -43,12 +41,6 @@
     [^\"]*\"  ## and more non-\"s followed by a \"
   )*          ## all this any number of times
   [^\"]*$)    ## and finally a bunch of non-quotes before end of string")
-
-(def DEFAULT-OPTIONS {:workflow "./Drakefile"
-                      :logfile "drake.log"
-                      :jobs 1
-                      :plugins PLUGINS-FILE
-                      :tmpdir ".drake"})
 
 ;; TODO(artem)
 ;; Optimize for repeated BASE prefixes (we can't just show it
@@ -814,94 +806,15 @@
   [& args]
   (let [;; We ignore 80 character limit here, since clojopts is a macro
         ;; and calls to (str) do not work inside a clojopts call
-        options (try
-                  (binding [clojopts/*stop-at-first-non-option* true]
-                    (clojopts
-                     "drake"
-                     args
-                     (with-arg workflow w
-                       "Name of the workflow file to execute; if a directory, look for Drakefile there."
-                       :type :str
-                       :user-name "file-or-dir-name")
-                     (with-arg jobs j
-                       "Specifies the number of jobs (commands) to run simultaneously. Defaults to 1"
-                       :type :int
-                       :user-name "jobs-num")
-                     (no-arg auto a
-                             "Do not ask for user confirmation before running steps.")
-                     (no-arg preview P
-                             "Prints the steps that would run, then stops.")
-                     (with-arg base
-                       "Specifies BASE directory. Takes precedence over environment."
-                       :type :str
-                       :user-name "dir-name")
-                     (with-arg vars v
-                       "Add workflow variable definitions. For example -v X=1,Y=2,FILE=a.csv"
-                       :type :str
-                       :user-name "name-value-pairs")
-                     (with-arg var
-                       "Set a workflow variable."
-                       :type :str
-                       :group :list
-                       :user-name "value")
-                     (with-arg branch b
-                       "Specifies a working branch (see spec for details)."
-                       :type :str
-                       :user-name "name")
-                     (with-arg merge-branch
-                       "Merges the specified targets (by default, all) of the given branch to the main branch. Data files are overwritten, backup files are merged (see spec for details)."
-                       :type :str
-                       :user-name "name")
-                     (no-arg print p
-                             "Runs Drake in \"print\" mode. Instead of executing steps, Drake just prints inputs, outputs and tags of each step that is scheduled to run to stdout. This is useful if some outside actions need to be taken before or after running Drake. Standard target matching rules apply. Inputs are prepended by I, outputs by O, and input and output tags by %I and %O respectively. It also outputs \"S\" to signify beginning of each step.")
-                     (with-arg logfile l
-                       "Specify the log file. If not absolute, will be relative to the workflow file, default is drake.log in the directory of the workflow file."
-                       :type :str
-                       :user-name "filename")
-                     (no-arg repl r
-                             "Supports REPL based running of Drake; foregoes JVM shutdown, et. al.")
-                     (with-arg step-delay
-                       "Specifies a period of time, in milliseconds, to wait after completion of each step. Some file systems have low timestamp resolution, and small steps can proceed so quickly that outputs of two or more steps can share the same timestamp, and will be re-built on a subsequent run of Drake. Also, if the clocks on HDFS and local filesystem are not perfectly synchronized, timestamped evaluation can break down. Specifying a delay can help in both cases."
-                       :type :int
-                       :user-name "ms")
-                     (with-arg plugins
-                       "Specifies a plugins configuration file. All dependencies listed in the file will be added to the classpath, and steps that call non-built-in protocols will look for protocol implementations in those dependencies."
-                       :type :file
-                       :user-name "filename")
-                     (with-arg aws-credentials s
-                       "Specifies a properties file containing aws credentials. The access_id should be in a property named 'access_key', while the secret part of the key should be in a property names 'secret_key'. Other values in the properties file are ignored."
-                       :type :str
-                       :user-name "properties-file")
-                     (no-arg quiet q
-                             "Suppress all Drake's output.")
-                     (no-arg debug
-                             "Turn on verbose debugging output.")
-                     (no-arg trace
-                             "Turn on even more verbose debugging output.")
-                     (no-arg version
-                             "Show version information.")
-                     (with-arg tmpdir
-                       "Specifies the temporary directory for Drake files (by default, .drake/ in the same directory the main workflow file is located)."
-                       :type :str
-                       :user-name "tmpdir")
-                     (with-arg split-vars-regex
-                       "Specifies a regex to split up the --vars argument (by default, a regex that splits on commas except commas within double quotes)."
-                       :type :str
-                       :user-name "regex")))
-                  (catch IllegalArgumentException e
-                    (println
-                     (str "\nUnrecognized option: "
-                          "did you mean target exclusion?\nto build "
-                          "everything except 'target'"
-                          " run:\n  drake ... -target\n"
-                          "or:\n  drake -- -target"))
-                    (shutdown -1)))
-        targets (:clojopts/more options)
-        ;; if a flag is specified, clojopts adds the corresponding key
-        ;; to the option map with nil value. here we convert them to true.
-        ;; also, the defaults are specified here.
-        options (into DEFAULT-OPTIONS
-                      (for [[k v] options] [k (if (nil? v) true v)]))]
+        [options targets] (try (parse-command-line-options args)
+                               (catch IllegalArgumentException e
+                                 (println
+                                  (str "\nUnrecognized option: did you mean target exclusion?\n"
+                                       "to build everything except 'target' run:\n"
+                                       "  drake ... -target\n"
+                                       "or:\n"
+                                       "  drake -- -target"))
+                                 (shutdown -1)))]
     (flush) ;; we need to do it for help to always print out
     (let [targets (or (not-empty targets) ["=..."])]
       (when (:version options)
