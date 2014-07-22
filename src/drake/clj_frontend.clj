@@ -19,17 +19,24 @@
       :methods {}
       :vars (if vars vars (d-core/build-vars))}))
 
+(defn varargs->map [args]
+  (cond (empty? args) {}
+        (next args) (apply hash-map args)
+        (map? (first args)) (first args)
+        :else (throw (IllegalArgumentException.
+                      (format "Can't make a map of %s" (pr-str args))))))
+
 (defn step
   "Add a new step to the workflow, w-flow.  inputs and outputs are
   vectors and can be a mixture of tags and files. Tags are indicated
   by an opening %. cmds should be a vector of strings or nil/false for
   steps that don't need commands like method and template
   steps. Standard drake options can be appended inline as key value
-  pairs, e.g. :method-mode true.  See method-step, cmd-step, template
-  and template-step."
-  [w-flow outputs inputs cmds & {:keys [template]
-                                 :as options}]
-  (let [vars (:vars w-flow)
+  pairs, e.g. :method-mode true; or (preferred) you may pass a single
+  option-map argument.  See method-step, cmd-step, template and template-step."
+  [w-flow outputs inputs cmds & options]
+  (let [{:keys [template] :as options} (varargs->map options)
+        vars (:vars w-flow)
         base (parse/add-path-sep-suffix
               (get vars "BASE" parse/default-base))
 
@@ -79,7 +86,8 @@
   and specify :method and :method-mode options. See step for outputs
   inputs and options."
   [w-flow outputs inputs method-name & options]
-  (apply step w-flow outputs inputs nil :method method-name options))
+  (step w-flow outputs inputs nil (-> (varargs->map options)
+                                      (assoc :method method-name))))
 
 (def cmd-step
   "Shortcut for adding a command step to the workflow, w-flow. See
@@ -90,25 +98,25 @@
   "Shortcut for adding a template to the workflow, w-flow.  See step
   for outputs, inputs, cmds and options."
   [w-flow outputs inputs cmds & options]
-  (apply step w-flow outputs inputs cmds :template true options))
+  (step w-flow outputs inputs cmds (-> (varargs->map options)
+                                       (assoc :template true))))
 
 (defn template-step
   "Shortcut for adding a step that uses a template to the workflow,
   w-flow.  See step for outputs, inputs, cmds and options"
   [w-flow outputs inputs & options]
-  (apply step w-flow outputs inputs nil options))
+  (step w-flow outputs inputs nil (varargs->map options)))
 
 (defn method
   "Add a method to the workflow, w-flow.  method-name should be a
   string and cmds should be a vector of command strings.  Options are
   standard drake options as key value pairs, e.g. :my-option
   \"my-value\""
-  [w-flow method-name cmds & {:as options}]
+  [w-flow method-name cmds & options]
+
   (when ((:methods w-flow) method-name)
     (println (format "Warning: method redefinition ('%s')" method-name)))
-  (assoc-in w-flow [:methods method-name] {:opts (if (nil? options)
-                                                      {}
-                                                      options)
+  (assoc-in w-flow [:methods method-name] {:opts (varargs->map options)
                                            :vars (:vars w-flow)
                                            :cmds (mapv utils/var-place cmds)}))
 
