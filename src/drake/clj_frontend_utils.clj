@@ -27,6 +27,13 @@
   (pprint x)
   x)
 
+(defn varargs->map [args]
+  (cond (empty? args) {}
+        (next args) (apply hash-map args)
+        (map? (first args)) (first args)
+        :else (throw (IllegalArgumentException.
+                      (format "Can't make a map of %s" (pr-str args))))))
+
 (def var-re
   "Regular Expression for variable subsitution.  re-groups on the
   match should return a two element vector, where the first element is
@@ -42,22 +49,32 @@
 
 (defn var-sub
   "Substitute the matches to $[XXX] with the value of XXX in the vars
-  map. Throw an error if XXX is not found.  Return an array of characters"
+  map. Throw an error if XXX is not found."
   [vars s]
   (let [sub-fn (fn [var-match]
                  (let [var-name (second var-match)]
                    (var-check vars var-name)
                    (vars var-name)))]
-    (concat (str/replace s var-re sub-fn))))
+    (str/replace s var-re sub-fn)))
 
 ;; (var-sub {"xxx" "value1" "yyy" "value2"} "test$[xxx]sdf $[yyy] sdf")
 ;; (var-sub {"xxx" "value1"} "test$[xxx]sdf $[yyy] sdf")
 ;; (var-sub {} "test no var")
 ;; (var-sub {"test_var" "test_value"} "$[test_var]")
+;; (var-sub {"test_var" "test_value"} "$[test_var]post")
+;; (var-sub {"test_var" "test_value"} "pre$[test_var]")
+;; (var-sub {"test_var" "test_value"} "pre$[test_var]post")
 
-(defn var-sub->str
-  [vars s]
-  (apply str (var-sub vars s)))
+(defn var-sub-map
+  "Substitute both the keys and values of acceptor-map using vars.
+  See var-sub."
+  [vars acceptor-map]
+  (into {}
+        (map (fn [[k v]] [(var-sub vars k) (var-sub vars v)])
+             acceptor-map)))
+
+;; (var-sub-map {"xxx" "value1" "yyy" "value2"} {"test$[xxx]sdf $[yyy] sdf" "no var here"})
+;; (var-sub-map {"xxx" "value1" "yyy" "value2"} {"no var here" "test$[xxx]sdf $[yyy] sdf"})
 
 (def var-split-re
   "Regular expression to split a string at variables while also

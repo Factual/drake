@@ -88,14 +88,15 @@ out <- in
 
 (deftest step-vars-test
   (is (=
-       (step (new-workflow {})
-             ["test-out"]
-             []
-             ["echo \"$var_content\" > $OUTPUT"]
-             {:vars {"test_variable" "test variable content"}})
+       (-> (new-workflow {})
+           (set-var "xxx" "yyy")
+           (step ["test-out"]
+                 []
+                 ["echo \"$test_variable_yyy\" > $OUTPUT"]
+                 {:vars {"test_variable_$[xxx]" "test variable content $[xxx]"}}))
        {:steps
         [{:cmds ['(\e \c \h \o \space
-                  \" \$ \v \a \r \_ \c \o \n \t \e \n \t \"
+                  \" \$ \t \e \s \t \_ \v \a \r \i \a \b \l \e \_ \y \y \y \"
                   \space \> \space \$ \O \U \T \P \U \T)],
           :inputs (),
           :input-tags (),
@@ -110,10 +111,11 @@ out <- in
            "OUTPUT" "*placeholder*",
            "OUTPUTS" "*placeholder*",
            "OUTPUTN" "*placeholder*",
-           "test_variable" "test variable content"},
+           "test_variable_yyy" "test variable content yyy"
+           "xxx" "yyy"},
           :opts {}}],
         :methods {},
-        :vars {}})))
+        :vars {"xxx" "yyy"}})))
 
 (deftest subsitution-in-file-test
   (is (=
@@ -162,20 +164,22 @@ output2 <- input2 [method:sort_and_unique my_option:new_my_value]")))))
 
 (deftest method-vars-test
   (is (=
-       (method
-        (new-workflow {})
-        "test"
-        ["echo test $test_var"]
-        {:vars {"test_var" "test_value"}})
+       (-> (new-workflow {})
+           (set-var "xxx" "yyy")
+           (method 
+            "test"
+            ["echo test $test_var_yyy"]
+            {:vars {"test_var_$[xxx]" "test_value_$[xxx]"}}))
        {:steps [],
         :methods
         {"test"
          {:opts {},
-          :vars {"test_var" "test_value"},
+          :vars {"test_var_yyy" "test_value_yyy"
+                 "xxx" "yyy"},
           :cmds ['(\e \c \h \o \space
                   \t \e \s \t \space
-                  \$ \t \e \s \t \_ \v \a \r)]}},
-        :vars {}})))
+                  \$ \t \e \s \t \_ \v \a \r \_ \y \y \y)]}},
+        :vars {"xxx" "yyy"}})))
 
 (deftest template-test
   (is (=

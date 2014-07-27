@@ -19,13 +19,6 @@
       :methods {}
       :vars (if vars vars (d-core/build-vars))}))
 
-(defn varargs->map [args]
-  (cond (empty? args) {}
-        (next args) (apply hash-map args)
-        (map? (first args)) (first args)
-        :else (throw (IllegalArgumentException.
-                      (format "Can't make a map of %s" (pr-str args))))))
-
 (defn step
   "Add a new step to the workflow, w-flow.  inputs and outputs are
   vectors and can be a mixture of tags and files. Tags are indicated
@@ -33,23 +26,26 @@
   steps that don't need commands like method and template
   steps. Standard drake options can be appended inline as key value
   pairs, e.g. :method-mode true; or (preferred) you may pass a single
-  option-map argument. Variables for the step can be given in the :vars
-  key. See method-step, cmd-step, template and template-step."
+  option-map argument. Variables for the step can be given in
+  the :vars key and will be substituted. See method-step, cmd-step,
+  template and template-step."
   [w-flow outputs inputs cmds & options]
-  (let [{:keys [template] :as options} (varargs->map options)
-        vars (merge (:vars w-flow) (:vars options))
+  (let [{:keys [template] :as options} (utils/varargs->map options)
+        w-flow-vars (:vars w-flow)
+        step-vars (utils/var-sub-map w-flow-vars (:vars options))
+        vars (merge w-flow-vars step-vars)
         options (dissoc options :vars)
         base (parse/add-path-sep-suffix
               (get vars "BASE" parse/default-base))
 
         [intags infiles] (utils/split-tags-from-files inputs)
         intags (utils/remove-tag-symbol intags)
-        sub-infiles (map (partial utils/var-sub->str vars) infiles)
+        sub-infiles (map (partial utils/var-sub vars) infiles)
         infiles-with-base (map (partial parse/add-prefix base) sub-infiles)
 
         [outtags outfiles] (utils/split-tags-from-files outputs)
         outtags (utils/remove-tag-symbol outtags)
-        sub-outfiles (map (partial utils/var-sub->str vars) outfiles)
+        sub-outfiles (map (partial utils/var-sub vars) outfiles)
         outfiles-with-base (map (partial parse/add-prefix base) sub-outfiles)
 
         ;; this is used for target matching, just remove all
@@ -88,7 +84,7 @@
   and specify :method and :method-mode options. See step for outputs
   inputs and options."
   [w-flow outputs inputs method-name & options]
-  (step w-flow outputs inputs nil (-> (varargs->map options)
+  (step w-flow outputs inputs nil (-> (utils/varargs->map options)
                                       (assoc :method method-name))))
 
 (def cmd-step
@@ -100,27 +96,30 @@
   "Shortcut for adding a template to the workflow, w-flow.  See step
   for outputs, inputs, cmds and options."
   [w-flow outputs inputs cmds & options]
-  (step w-flow outputs inputs cmds (-> (varargs->map options)
+  (step w-flow outputs inputs cmds (-> (utils/varargs->map options)
                                        (assoc :template true))))
 
 (defn template-step
   "Shortcut for adding a step that uses a template to the workflow,
   w-flow.  See step for outputs, inputs, cmds and options"
   [w-flow outputs inputs & options]
-  (step w-flow outputs inputs nil (varargs->map options)))
+  (step w-flow outputs inputs nil (utils/varargs->map options)))
 
 (defn method
   "Add a method to the workflow, w-flow.  method-name should be a
   string and cmds should be a vector of command strings.  Options are
   standard drake options as vararg key value pairs, e.g. :my-option
   \"my-value\", or (preferred) a single map. Variables for the method can be
-  given in the :vars key."
+  given in the :vars key and will be substituted."
   [w-flow method-name cmds & options]
   (when ((:methods w-flow) method-name)
     (println (format "Warning: method redefinition ('%s')" method-name)))
-  (let [options (varargs->map options)]
+  (let [options (utils/varargs->map options)
+        w-flow-vars (:vars w-flow)
+        step-vars (utils/var-sub-map w-flow-vars (:vars options))
+        vars (merge w-flow-vars step-vars)]
     (assoc-in w-flow [:methods method-name] {:opts (dissoc options :vars)
-                                             :vars (merge (:vars w-flow) (:vars options))
+                                             :vars vars
                                              :cmds (mapv utils/var-place cmds)})))
 
 (defn add-methods
@@ -140,8 +139,8 @@
   should be strings"
   [w-flow var-name var-value]
   (let [vars (:vars w-flow)
-        sub-var-name (utils/var-sub->str vars var-name)
-        sub-var-value (utils/var-sub->str vars var-value)]
+        sub-var-name (utils/var-sub vars var-name)
+        sub-var-value (utils/var-sub vars var-value)]
     (assoc-in w-flow [:vars sub-var-name] sub-var-value)))
 
 (defn base
