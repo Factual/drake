@@ -2,9 +2,9 @@
   "Supports Drake's approach to plugins. Primary entry points are:
      load-plugin-deps
      get-plugin-fn"
-  (:use [clojure.tools.logging :only [debug]]
-        [slingshot.slingshot :only [try+ throw+]])
-  (:require [fs.core :as fs]
+  (:require [clojure.tools.logging :refer [debug]]
+            [slingshot.slingshot :refer [try+ throw+]]
+            [fs.core :as fs]
             [cemerick.pomegranate :as pom]))
 
 (def DEFAULT-REPOS (merge cemerick.pomegranate.aether/maven-central

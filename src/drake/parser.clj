@@ -1,16 +1,14 @@
 (ns drake.parser
-  (:use [clojure.tools.logging :only [warn debug trace]]
-        [slingshot.slingshot :only [throw+]]
-        drake.shell
-        [drake.steps :only [add-dependencies calc-step-dirs]]
-        drake.utils
-        drake.parser_utils)
-  (:require [name.choi.joshua.fnparse :as p]
+  (:require [clojure.tools.logging :refer [warn debug trace]]
             [clojure.string :as s]
             [clojure.core.memoize :as memo]
-            [fs.core :as fs]
-            clojure.stacktrace
-            ))
+            [slingshot.slingshot :refer [throw+]]
+            [drake.shell :refer [shell]]
+            [drake.steps :refer [add-dependencies calc-step-dirs]]
+            [drake.utils :as utils :refer [clip ensure-final-newline]]
+            [drake.parser_utils :refer :all]
+            [name.choi.joshua.fnparse :as p]
+            [fs.core :as fs]))
 
   "This namespace is responsible for the overall parsing of a .d file into
    a standard 'parse tree'. Contains the top level logic to take a .d file name,
@@ -670,8 +668,8 @@
 
 (defn parse-str [^String tokens vars]
   (trace "Parsing started...")
-  (with-time-elapsed
-    (in-ms debug "Parsing")
+  (utils/with-time-elapsed
+    (utils/in-ms debug "Parsing")
     (parse-state (make-state
                          (ensure-final-newline tokens)
                          (merge {"BASE" default-base} vars)

@@ -1,6 +1,6 @@
 (ns drake.protocol-interpreters
-  (:use [drake-interface.core :only [Protocol]])
-  (:use drake.protocol))
+  (:require [drake-interface.core :refer [Protocol]]
+            [drake.protocol :refer [register-protocols! run-interpreter]]))
 
 (def WINDOWS? (.startsWith (System/getProperty "os.name") "Win")) 
 

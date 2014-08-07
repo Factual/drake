@@ -4,11 +4,11 @@
             [drake.plugins :as plugins]
             [hdfs.core :as hdfs]
             [clojure.string :as s :refer [join split]]
-            [aws.sdk.s3 :as s3])
-  (:use drake-interface.core
-        [slingshot.slingshot :only [throw+]]
-        drake.shell
-        drake.options)
+            [aws.sdk.s3 :as s3]
+            [drake-interface.core :as di]
+            [slingshot.slingshot :refer [throw+]]
+            [drake.shell :refer [shell]]
+            [drake.options :refer [*options*]])
   (:import org.apache.hadoop.conf.Configuration
            (org.apache.hadoop.fs Path FileStatus)
            java.io.File))
@@ -49,19 +49,19 @@
 
 (defn assert-files-exist [fs files]
   (doseq [f files]
-    (when (not (exists? fs f))
+    (when (not (di/exists? fs f))
       (throw+ {:msg (str "file not found: " f)}))))
 
 (defn file-info-impl [fs path]
   {:path path
-   :mod-time (mod-time fs path)
-   :directory (directory? fs path)})
+   :mod-time (di/mod-time fs path)
+   :directory (di/directory? fs path)})
 
 (defn file-info-seq-impl [fs path]
-  (map #(file-info fs %) (file-seq fs path)))
+  (map #(di/file-info fs %) (di/file-seq fs path)))
 
 (defn data-in?-impl [fs path]
-  (seq (file-info-seq fs path)))
+  (seq (di/file-info-seq fs path)))
 
 (def file-info-impls
   {:file-info file-info-impl
@@ -73,7 +73,7 @@
 (deftype LocalFileSystem [])
 
 (extend LocalFileSystem
-  FileSystem
+  di/FileSystem
   (merge
     file-info-impls
     { :exists?
@@ -95,7 +95,7 @@
             []
             (if-not (.isDirectory f)
             [(.getPath f)]
-            (mapcat #(file-seq this (.getPath ^File %)) (.listFiles f))))))
+            (mapcat #(di/file-seq this (.getPath ^File %)) (.listFiles f))))))
 
       :normalized-filename
       (fn [_ path]
@@ -168,7 +168,7 @@
 (deftype HDFS [])
 
 (extend HDFS
-  FileSystem
+  di/FileSystem
   (merge
     file-info-impls
     { :exists?
@@ -185,7 +185,7 @@
 
       :file-seq
       (fn [this path]
-        (map :path (file-info-seq this path)))
+        (map :path (di/file-info-seq this path)))
 
       :file-info
       (fn [this path]
@@ -193,15 +193,15 @@
 
       :file-info-seq
       (fn [this path]
-        (if (or (not (exists? this path)) (should-ignore? path))
+        (if (or (not (di/exists? this path)) (should-ignore? path))
         []
         (let [statuses (hdfs-list-status path)]
-          (if-not (directory? this path)
+          (if-not (di/directory? this path)
             statuses
             (for [{:keys [path directory] :as status} statuses
                   :when (not (should-ignore? path))
                   file (if directory
-                         (file-info-seq this path)
+                         (di/file-info-seq this path)
                          [status])]
               file)))))
 
@@ -270,7 +270,7 @@
 (deftype S3 [])
 
 (extend S3
-  FileSystem
+  di/FileSystem
   (merge
     file-info-impls
     { :exists?
@@ -296,7 +296,7 @@
       ;; extra data
       :file-seq
       (fn [this path]
-        (map :path (file-info-seq this path)))
+        (map :path (di/file-info-seq this path)))
 
       ;; Not using the impl here as it would result in an
       ;; excessive number of api calls. We get all that we
@@ -310,7 +310,7 @@
           ;; that does not seem to exist, we need to explicitly try
           ;; adding a separator character to it and calling s3/list-objects
           ;; on that.
-          (if (directory? this path)
+          (if (di/directory? this path)
             ;; it is a directory and it exists, so
             ;; we should go do a list-object call
             (let [{bucket :bucket key :key} (s3-bucket-key path)]
@@ -320,9 +320,9 @@
                                                       bucket
                                                       {:prefix key})))))
             ;; not a directory
-            (if (exists? this path)
-              [(file-info this path)]
-              (file-info-seq this (str path "/"))))))
+            (if (di/exists? this path)
+              [(di/file-info this path)]
+              (di/file-info-seq this (str path "/"))))))
 
       ;; Normalize file names for s3 objects need to look like
       ;; s3://bucket/path/to/object for compatibility for tools
@@ -362,7 +362,7 @@
 (defrecord MockFileSystem [fs-data])
 
 (extend MockFileSystem
-  FileSystem
+  di/FileSystem
   (merge
     file-info-impls
     { :exists?
@@ -375,7 +375,7 @@
 
       :mod-time
       (fn [this path]
-        (if-not (exists? this path)
+        (if-not (di/exists? this path)
           (throw+ {:msg (str "file not found: " path)})
           (condp = (get-in this [:fs-data path :mod-time])
             :pre (Long/MIN_VALUE)
@@ -448,7 +448,7 @@
   "Returns absolute path preserving the prefix."
   [path]
   (let [[filesystem prefix filename] (get-fs path)]
-    (make-path prefix (normalized-filename filesystem filename))))
+    (make-path prefix (di/normalized-filename filesystem filename))))
 
 (defn pick-by-mod-time
   "Traverses the full directory tree starting at path, applies given
@@ -458,7 +458,7 @@
    file). Returns a file-info structure (see FileSystem/file-info)."
   [path transform]
   (first (sort-by #(transform (% :mod-time))
-                  (fs file-info-seq path))))
+                  (fs di/file-info-seq path))))
 
 (defn oldest-in
   [path]

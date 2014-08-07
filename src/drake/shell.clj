@@ -1,10 +1,10 @@
 (ns drake.shell
-  (:use [clojure.string :only [join]]
-        [clojure.tools.logging :only [debug]]
-        [slingshot.slingshot :only [throw+]]
-        [clojure.java.io :only [as-file]]
-        drake.stdin)
-  (:require [fs.core :as fs]))
+  (:require [clojure.string :refer [join]]
+            [clojure.tools.logging :refer [debug]]
+            [clojure.java.io :refer [as-file]]
+            [slingshot.slingshot :refer [throw+]]
+            [fs.core :as fs]
+            [drake.stdin :as stdin]))
 
 ;; Copied in full from clojure.java.shell
 (defn- ^"[Ljava.lang.String;" as-env-strings
@@ -36,7 +36,7 @@
   [^Process proc]
   (let [child-stdin-stream (.getOutputStream proc)]
     (try
-      (while (process-line-stdin
+      (while (stdin/process-line-stdin
               #(do
                  (if %
                    (do
