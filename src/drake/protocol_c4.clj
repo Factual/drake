@@ -2,23 +2,18 @@
   "Implements a c4 protocol for Drake steps. Sexy.
    https://github.com/Factual/c4"
   (:require [c4.core :as c4]
-            [clojure.string :as str]
-            [clojure.java.io :as io]
-            [cemerick.pomegranate :as pom]
-            [sosueme.conf :as conf]
-            [fs.core :as fs]
-            [factql.core :as factql]
             [c4.apis.foursquare :as foursquare]
             [c4.apis.yelp :as yelp]
             [c4.apis.google :as google]
-            [sosueme.conf :as conf]
+            [clojure.string :as str]
+            [clojure.tools.logging :refer [debug]]
+            [cemerick.pomegranate :as pom]
+            [slingshot.slingshot :refer [throw+]]
             [fs.core :as fs]
-            [retry.core :as retry])
-  (:use [clojure.tools.logging :only [debug]]
-        [slingshot.slingshot :only [throw+]]
-        factql.core
-        drake.protocol
-        [drake-interface.core :only [Protocol]]))
+            [factql.core :as factql]
+            [sosueme.conf :as conf]
+            [drake.protocol :as protocol]
+            [drake-interface.core :refer [Protocol]]))
 
 
 ;;
@@ -197,11 +192,11 @@
 
 (defn- register-c4-protocol!
   [[protocol-name func]]
-  (register-protocols! protocol-name
-                       (reify Protocol
-                         (cmds-required? [_] false)
-                         (run [_ step]
-                           (exec-or-passthru step func)))))
+  (protocol/register-protocols! protocol-name
+                                (reify Protocol
+                                  (cmds-required? [_] false)
+                                  (run [_ step]
+                                    (exec-or-passthru step func)))))
 
 (dorun (map register-c4-protocol! [["c4" exec-c4]
                                    ["c4row" exec-row-xform]

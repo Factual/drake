@@ -13,20 +13,20 @@
             drake.protocol_c4
             drake.protocol_eval
             drake.event
-            [drake-interface.core :as di])
-  (:use [clojure.tools.logging :only [info debug trace error]]
-        [slingshot.slingshot :only [try+ throw+]]
-        clojure.set
-        sosueme.throwables
-        drake.stdin
-        drake.steps
-        drake.plugins
-        drake.fs
-        [drake.protocol :only [get-protocol-name get-protocol]]
-        drake.parser
-        [drake.options :only [*options* set-options DEFAULT-OPTIONS parse-command-line-options]]
-        [drake.event :only [EventWorkflowBegin EventWorkflowEnd EventStepBegin EventStepEnd EventStepError]]
-        drake.utils)
+            [drake.stdin :as stdin]
+            [drake.steps :as steps]
+            [drake.plugins :as plugins]
+            [drake.fs :as dfs :refer [fs]]
+            [drake.protocol :refer [get-protocol-name get-protocol]]
+            [drake.parser :as parser]
+            [drake.options :refer [*options* set-options DEFAULT-OPTIONS parse-command-line-options]]
+            [drake.event :refer [EventWorkflowBegin EventWorkflowEnd EventStepBegin EventStepEnd EventStepError]]
+            [drake.utils :as utils]
+            [drake-interface.core :as di]
+            [clojure.tools.logging :refer [info debug trace error]]
+            [slingshot.slingshot :refer [try+ throw+]]
+            [sosueme.throwables :refer [stack-trace-str]]
+)
   (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]
                         #^{:static true} [run_opts_with_event_bus [java.util.Map com.google.common.eventbus.EventBus] void]]))
 
@@ -61,7 +61,7 @@
   (print "Confirm? [y/n] ")
   (flush)
   (letfn [(valid? [c] (when (or (= c "y") (= c "n")) c))]
-    (if-let [v (valid? (.toLowerCase (read-line-stdin)))]
+    (if-let [v (valid? (.toLowerCase (stdin/read-line-stdin)))]
       (let [confirmed (= v "y")]
         (if-not confirmed (info "Aborted."))
         confirmed)
@@ -94,8 +94,8 @@
    it. This is safe to do since it's the default filesystem,
    but it gives us a bit easier compatibility with existing tools."
   [filename]
-  (let [n (normalized-path filename)]
-    (if (= "file" (path-fs n)) (path-filename n) n)))
+  (let [n (dfs/normalized-path filename)]
+    (if (= "file" (dfs/path-fs n)) (dfs/path-filename n) n)))
 
 (defn- despace-cmds
   "Given a sequence of commands, removes leading whitespace found in the first
@@ -132,8 +132,8 @@
         normalized-outputs (map normalize-filename-for-run outputs)
         normalized-inputs (map normalize-filename-for-run inputs)
         vars (merge vars
-                    (inouts-map normalized-inputs "INPUT")
-                    (inouts-map normalized-outputs "OUTPUT"))
+                    (parser/inouts-map normalized-inputs "INPUT")
+                    (parser/inouts-map normalized-outputs "OUTPUT"))
         method (methods (:method opts))
         method-mode (:method-mode opts)
         cmds (if (or (not method) (= method-mode "replace"))
@@ -214,9 +214,9 @@
        ;; no-input steps are always rebuilt
        (empty? inputs) "no-input step"
        :else
-       (let [input-files (mapv newest-in inputs)
+       (let [input-files (mapv dfs/newest-in inputs)
              newest-input (apply max (map :mod-time input-files))
-             output-files (mapv oldest-in (filter #(fs di/data-in? %) outputs))]
+             output-files (mapv dfs/oldest-in (filter #(fs di/data-in? %) outputs))]
          (let [oldest-output (apply min (map :mod-time output-files))]
            (debug (format "Timestamp checking, inputs: %s, outputs: %s"
                           input-files output-files))
@@ -246,7 +246,7 @@
                  [new-target-steps triggered-deps]
                  [(conj new-target-steps (assoc step :cause cause))
                   (set/union triggered-deps
-                             (all-dependencies parse-tree index))])))
+                             (steps/all-dependencies parse-tree index))])))
            [[] {}]
            target-steps)))
 
@@ -294,14 +294,14 @@
       (user-confirms?))))
 
 (defn- spit-step-vars [{:keys [vars dir] :as step}]
-  (let [file (fs/file dir (str "vars-" start-time-filename))
+  (let [file (fs/file dir (str "vars-" utils/start-time-filename))
         contents (apply str
                         "Environment vars set by Drake:\n\n"
                         (for [[k v] vars]
                           (str k "=" v)))]
     (fs/mkdirs dir)
     (spit file contents)
-    (debug "step's vars saved to" (relative-path file))))
+    (debug "step's vars saved to" (utils/relative-path file))))
 
 (defn- run-step
   "Runs one step performing all necessary checks, returns
@@ -334,7 +334,7 @@
       (when should-build
         ;; save all variable values in --tmpdir directory
         (spit-step-vars step)
-        (with-time-elapsed
+        (utils/with-time-elapsed
           #(let [wait (- (*options* :step-delay 0) %)]
              (info (format "--- %d: %s -> done in %.2fs%s"
                            step-number
@@ -420,7 +420,7 @@
   (let [indexes (into #{} (map :index steps))]
     (for [{:keys [index] :as step} steps]
       (assoc step :deps
-             (-> (expand-step-restricted parse-tree index nil indexes)
+             (-> (steps/expand-step-restricted parse-tree index nil indexes)
                  (set)             ; turn into set to remove duplicates
                  (disj index)))))) ; do not mark the step itself as its dependency
 
@@ -430,8 +430,8 @@
         tree-steps (:steps parse-tree)]
     (for [step steps]
       (let [tree-step (tree-steps (:index step))
-            children (intersection (:children tree-step) indexes)
-            parentals (intersection (:parents tree-step) indexes)]
+            children (set/intersection (:children tree-step) indexes)
+            parentals (set/intersection (:parents tree-step) indexes)]
         (into (assoc step
                 :name (step-string tree-step)
                 :children (or children #{})
@@ -603,7 +603,7 @@
   "Runs Drake with the specified parse-tree and an array of target
    selection expressions."
   [parse-tree targets]
-  (let [target-steps (select-steps parse-tree targets)]
+  (let [target-steps (steps/select-steps parse-tree targets)]
     (debug "selected (expanded) targets:" target-steps)
     (trace "--- Parse Tree: ---")
     (trace (with-out-str (clojure.pprint/pprint parse-tree)))
@@ -689,7 +689,7 @@
         ;;
         ;; Then the file will be created in the correct location.
         (fs/with-cwd (fs/parent abs-filename)
-          (let [parse-tree (parse-file abs-filename (build-vars))
+          (let [parse-tree (parser/parse-file abs-filename (build-vars))
                 steps (map (fn [step]
                              (assoc step :id (str (java.util.UUID/randomUUID))))
                            (:steps parse-tree)) ; add unique ID to each step
@@ -733,7 +733,7 @@
   [parse-tree targets]
   (let [branch (:merge-branch *options*)
         ;; TODO(artem) potential copy-paste with run, try to eliminate
-        target-steps (select-steps parse-tree targets)
+        target-steps (steps/select-steps parse-tree targets)
         ;; Collect selected steps' outputs, if they exist in the branch
         ;; We also need to normalize output filenames and add branch suffixes
         ;; to them
@@ -753,9 +753,9 @@
           (doseq [[from to] outputs-for-move]
             (println (format "Moving %s to %s..." from to))
             ;; from and to always share a filesystem
-            (let [fs (first (get-fs from))]
-              (di/rm fs (path-filename to))
-              (di/mv fs (path-filename from) (path-filename to))))
+            (let [fs (first (dfs/get-fs from))]
+              (di/rm fs (dfs/path-filename to))
+              (di/mv fs (dfs/path-filename from) (dfs/path-filename to))))
           (println "Done."))))))
 
 (defn- check-for-conflicts
@@ -835,7 +835,7 @@
       (debug "parsed targets:" targets)
 
       (try+
-        (load-plugin-deps (:plugins *options*))
+        (plugins/load-plugin-deps (:plugins *options*))
         (let [f (if (empty? (:merge-branch options)) run merge-branch)]
           (with-workflow-file #(f % targets)))
         (shutdown 0)
@@ -871,7 +871,7 @@
     (info "Clojure version:" *clojure-version*)
     (info "Options:" opts)
 
-    (load-plugin-deps (:plugins *options*))
+    (plugins/load-plugin-deps (:plugins *options*))
     (with-workflow-file #(run % (:targetv opts)))))
 
 (defn -run_opts

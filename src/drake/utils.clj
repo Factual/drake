@@ -2,7 +2,7 @@
   (:require [jlk.time.core :as time]
             [clojure.string :as str]
             [fs.core :as fs])
-  (:use ordered.set))
+  (:require [ordered.set :as ordered]))
 
 ;; TODO(artem)
 ;; The several functions below in between + lines are not Drake-specific and
@@ -25,7 +25,7 @@
    preserving the order. Ignores nil values.
    Example: (concat-distinct [2 2 4] [4 4 5 2] [3 3] [4]) -> '(2 4 5 3)"
   [& seqs]
-  (into (ordered-set) (flatten (apply concat seqs))))
+  (into (ordered/ordered-set) (flatten (apply concat seqs))))
 
 (defn reverse-multimap
   "Given a map to vectors, reverse keys and values, i.e.:

@@ -1,8 +1,8 @@
 (ns drake.parser_utils
   (:require [name.choi.joshua.fnparse :as p]
             [flatland.useful.datatypes :refer [assoc-record]]
-            [clojure.tools.logging :refer [warn debug trace]])
-  (:use [slingshot.slingshot :only [throw+]]))
+            [clojure.tools.logging :refer [warn debug trace]]
+            [slingshot.slingshot :refer [throw+]]))
 
 ;; The parsing state data structure. The remaining tokens are stored
 ;; in :remainder, and the current column and line are stored in their

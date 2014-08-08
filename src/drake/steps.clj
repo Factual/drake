@@ -12,14 +12,14 @@
   Then this final big list of steps is processed one-by-one to make sure
   dependants are always run after their dependencies, as well as process
   exclusions (see add-step function)."
-  (:use [clojure.tools.logging :only [debug trace]]
-        [slingshot.slingshot :only [throw+]]
-        drake.utils
-        drake.options
-        [drake.fs :only [remove-extra-slashes normalized-path]])
   (:require [clojure.string :as str]
             [clojure.set :as set]
-            [fs.core :as fs]))
+            [fs.core :as fs]
+            [clojure.tools.logging :refer [debug trace]]
+            [slingshot.slingshot :refer [throw+]]
+            [drake.utils :as utils :refer [clip reverse-multimap concat-distinct]]
+            [drake.options :refer [*options*]]
+            [drake.fs :refer [remove-extra-slashes normalized-path]]))
 
 (defn step-str
   "Returns a string representation of the step as a comma-separated
@@ -60,13 +60,13 @@
 
         build-variants (fn [variants] (map step-index-map variants))
         output-map-lookup-regexp
-          (apply merge-multimaps-distinct
+          (apply utils/merge-multimaps-distinct
                  (build-variants [:raw-outputs
                                   (map-key remove-extra-slashes :raw-outputs)
                                   :outputs
                                   (map-key remove-extra-slashes :outputs)]))
-        output-map-lookup (merge-multimaps-distinct output-map-lookup-regexp
-                                                    normalized-output-map)
+        output-map-lookup (utils/merge-multimaps-distinct output-map-lookup-regexp
+                                                          normalized-output-map)
         ;;_ (prn output-map-lookup)
         ]
     (assoc raw-parse-tree
@@ -381,8 +381,8 @@
   "Given a parse tree and an array of target selection expressions,
    returns an ordered list of step indexes to be run."
   [parse-tree target-names]
-  (with-time-elapsed
-    (in-ms debug "Selecting steps")
+  (utils/with-time-elapsed
+    (utils/in-ms debug "Selecting steps")
     (let [steps (expand-targets parse-tree
                                 (match-target-steps
                                   parse-tree
