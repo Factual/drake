@@ -2,7 +2,7 @@
   (:require [drake-interface.core :refer [Protocol]]
             [drake.protocol :refer [register-protocols! run-interpreter]]))
 
-(def WINDOWS? (.startsWith (System/getProperty "os.name") "Win")) 
+(def WINDOWS? (.startsWith (System/getProperty "os.name") "Win"))
 
 (defn- register-interpreter!
   [[protocol-name interpreter args]]
@@ -12,9 +12,9 @@
                          (run [_ step]
                            (run-interpreter step interpreter args)))))
 
-(dorun (map register-interpreter! [(if WINDOWS? 
+(dorun (map register-interpreter! [(if WINDOWS?
                                      ["shell" "cmd" ["/C"]]
-                                     ["shell" (get (System/getenv) "SHELL") nil]) 
+                                     ["shell" (get (System/getenv) "SHELL") nil])
                                    ["ruby" "ruby" nil]
                                    ["python" "python" nil]
                                    ["node" "node" nil]
