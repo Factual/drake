@@ -6,7 +6,7 @@
             [drake.steps :as d-steps]
             [drake.utils :as d-utils]
             [drake.options :refer [*options*]]
-            [drake.event]
+            [drake.event] ;; to make sure its deftypes are loaded
             [name.choi.joshua.fnparse :as p]
             [slingshot.slingshot :refer [throw+]]
             [clojure.pprint :refer [pprint]]
