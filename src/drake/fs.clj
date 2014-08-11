@@ -27,7 +27,7 @@
 (defn make-path
   "The reverse of split-path"
   [prefix path]
-  (format "%s%s%s" prefix (if-not (empty? prefix) ":" "") path))
+  (str prefix (when (seq prefix) ":") path))
 
 (defn path-fs
   "Returns path's filesystem prefix (or an empty string if not specified)."
@@ -131,9 +131,8 @@
    expected to exist. If it exists, it's returned as a File. Otherwise an error is thrown."
   []
   (let [hadoop-home (get (System/getenv) "HADOOP_HOME")
-        conf-file (if hadoop-home
-                    (fs/file hadoop-home "conf/core-site.xml")
-                    (fs/file "/etc/hadoop/conf/core-site.xml"))]
+        conf-file (fs/file (or hadoop-home "/etc/hadoop")
+                           "conf/core-site.xml")]
     (if (fs/exists? conf-file)
       conf-file
       (throw+ {:msg (format "Hadoop configuration file %s doesn't exist" conf-file)}))))
@@ -254,10 +253,9 @@
 (defn- s3-bucket-key
   "Returns a struct-map containing the bucket and key for a path"
   [path]
-  (let [ bkt-key (split (last (split path #"^/*"))
-                         #"/" 2 )]
-    { :bucket (first bkt-key)
-     :key (second bkt-key)}))
+  (zipmap [:bucket, :key]
+          (split (last (split path #"^/*"))
+                 #"/" 2 )))
 
 (defn- s3-object-to-info
   "Converts the elements the results of s3/list-objects
@@ -457,8 +455,8 @@
    transformation to return a minimum, or - to return the maximum mod-time
    file). Returns a file-info structure (see FileSystem/file-info)."
   [path transform]
-  (first (sort-by #(transform (% :mod-time))
-                  (fs di/file-info-seq path))))
+  (apply min-key (comp transform :mod-time)
+         (fs di/file-info-seq path)))
 
 (defn oldest-in
   [path]
