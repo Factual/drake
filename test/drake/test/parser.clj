@@ -216,21 +216,24 @@
     (is (= (count (:steps actual-prod)) 2))
     ))
 
+(defn locally [directive filename]
+  (str directive " "
+       (System/getProperty "user.dir")
+       "/test/drake/test/resources/"
+       filename
+       "\n"))
+
 (deftest include-test
   (let [actual-prod (d/call-or-include-line
                      (make-state
-                      (str "%include "
-                           (System/getProperty "user.dir")
-                           "/test/drake/test/resources/nested.d\n")))]
+                      (locally "%include" "nested.d")))]
     (is (var-eq? actual-prod "NESTEDVAR" "/foo"))
     (is (var-eq? actual-prod "BASE" "/base/nest/"))
     (is (contains? (:methods (second actual-prod))
                    "sample_method")))
   (let [actual-prod (d/call-or-include-line
                      (make-state
-                      (str "%call "
-                           (System/getProperty "user.dir")
-                           "/test/drake/test/resources/nested.d\n")))]
+                      (locally "%call" "nested.d")))]
     (is (var-eq? actual-prod "NESTEDVAR" nil))
     (is (var-eq? actual-prod "BASE" "/base"))
     (is (empty? (:methods (second actual-prod))))))
@@ -262,9 +265,8 @@
         (d/parse-str "VARNAME=abc^efg" nil)))
   (is (thrown-with-msg? Exception
         #"illegal syntax starting with .* for variable"
-        (d/parse-str (str  "%include "
-                           (System/getProperty "user.dir")
-                           "/test/drake/test/resources/bad_nested.d\n") nil)))
+        (d/parse-str (locally "%include" "bad_nested.d")
+                     nil)))
   (is (thrown-with-msg? Exception
         #"commands not allowed for method calls"
         (d/parse-str
