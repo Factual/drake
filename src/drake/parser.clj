@@ -648,7 +648,7 @@
         (p/conc (p/set-info :vars (:vars prod))
                 (p/set-info :methods (:methods prod)))
         p/emptiness)]
-   (dissoc prod :vars :methods)))
+   (dissoc prod :vars)))
 
 
 ;; The functions below uses the rules to parse workflows.
