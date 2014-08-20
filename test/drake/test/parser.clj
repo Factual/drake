@@ -3,7 +3,8 @@
         clojure.test)
   (:require [drake.parser :as d]
             [drake.parser_utils :as p])
-  (:import java.io.File))
+  (:import java.io.File)
+  (:use flatland.useful.debug))
 
 (defn make-state [remainder]
   (p/make-state remainder {"BASE" "/base"} #{} 0 0))
@@ -236,7 +237,13 @@
                       (locally "%call" "nested.d")))]
     (is (var-eq? actual-prod "NESTEDVAR" nil))
     (is (var-eq? actual-prod "BASE" "/base"))
-    (is (empty? (:methods (second actual-prod))))))
+    (is (empty? (:methods (second actual-prod)))))
+  (let [actual-prod
+        (first
+         (d/workflow
+          (make-state (str (locally "%include" "nested.d")
+                           "sample <- [method:sample_method]\n"))))]
+    (is (contains? (:methods (? actual-prod)) "sample_method"))))
 
 (def INLINE-SHELL-TEST-DATA "$(for DUDE in dude.txt babe.txt belle.txt; do echo \\\"$DUDE <\\\"\\\"-\\\"; echo \\\"  echo $DUDE\\\"; echo; done)\n")
 
