@@ -645,17 +645,28 @@
          {}
        pairs))))
 
+(defn figure-workflow-file []
+  (let [filename (:workflow *options*)
+        filename (if-not (fs/directory? filename)
+                   filename
+                   (let [workflow-file (str filename
+                                            (if (not= (last filename) \/) "/")
+                                            "Drakefile")]
+                     workflow-file))]
+    (fs/absolute-path filename)))
+
 (defn build-vars []
   (let [split-regex-str (or
-                          (*options* :split-vars-regex)
-                          DEFAULT-VARS-SPLIT-REGEX-STR)]
+                         (*options* :split-vars-regex)
+                         DEFAULT-VARS-SPLIT-REGEX-STR)]
     (merge
-      (into {} (System/getenv))
-      (parse-cli-vars (:vars *options*) split-regex-str)
-      (into {} (for [v (:var *options*)]
-                 (str/split v #"=")))
-      (when-let [base (:base *options*)]
-        {"BASE" base}))))
+     (into {} (System/getenv))
+     (parse-cli-vars (:vars *options*) split-regex-str)
+     (into {} (for [v (:var *options*)]
+                (str/split v #"=")))
+     (if-let [base (:base *options*)]
+       {"BASE" base}
+       {"BASE" (figure-workflow-file)}))))
 
 (defn- with-workflow-file
   "Reads the workflow file from command-line options, parses it,
