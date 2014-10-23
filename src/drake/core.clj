@@ -672,41 +672,34 @@
   "Reads the workflow file from command-line options, parses it,
    and passes the parse tree to the provided function 'f'."
   [f]
-  (let [filename (:workflow *options*)
-        filename (if-not (fs/directory? filename)
-                   filename
-                   (let [workflow-file (str filename
-                                            (if (not= (last filename) \/) "/")
-                                            "Drakefile")]
-                     (println "Checking for" workflow-file)
-                     workflow-file))]
-    (if-not (fs/exists? filename)
-      (throw+ {:msg (str "cannot find file or directory: " filename
+  (let [wff (figure-workflow-file)]
+    (if-not (fs/exists? wff)
+      (throw+ {:msg (str "cannot find file or directory: " wff
                          " (use --help for documentation)")})
       ;; Drake will execute all commands in the same directory where
       ;; the workflow file is located in, but preserve the current
       ;; working directory on exit
-      (let [abs-filename (fs/absolute-path filename)]
-        ;; WARNING: since one can't change working directory in Java
-        ;; what this call does is making all subsequent calls to fs.core
-        ;; behave as if the current directory was the one specified here.
-        ;; But all other calls (for example, java.lang.Runtime.exec) would
-        ;; still behave the same way.
-        ;;
-        ;; Consequently, please do not use:
-        ;;    (spit filename "text")
-        ;; use:
-        ;;    (spit (fs/file filename) "text")
-        ;;
-        ;; Then the file will be created in the correct location.
-        (fs/with-cwd (fs/parent abs-filename)
-          (let [parse-tree (parser/parse-file abs-filename (build-vars))
-                steps (map (fn [step]
-                             (assoc step :id (str (java.util.UUID/randomUUID))))
-                           (:steps parse-tree)) ; add unique ID to each step
-                steps (into [] steps)
-                parse-tree (assoc parse-tree :steps steps)]
-            (f parse-tree)))))))
+
+      ;; WARNING: since one can't change working directory in Java
+      ;; what this call does is making all subsequent calls to fs.core
+      ;; behave as if the current directory was the one specified here.
+      ;; But all other calls (for example, java.lang.Runtime.exec) would
+      ;; still behave the same way.
+      ;;
+      ;; Consequently, please do not use:
+      ;;    (spit filename "text")
+      ;; use:
+      ;;    (spit (fs/file filename) "text")
+      ;;
+      ;; Then the file will be created in the correct location.
+      (fs/with-cwd (fs/parent wff)
+        (let [parse-tree (parser/parse-file wff (build-vars))
+              steps (map (fn [step]
+                           (assoc step :id (str (java.util.UUID/randomUUID))))
+                         (:steps parse-tree)) ; add unique ID to each step
+              steps (into [] steps)
+              parse-tree (assoc parse-tree :steps steps)]
+          (f parse-tree))))))
 
 (defn configure-logging
   []
