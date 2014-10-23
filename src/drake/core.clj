@@ -666,7 +666,7 @@
                 (str/split v #"=")))
      (if-let [base (:base *options*)]
        {"BASE" base}
-       {"BASE" (figure-workflow-file)}))))
+       {"BASE" (fs/absolute-path (fs/parent (figure-workflow-file)))}))))
 
 (defn- with-workflow-file
   "Reads the workflow file from command-line options, parses it,
