@@ -114,8 +114,9 @@
 (def return-lit (p/lit \return))
 (def windows-newline-lit (p/conc return-lit newline-lit))
 (def line-break (b-char (p/alt windows-newline-lit newline-lit return-lit)))
+(def continuation (p/conc (p/lit \\) line-break))
 (def ws (p/constant-semantics (p/rep+ (p/alt space tab line-break)) :ws))
-(def inline-ws (p/constant-semantics (p/rep+ (p/alt space tab)) :inline-ws))
+(def inline-ws (p/constant-semantics (p/rep+ (p/alt space tab continuation)) :inline-ws))
 
 (defn opt-inline-ws-wrap [rule]
   (p/complex [_ (p/opt inline-ws)
