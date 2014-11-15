@@ -15,6 +15,7 @@
             drake.event
             [drake.stdin :as stdin]
             [drake.steps :as steps]
+            [drake.viz :as viz :refer [viz]]
             [drake.plugins :as plugins]
             [drake.fs :as dfs :refer [fs]]
             [drake.protocol :refer [get-protocol-name get-protocol]]
@@ -587,6 +588,14 @@
                                      (count steps)
                                      ")")}))))))))))
 
+(defn graph-steps
+  "Shows a graph visualizing workflow of steps to run, and saves it to drake.png"
+  [parse-tree steps-to-run]
+  (require 'rhizome.dot 'rhizome.viz)
+  (let [img (viz dot->image (viz/step-tree parse-tree steps-to-run))]
+    ;; (viz view-image img) ; re-enable if we can figure out how to make it stay on-screen
+    (viz save-image img "drake.png")))
+
 (defn print-steps
   "Prints inputs and outputs of steps to run."
   [parse-tree steps-to-run]
@@ -614,6 +623,8 @@
          (info "Nothing to do.")
        (:print *options*)
          (print-steps parse-tree steps-to-run)
+       (:graph *options*)
+         (graph-steps parse-tree steps-to-run)
        (:preview *options*)
          (println (steps-report parse-tree steps-to-run))
        :else
@@ -764,11 +775,11 @@
 
 (defn- check-for-conflicts
   [opts]
-  (let [groups [#{:print :auto}
-                #{:print :preview}
+  (let [groups [#{:print :auto :graph}
+                #{:print :preview :graph}
                 #{:branch :merge-branch}
                 #{:debug :trace :quiet}]
-        crossovers [[#{:quiet :step-delay} #{:print :preview}]]
+        crossovers [[#{:quiet :step-delay} #{:print :preview :graph}]]
         option-list (fn [opts] (str/join ", " (map #(str "--" (name %)) opts)))
         complain (fn [msg]
                    (println msg)
