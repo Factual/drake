@@ -42,6 +42,13 @@
   )*          ## all this any number of times
   [^\"]*$)    ## and finally a bunch of non-quotes before end of string")
 
+(def DEFAULT-TARGETV
+  "By default, build everything.
+   TODO: we're all kind of fuzzy on the precise difference between
+     '=...' and simply '...'. Would be nice to clarify, update the
+      spec, etc. Background: https://github.com/Factual/drake/pull/149"
+  ["=..."])
+
 ;; TODO(artem)
 ;; Optimize for repeated BASE prefixes (we can't just show it
 ;; without base, since it can be ambiguous)
@@ -820,7 +827,7 @@
                                        "  drake -- -target"))
                                  (shutdown -1)))]
     (flush) ;; we need to do it for help to always print out
-    (let [targets (or (not-empty targets) ["=..."])]
+    (let [targets (or (not-empty targets) DEFAULT-TARGETV)]
       (when (:version options)
         (println "Drake Version" VERSION "\n")
         (shutdown 0))

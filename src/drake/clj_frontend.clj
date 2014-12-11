@@ -150,12 +150,13 @@
 
 (defn run-workflow
   "Run the workflow in w-flow.  Optionally specify targetv as a
-  key value pair, e.g. :targetv [\"...\"]\", otherwise the default
-  targetv is [\"...\"]\".  Other run options to run-workflow can also
-  be specified as key value pairs.  Set :repl-feedback to :quiet,
-  :default or :verbose to adjust the repl feedback level."
+  key value pair, e.g. :targetv [\"outA.txt\" \"outB.txt\" \"outC.txt]\",
+  otherwise the default targetv is core/DEFAULT-TARGETV.
+  Other run options to run-workflow can also be specified as key value pairs.
+  Set :repl-feedback to :quiet, :default or :verbose to adjust the repl feedback
+  level."
   [w-flow & {:keys [targetv repl-feedback]
-                 :or {targetv ["..."]
+                 :or {targetv d-core/DEFAULT-TARGETV
                       repl-feedback :default}
                  :as run-options}]
   (let [opts (merge d-opts/DEFAULT-OPTIONS
