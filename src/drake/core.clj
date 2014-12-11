@@ -593,8 +593,10 @@
   [parse-tree steps-to-run]
   (require 'rhizome.dot 'rhizome.viz)
   (let [img (viz dot->image (viz/step-tree parse-tree steps-to-run))]
-    ;; (viz view-image img) ; re-enable if we can figure out how to make it stay on-screen
-    (viz save-image img "drake.png")))
+    (viz save-image img "drake.png")
+    (println "Image saved to drake.png")
+    (deref ;; returns a future we can block on
+     (viz view-image {:title "Workflow visualization"} img))))
 
 (defn print-steps
   "Prints inputs and outputs of steps to run."
