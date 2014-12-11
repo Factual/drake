@@ -857,7 +857,8 @@
           (with-workflow-file #(f % targets)))
         (shutdown 0)
         (catch map? m
-          (error (str "drake: " (:msg m)))
+          (when (or (:msg m) (not (zero? (:exit-code m))))
+            (error (str "drake: " (:msg m))))
           (shutdown (get m :exit-code 1)))
         (catch Exception e
           (error (stack-trace-str e))
@@ -876,7 +877,8 @@
           (do
             (debug "core/shutdown: Running standalone; calling (shutdown-agents)")
             (shutdown-agents)))
-        (System/exit exit-code)))))
+        (when-not (zero? exit-code)
+          (System/exit exit-code))))))
 
 (defn run-opts [opts]
   (let [opts (merge {:auto true} opts)]
