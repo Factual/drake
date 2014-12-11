@@ -19,15 +19,15 @@
 (defn split-path
   "Returns a tuple: prefix (possibly empty) and path."
   [path]
-  (let [splt (split path #":" -1)]
+  (let [splt (split path #"://" -1)]
     (if (= (count splt) 1)
       ["file" (first splt)]
-      [(first splt) (join ":" (rest splt))])))
+      [(first splt) (join "://" (rest splt))])))
 
 (defn make-path
   "The reverse of split-path"
   [prefix path]
-  (str prefix (when (seq prefix) ":") path))
+  (str prefix (when (seq prefix) "://") path))
 
 (defn path-fs
   "Returns path's filesystem prefix (or an empty string if not specified)."
