@@ -5,6 +5,7 @@
             [c4.apis.foursquare :as foursquare]
             [c4.apis.yelp :as yelp]
             [c4.apis.google :as google]
+            [tools.macro :as tm]
             [clojure.string :as str]
             [clojure.tools.logging :refer [debug]]
             [cemerick.pomegranate :as pom]
@@ -88,6 +89,22 @@
 
 (defn dot-factual-file-exists? [name]
   (fs/exists? (dot-factual-file name)))
+
+(defmacro with-ns [needed-functions & body]
+  (let [var->local (into {} (for [[namespace vars] needed-functions
+                                 v vars]
+                             [v (gensym (str "with_ns_" v))]))]
+    `(do
+       ~@(for [namespace (keys needed-functions)]
+           `(require '~namespace))
+       (let [~@(apply concat
+                      (for [[namespace vars] needed-functions
+                            v vars]
+                        [(var->local v) `@(ns-resolve '~namespace '~v)]))]
+         (tm/symbol-macrolet [~@(apply concat
+                                    (for [[v local] var->local]
+                                      [v local]))]
+           (do ~@body))))))
 
 (defn init-if! [service auth-fn]
   (let [auth-file (str service "-auth.yaml")]

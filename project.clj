@@ -24,6 +24,7 @@
                  [factual/fnparse "2.3.0"]
                  [commons-codec/commons-codec "1.6"]
                  [factual/sosueme "0.0.15"]
+                 [org.clojure/tools.macro "0.1.2"]
                  [factual/c4 "0.2.0"]
                  ;; for HDFS support
                  [hdfs-clj "0.1.0"]
