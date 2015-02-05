@@ -89,6 +89,28 @@
 (defn dot-factual-file-exists? [name]
   (fs/exists? (dot-factual-file name)))
 
+(defmacro with-ns
+  "Uses ns-resolve to pull in the specified namespace(s) and functions.
+   This is handy for the on-the-fly eval of c4 step code, i.e. when we
+   need to make extra stuff available.
+
+   First argument is a hash-map, each key is a namespace and each val is
+   the set of functions needed from that namespace.
+
+   Example c4 step code that uses this:
+   out.json <- in.json [c4row]
+     (with-ns {clojure.data [diff]}
+       (first (diff (row \"aColumn\"))))"
+ [needed-functions & body]
+  `(do
+     ~@(for [namespace (keys needed-functions)]
+         `(require '~namespace))
+     (let [~@(apply concat
+                    (for [[namespace vars] needed-functions
+                          v vars]
+                      [v `@(ns-resolve '~namespace '~v)]))]
+       (do ~@body))))
+
 (defn init-if! [service auth-fn]
   (let [auth-file (str service "-auth.yaml")]
     (if (dot-factual-file-exists? auth-file)
