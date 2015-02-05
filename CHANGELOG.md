@@ -1,3 +1,7 @@
+## Unreleased
+* Created core/DEFAULT-TARGETV constant; use in clj_frontend
+* Added with-ns macro to support c4 runtime dependency resolution
+
 ## 0.1.6
 
 * Add [a Clojure frontend](https://github.com/Factual/drake/wiki/A-Clojure-Frontend-to-Drake) (thanks morrifeldman)
