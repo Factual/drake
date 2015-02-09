@@ -31,6 +31,9 @@
   (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]
                         #^{:static true} [run_opts_with_event_bus [java.util.Map com.google.common.eventbus.EventBus] void]]))
 
+(defn- shutdown [exit-code]
+  (throw+ {:exit-code exit-code}))
+
 (def VERSION "0.1.6")
 (def DEFAULT-VARS-SPLIT-REGEX-STR ; matches and consumes a comma; requires that an even number of "
                                   ; characters exist between the comma and end of string
@@ -590,13 +593,20 @@
 
 (defn graph-steps
   "Shows a graph visualizing workflow of steps to run, and saves it to drake.png"
-  [parse-tree steps-to-run]
-  (require 'rhizome.dot 'rhizome.viz)
-  (let [img (viz dot->image (viz/step-tree parse-tree steps-to-run))]
-    (viz save-image img "drake.png")
-    (println "Image saved to drake.png")
-    (deref ;; returns a future we can block on
-     (viz view-image {:title "Workflow visualization"} img))))
+  [mode parse-tree steps-to-run]
+  (require 'rhizome.dot)
+  (let [dot (viz/step-tree parse-tree steps-to-run)]
+    (case mode
+      ("dot") (do (spit "drake.dot" dot)
+                  (println "DOT file saved to drake.dot"))
+      (true "png") (do (require 'rhizome.viz)
+                       (let [img (viz dot->image dot)]
+                         (viz save-image img "drake.png")
+                         (println "Image saved to drake.png")
+                         (deref ;; returns a future we can block on
+                          (viz view-image {:title "Workflow visualization"} img))))
+      (throw+ {:msg (format "Unrecognized --graph mode '%s'" mode)
+               :exit-code -1}))))
 
 (defn print-steps
   "Prints inputs and outputs of steps to run."
@@ -626,7 +636,7 @@
        (:print *options*)
          (print-steps parse-tree steps-to-run)
        (:graph *options*)
-         (graph-steps parse-tree steps-to-run)
+         (graph-steps (:graph *options*) parse-tree steps-to-run)
        (:preview *options*)
          (println (steps-report parse-tree steps-to-run))
        :else
@@ -640,9 +650,6 @@
   (when-let [java-cmd (-> (System/getProperties)
                           (get "sun.java.command"))]
     (.endsWith ^String java-cmd "nailgun.NGServer")))
-
-(defn- shutdown [exit-code]
-  (throw+ {:exit-code exit-code}))
 
 (defn parse-cli-vars [vars-str split-regex-str]
   (when-not (empty? vars-str)
