@@ -1,6 +1,21 @@
 ## Unreleased
+### New Features
 * Created core/DEFAULT-TARGETV constant; use in clj_frontend
 * Added with-ns macro to support c4 runtime dependency resolution
+* Added support for quoting filenames, to permit filenames that otherwise look like drake rules
+* Added `--var x=y --var a=b` syntax, as better version of `--vars x=y,a=b`
+* Added `--graph` option to help visualize a workflow
+
+### Bug Fixes
+* Allow unindented blank lines in step definitions, as per [#72](https://github.com/Factual/drake/issues/129)
+* Fix some bugs related to parsing, and to over-optimistically running shell expansions
+
+### Maintenance / Generic Improvements
+* Made it easier to run drake from inside a clojure repl/nrepl session (removing System/exit calls)
+* Generally improved error-message output, esp. removing repetitive or useless spam and adding line/column number to parse errors
+* Upgraded to Clojure 1.6
+* Numerous performance improvements, which may actually be noticeable on large workflows
+* Changed default value for `BASE`
 
 ## 0.1.6
 
