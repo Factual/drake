@@ -1,6 +1,6 @@
   * Update Changelog
   * Update tests
-  * Update core VERSION tag
+  * Update VERSION constant in core.clj 
   * Update project.clj version tag
   * Release as library to Clojars
   * Push new uberjar
