@@ -600,11 +600,15 @@
       ("dot") (do (spit "drake.dot" dot)
                   (println "DOT file saved to drake.dot"))
       (true "png") (do (require 'rhizome.viz)
-                       (let [img (viz dot->image dot)]
+                       (let [done (promise)
+                             frame (viz create-frame {:name "Workflow visualization"
+                                                      :close-promise done
+                                                      :dispose-on-close? true})
+                             img (viz dot->image dot)]
                          (viz save-image img "drake.png")
                          (println "Image saved to drake.png")
-                         (deref ;; returns a future we can block on
-                          (viz view-image {:title "Workflow visualization"} img))))
+                         (viz view-image frame img)
+                         (deref done)))
       (throw+ {:msg (format "Unrecognized --graph mode '%s'" mode)
                :exit-code -1}))))
 

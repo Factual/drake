@@ -20,7 +20,7 @@
                  [digest "1.4.0"]
                  [com.google.guava/guava "14.0.1"]
                  [cheshire "5.2.0"]
-                 [rhizome "0.2.1"]
+                 [rhizome "0.2.4"]
                  [slingshot "0.10.3"]
                  [factual/fnparse "2.3.0"]
                  [commons-codec/commons-codec "1.6"]
