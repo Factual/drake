@@ -15,6 +15,7 @@
             drake.event
             [drake.stdin :as stdin]
             [drake.steps :as steps]
+            [drake.viz :as viz :refer [viz]]
             [drake.plugins :as plugins]
             [drake.fs :as dfs :refer [fs]]
             [drake.protocol :refer [get-protocol-name get-protocol]]
@@ -29,6 +30,9 @@
 )
   (:gen-class :methods [#^{:static true} [run_opts [java.util.Map] void]
                         #^{:static true} [run_opts_with_event_bus [java.util.Map com.google.common.eventbus.EventBus] void]]))
+
+(defn- shutdown [exit-code]
+  (throw+ {:exit-code exit-code}))
 
 (def VERSION "0.1.6")
 (def DEFAULT-VARS-SPLIT-REGEX-STR ; matches and consumes a comma; requires that an even number of "
@@ -594,6 +598,27 @@
                                      (count steps)
                                      ")")}))))))))))
 
+(defn graph-steps
+  "Shows a graph visualizing workflow of steps to run, and saves it to drake.png"
+  [mode parse-tree steps-to-run]
+  (require 'rhizome.dot)
+  (let [dot (viz/step-tree parse-tree steps-to-run)]
+    (case mode
+      ("dot") (do (spit "drake.dot" dot)
+                  (println "DOT file saved to drake.dot"))
+      (true "png") (do (require 'rhizome.viz)
+                       (let [done (promise)
+                             frame (viz create-frame {:name "Workflow visualization"
+                                                      :close-promise done
+                                                      :dispose-on-close? true})
+                             img (viz dot->image dot)]
+                         (viz save-image img "drake.png")
+                         (println "Image saved to drake.png")
+                         (viz view-image frame img)
+                         (deref done)))
+      (throw+ {:msg (format "Unrecognized --graph mode '%s'" mode)
+               :exit-code -1}))))
+
 (defn print-steps
   "Prints inputs and outputs of steps to run."
   [parse-tree steps-to-run]
@@ -621,6 +646,8 @@
          (info "Nothing to do.")
        (:print *options*)
          (print-steps parse-tree steps-to-run)
+       (:graph *options*)
+         (graph-steps (:graph *options*) parse-tree steps-to-run)
        (:preview *options*)
          (println (steps-report parse-tree steps-to-run))
        :else
@@ -634,9 +661,6 @@
   (when-let [java-cmd (-> (System/getProperties)
                           (get "sun.java.command"))]
     (.endsWith ^String java-cmd "nailgun.NGServer")))
-
-(defn- shutdown [exit-code]
-  (throw+ {:exit-code exit-code}))
 
 (defn parse-cli-vars [vars-str split-regex-str]
   (when-not (empty? vars-str)
@@ -771,11 +795,11 @@
 
 (defn- check-for-conflicts
   [opts]
-  (let [groups [#{:print :auto}
-                #{:print :preview}
+  (let [groups [#{:print :auto :graph}
+                #{:print :preview :graph}
                 #{:branch :merge-branch}
                 #{:debug :trace :quiet}]
-        crossovers [[#{:quiet :step-delay} #{:print :preview}]]
+        crossovers [[#{:quiet :step-delay} #{:print :preview :graph}]]
         option-list (fn [opts] (str/join ", " (map #(str "--" (name %)) opts)))
         complain (fn [msg]
                    (println msg)
@@ -851,7 +875,8 @@
           (with-workflow-file #(f % targets)))
         (shutdown 0)
         (catch map? m
-          (error (str "drake: " (:msg m)))
+          (when (or (:msg m) (not (zero? (:exit-code m))))
+            (error (str "drake: " (:msg m))))
           (shutdown (get m :exit-code 1)))
         (catch Exception e
           (error (stack-trace-str e))
@@ -870,7 +895,8 @@
           (do
             (debug "core/shutdown: Running standalone; calling (shutdown-agents)")
             (shutdown-agents)))
-        (System/exit exit-code)))))
+        (when-not (zero? exit-code)
+          (System/exit exit-code))))))
 
 (defn run-opts [opts]
   (let [opts (merge {:auto true} opts)]
