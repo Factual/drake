@@ -642,12 +642,12 @@
     (trace "-------------------")
     (let [steps-to-run (predict-steps parse-tree target-steps)]
       (cond
+       (:graph *options*)
+         (graph-steps (:graph *options*) parse-tree steps-to-run)
        (empty? steps-to-run)
          (info "Nothing to do.")
        (:print *options*)
          (print-steps parse-tree steps-to-run)
-       (:graph *options*)
-         (graph-steps (:graph *options*) parse-tree steps-to-run)
        (:preview *options*)
          (println (steps-report parse-tree steps-to-run))
        :else
