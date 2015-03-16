@@ -8,6 +8,7 @@
             [fs.core :as fs]
             [clojopts.ui :as clojopts]
             [flatland.useful.state :as state]
+            [flatland.useful.utils :refer [let-later]]
             ;; register built-in protocols
             drake.protocol_interpreters
             drake.protocol_c4
@@ -599,23 +600,25 @@
                                      ")")}))))))))))
 
 (defn graph-steps
-  "Shows a graph visualizing workflow of steps to run, and saves it to drake.png"
+  "Draw a graph visualizing workflow of steps to run, and saves it to disk or display on screen."
   [mode parse-tree steps-to-run]
   (require 'rhizome.dot)
-  (let [dot (viz/step-tree parse-tree steps-to-run)]
+  (let-later [done (promise)
+              ^:delay dot (viz/step-tree parse-tree steps-to-run)
+              ^:delay img (viz dot->image dot)
+              ^:delay frame (viz create-frame {:name "Workflow visualization"
+                                               :close-promise done
+                                               :dispose-on-close? true})]
     (case mode
       ("dot") (do (spit "drake.dot" dot)
                   (println "DOT file saved to drake.dot"))
-      (true "png") (do (require 'rhizome.viz)
-                       (let [done (promise)
-                             frame (viz create-frame {:name "Workflow visualization"
-                                                      :close-promise done
-                                                      :dispose-on-close? true})
-                             img (viz dot->image dot)]
-                         (viz save-image img "drake.png")
-                         (println "Image saved to drake.png")
-                         (viz view-image frame img)
-                         (deref done)))
+      (true "png") (do (System/setProperty "java.awt.headless" "true")
+                       (require 'rhizome.viz)
+                       (viz save-image img "drake.png")
+                       (println "Image saved to drake.png"))
+      ("show") (do (require 'rhizome.viz)
+                   (viz view-image frame img)
+                   (deref done))
       (throw+ {:msg (format "Unrecognized --graph mode '%s'" mode)
                :exit-code -1}))))
 
