@@ -39,29 +39,28 @@
   as long as we can write, and that might happen even after the process is
   dead. As a consequence, if you feed a multi-line file to Drake's stdin,
   the first step might get all of it (even if it actually reads only one line).
-")
+"
+  (:import (java.util.concurrent Exchanger)))
 
-(def ^:private line (agent nil))
-(def ^:private first-time (atom true))
+;; when two threads call this function, each is returned the object that the other passed in.
+;; the first thread blocks until the second is ready.
+(let [exchanger (Exchanger.)]
+  (defn- exchange [x]
+    (.exchange exchanger x)))
 
-(defn- send-line []
-  (send line (fn [_] (read-line))))
+;; start a thread reading stdin forever, and make it a daemon so that it stops when no other
+;; threads are running (and thus nobody will ever want its results).
+(def ^:private reader (delay (doto (Thread. #(while true
+                                               (exchange (read-line))))
+                               (.setDaemon true)
+                               (.start))))
 
 (defn process-line-stdin
   "Reads one line from stdin, calls func on it and returns what func
    returned."
   [func]
-  ;; we need to lock here since several a lot of things can happen
-  ;; between await and another call to send-line
-  (locking line
-    (if @first-time
-      (do
-        (send-line)            ;; initiate by asking for the first line
-        (reset! first-time false)))
-    (await line)
-    (let [result (func @line)]
-      (send-line)
-      result)))
+  @reader ;; to make sure the thread is started
+  (func (exchange nil)))
 
 (defn ^String read-line-stdin
   "Reads one line from stdin."
