@@ -5,6 +5,7 @@
 * Added support for quoting filenames, to permit filenames that otherwise look like drake rules
 * Added `--var x=y --var a=b` syntax, as better version of `--vars x=y,a=b`
 * Added `--graph` option to help visualize a workflow
+* bugfix: [#157] (https://github.com/Factual/drake/issues/157)
 
 ### Bug Fixes
 * Allow unindented blank lines in step definitions, as per [#72](https://github.com/Factual/drake/issues/129)
