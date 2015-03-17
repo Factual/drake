@@ -300,9 +300,10 @@
 (defn add-prefix
   "Appends prefix if necessary (unless prepended by '!')."
   [prefix file]
-  (if (= \! (first file))
-    (clip file)
-    (str prefix file)))
+  (cond (= \! (first file)) (clip file)
+        (= \/ (first file)) file
+        (re-matches #"[a-zA-z][a-zA-Z0-9+.-]*:.*" file) file
+        :else (str prefix file)))
 
 (defn add-path-sep-suffix [^String path]
   (if (or (empty? path)
