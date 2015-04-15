@@ -5,7 +5,7 @@
 
 ;; This namespace is responsible for the keeping track of
 ;; options. These were previously housed in the drake.core namespace,
-;; which made them inaccessible to other namespaces in the drake 
+;; which made them inaccessible to other namespaces in the drake
 ;; project.
 
 (def ^:dynamic *options* {})
