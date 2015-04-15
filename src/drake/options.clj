@@ -61,7 +61,7 @@
            (no-arg print p
                    "Runs Drake in \"print\" mode. Instead of executing steps, Drake just prints inputs, outputs and tags of each step that is scheduled to run to stdout. This is useful if some outside actions need to be taken before or after running Drake. Standard target matching rules apply. Inputs are prepended by I, outputs by O, and input and output tags by %I and %O respectively. It also outputs \"S\" to signify beginning of each step.")
            (optional-arg graph g
-             "Runs Drake in \"graph\" mode. Instead of executing steps, Drake just draws a graph of all the inputs and outputs in the workflow, with color-coding to indicate which will be run. The graph is saved to a file named drake.png in the current directory. Files which will be built are colored green, and those which were forced will be outlined in black as well. You can specify --graph=dot to output a .dot file instead of displaying the image and outputting a png.")
+             "Runs Drake in \"graph\" mode. Instead of executing steps, Drake just draws a graph of all the inputs and outputs in the workflow, with color-coding to indicate which will be run. The graph is saved to a file named drake.png in the current directory. Files which will be built are colored green, and those which were forced will be outlined in black as well. You can specify --graph=dot to output a .dot file instead of outputting a png, or --graph=show to display the image on screen.")
            (with-arg logfile l
              "Specify the log file. If not absolute, will be relative to the workflow file, default is drake.log in the directory of the workflow file."
              :type :str
