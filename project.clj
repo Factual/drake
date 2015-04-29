@@ -26,14 +26,12 @@
                  [commons-codec/commons-codec "1.6"]
                  [factual/sosueme "0.0.15"]
                  [factual/c4 "0.2.0"]
-                 ;; for HDFS support
-                 [hdfs-clj "0.1.0"]
-                 ;; you may need to change this to be compatible with your cluster
-                 [org.apache.hadoop/hadoop-core "0.20.2"]
-                 ;; for AWS S3 support
-                 [clj-aws-s3 "0.3.10"]
+                 [hdfs-clj "0.1.3"]    ;; for HDFS support
+                 [clj-aws-s3 "0.3.10"]    ;; for AWS S3 support
                  ;; for plugins
                  [com.cemerick/pomegranate "0.2.0"]]
+  :profiles {:provided
+               {:dependencies [[org.apache.hadoop/hadoop-core "0.20.2"]]}}
   :test-selectors {:regression   :regression
                    :default      (complement :regression)
                    :all          (constantly true)}
