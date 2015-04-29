@@ -10,10 +10,10 @@ if [[ ! -f $DRAKE_JAR ]]; then
   echo "========= UBERJAR COMPILED ========="
 fi
 
-HADOOP_CONF=${HADOOP_HOME:=/etc/hadoop}/conf
+HADOOP_CLASSPATH=`hadoop classpath`
 
 if [[ `which drip` ]]; then
-  drip -cp ${HADOOP_CONF}:${DRAKE_JAR} drake.core "$@"
+  drip -cp ${HADOOP_CLASSPATH}:${DRAKE_JAR} drake.core "$@"
 else
-  java -cp ${HADOOP_CONF}:${DRAKE_JAR} drake.core "$@"
+  java -cp ${HADOOP_CLASSPATH}:${DRAKE_JAR} drake.core "$@"
 fi
