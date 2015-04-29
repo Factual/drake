@@ -7,6 +7,7 @@ if [[ ! -f $DRAKE_JAR ]]; then
   echo "========= UBERJAR COMPILING ========="
   cd $DRAKE_HOME
   lein uberjar
+  cd -
   echo "========= UBERJAR COMPILED ========="
 fi
 
