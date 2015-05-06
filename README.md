@@ -69,14 +69,9 @@ You can programmatically use Drake from your Clojure project by using [Drake's C
 
 ### A nicer way to run Drake
 
-For command line usage, we recommend you "install" Drake in your environment so that you can run it by just typing "drake". Here's a convenience script you can put on your path:
-
-```bash
-#!/bin/bash
-java -cp $(dirname $0)/drake.jar drake.core "$@"
-```
-
-Save that as `drake`, then do `chmod 755 drake`. Move the uberjar to be in the same directory. Now you can just type `drake` to run Drake from anywhere.
+For command line usage, we provided a handy [bash script for drake](http://github.com/Factual/drake/blob/master/bin/drake). You can do either of following
+ * Get the script and drake jar, set jar folder as $DRAKE_HOME
+ * Clone the repo and run script from {project_root}/bin. If you make a symlink, set $DRAKE_HOME to project root folder, now you can just type `drake` to run Drake from anywhere. (You may also need leiningen installed for building uberjar.)
 
 ### Faster startup time
 
