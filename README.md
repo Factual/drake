@@ -26,7 +26,7 @@ We've not tested it on other operating systems.
 
 You can build Drake from source, which is the preferred way to run the most
 up-to-date version, or you can
-[download a prebuilt uberjar](https://docs.google.com/uc?export=download&confirm=nT8F&id=0B2xtKcFEL6wwWnRzVzRZcGFFaWc)
+[download a prebuilt uberjar](https://github.com/Factual/drake/releases/download/v0.2.0/drake.jar)
 
 ,which may not be the most recent version of Drake.
 
@@ -64,7 +64,7 @@ $ java -jar drake.jar --version
 You can programmatically use Drake from your Clojure project by using [Drake's Clojure front end](https://github.com/Factual/drake/wiki/A-Clojure-Frontend-to-Drake). Your project.clj dependencies should include the latest Drake library, e.g.:
 
 ```clojure
-[factual/drake "0.1.6"]
+[factual/drake "0.2.0"]
 ```
 
 ### A nicer way to run Drake
