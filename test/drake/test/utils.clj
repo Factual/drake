@@ -15,7 +15,7 @@
   (memoize #(parse-str data nil)))
 
 (defn run-targets [func targets]
-  (comment (log4j/set-loggers! 
+  (comment (log4j/set-loggers!
     :root {:level :debug :name "console" :pattern "%m%n"}
     "drake" {:level :debug :name "console" :pattern "%m%n"}))
   (log4j/set-loggers! :root {:level :off})
@@ -27,4 +27,3 @@
 (defn test-targets [func targets expected-value]
   (let [value (run-targets func targets)]
     (is (= expected-value value))))
-

@@ -3,14 +3,15 @@
   (:require [fs.core :as fs]
             [drake.plugins :as plugins]
             [hdfs.core :as hdfs]
-            [aws.sdk.s3 :as s3])
-  (:use drake-interface.core
-        [slingshot.slingshot :only [throw+]]
-        [clojure.string :only [join split]]
-        drake.shell
-        drake.options)
+            [clojure.string :as s :refer [join split]]
+            [aws.sdk.s3 :as s3]
+            [drake-interface.core :as di]
+            [slingshot.slingshot :refer [throw+]]
+            [drake.shell :refer [shell]]
+            [drake.options :refer [*options*]])
   (:import org.apache.hadoop.conf.Configuration
-           org.apache.hadoop.fs.Path))
+           (org.apache.hadoop.fs Path FileStatus)
+           java.io.File))
 
 (def drake-ignore "Names of files or directories to be ignored by Drake"
   #{"_logs"})
@@ -26,15 +27,15 @@
 (defn make-path
   "The reverse of split-path"
   [prefix path]
-  (format "%s%s%s" prefix (if-not (empty? prefix) ":" "") path))
+  (str prefix (when (seq prefix) ":") path))
 
 (defn path-fs
-  "Return's path's filesystem prefix (or an empty string if not specified)."
+  "Returns path's filesystem prefix (or an empty string if not specified)."
   [path]
   (first (split-path path)))
 
 (defn path-filename
-  "Return's path's filesystem prefix (or an empty string if not specified)."
+  "Returns the path-part of path, without the filesystem prefix."
   [path]
   (second (split-path path)))
 
@@ -44,25 +45,23 @@
 (defn remove-extra-slashes
   "Removes duplicate and trailing slashes from the filename."
   [filename]
-  (let [spl (split filename #"/" -1)]
-    (str (if (empty? (first spl)) "/" "")
-         (join "/" (filter (complement empty?) spl)))))
+  (s/replace filename #"/(?=/|$)" ""))
 
 (defn assert-files-exist [fs files]
   (doseq [f files]
-    (when (not (exists? fs f))
+    (when (not (di/exists? fs f))
       (throw+ {:msg (str "file not found: " f)}))))
 
 (defn file-info-impl [fs path]
   {:path path
-   :mod-time (mod-time fs path)
-   :directory (directory? fs path)})
+   :mod-time (di/mod-time fs path)
+   :directory (di/directory? fs path)})
 
 (defn file-info-seq-impl [fs path]
-  (map #(file-info fs %) (file-seq fs path)))
+  (map #(di/file-info fs %) (di/file-seq fs path)))
 
 (defn data-in?-impl [fs path]
-  (not (empty? (file-info-seq fs path))))
+  (seq (di/file-info-seq fs path)))
 
 (def file-info-impls
   {:file-info file-info-impl
@@ -74,7 +73,7 @@
 (deftype LocalFileSystem [])
 
 (extend LocalFileSystem
-  FileSystem
+  di/FileSystem
   (merge
     file-info-impls
     { :exists?
@@ -96,7 +95,7 @@
             []
             (if-not (.isDirectory f)
             [(.getPath f)]
-            (mapcat #(file-seq this (.getPath %)) (.listFiles f))))))
+            (mapcat #(di/file-seq this (.getPath ^File %)) (.listFiles f))))))
 
       :normalized-filename
       (fn [_ path]
@@ -132,9 +131,8 @@
    expected to exist. If it exists, it's returned as a File. Otherwise an error is thrown."
   []
   (let [hadoop-home (get (System/getenv) "HADOOP_HOME")
-        conf-file (if hadoop-home
-                    (fs/file hadoop-home "conf/core-site.xml")
-                    (fs/file "/etc/hadoop/conf/core-site.xml"))]
+        conf-file (fs/file (or hadoop-home "/etc/hadoop")
+                           "conf/core-site.xml")]
     (if (fs/exists? conf-file)
       conf-file
       (throw+ {:msg (format "Hadoop configuration file %s doesn't exist" conf-file)}))))
@@ -145,18 +143,18 @@
 
 (defn- remove-hdfs-prefix
   "Removes the prefix HDFS libraries may insert."
-  [path]
+  [^String path]
   (let [prefix "hdfs://"]
     (assert (.startsWith path "hdfs://"))
-    (let [spl (split (.substring path (count prefix)) #"/")]
+    (let [spl (split (subs path (count prefix)) #"/")]
       (str "/" (join "/" (rest spl))))))
 
-(defn- hdfs-file-info [status]
-  {:path (remove-hdfs-prefix (.toString (.getPath status)))
+(defn- hdfs-file-info [^FileStatus status]
+  {:path (remove-hdfs-prefix (str (.getPath status)))
    :mod-time (.getModificationTime status)
    :directory (.isDir status)})
 
-(defn- hdfs-filesystem [path]
+(defn- ^org.apache.hadoop.fs.FileSystem hdfs-filesystem [path]
   ;; there's a bug in hdfs-clj's filesystem function (can't provide
   ;; configuration), so we're doing it manually here
   (org.apache.hadoop.fs.FileSystem/get (.toUri (hdfs/make-path path))
@@ -169,7 +167,7 @@
 (deftype HDFS [])
 
 (extend HDFS
-  FileSystem
+  di/FileSystem
   (merge
     file-info-impls
     { :exists?
@@ -182,11 +180,11 @@
 
       :mod-time
       (fn [_ path]
-        (.getModificationTime (hdfs/file-status path)))
+        (.getModificationTime ^FileStatus (hdfs/file-status path)))
 
       :file-seq
       (fn [this path]
-        (map :path (file-info-seq this path)))
+        (map :path (di/file-info-seq this path)))
 
       :file-info
       (fn [this path]
@@ -194,17 +192,17 @@
 
       :file-info-seq
       (fn [this path]
-        (if (or (not (exists? this path)) (should-ignore? path))
+        (if (or (not (di/exists? this path)) (should-ignore? path))
         []
         (let [statuses (hdfs-list-status path)]
-          (if-not (directory? this path)
+          (if-not (di/directory? this path)
             statuses
-            (mapcat #(if (should-ignore? (% :path))
-                       []
-                       (if-not (% :directory)
-                         [%]
-                         (file-info-seq this (% :path))))
-                    statuses)))))
+            (for [{:keys [path directory] :as status} statuses
+                  :when (not (should-ignore? path))
+                  file (if directory
+                         (di/file-info-seq this path)
+                         [status])]
+              file)))))
 
       :normalized-filename
       (fn [_ path]
@@ -234,12 +232,13 @@
 (defn- load-props
   "Loads a java style properties file into a struct map."
   [filename]
-  (when-not (fs/exists? (fs/file filename))
-    (throw+ {:msg (format "unable to locate properties file %s" filename)}))
-  (let [io (java.io.FileInputStream. filename)
-        prop (java.util.Properties.)]
-    (.load prop io)
-    (into {} prop)))
+  (let [file (fs/file filename)]
+    (when-not (fs/exists? file)
+      (throw+ {:msg (format "unable to locate properties file %s" filename)}))
+    (let [io (java.io.FileInputStream. file)
+          prop (java.util.Properties.)]
+      (.load prop io)
+      (into {} prop))))
 ;; Load credentials from a properties file
 (def ^:private s3-credentials
   (memoize #(if-not (*options* :aws-credentials)
@@ -254,23 +253,22 @@
 (defn- s3-bucket-key
   "Returns a struct-map containing the bucket and key for a path"
   [path]
-  (let [ bkt-key (split (last (split path #"^/*"))
-                         #"/" 2 )]
-    { :bucket (first bkt-key)
-     :key (second bkt-key)}))
+  (zipmap [:bucket, :key]
+          (split (last (split path #"^/*"))
+                 #"/" 2 )))
 
 (defn- s3-object-to-info
   "Converts the elements the results of s3/list-objects
   into filesystem info objects"
   [{bucket :bucket key :key {last-mod :last-modified} :metadata}]
   {:path     (join "/" ["" bucket key])
-   :directory (.endsWith key "/")
-   :mod-time  (.getTime last-mod)})
+   :directory (.endsWith ^String key "/")
+   :mod-time  (.getTime ^java.util.Date last-mod)})
 
 (deftype S3 [])
 
 (extend S3
-  FileSystem
+  di/FileSystem
   (merge
     file-info-impls
     { :exists?
@@ -280,15 +278,15 @@
 
       :directory?
       (fn [_ path]
-        (.endsWith path "/"))
+        (.endsWith ^String path "/"))
 
       :mod-time
       (fn [_ path]
-        (let [{bucket :bucket key :key} (s3-bucket-key path)]
-          (-> (s3-credentials)
-              (s3/get-object-metadata bucket key)
-              :last-modified
-              .getTime)))
+        (let [{bucket :bucket key :key} (s3-bucket-key path)
+              ^java.util.Date last-mod (-> (s3-credentials)
+                                           (s3/get-object-metadata bucket key)
+                                           :last-modified)]
+          (.getTime last-mod)))
 
       ;; S3 list-object api call by default will give
       ;; us everything to fill out the file-info-seq
@@ -296,7 +294,7 @@
       ;; extra data
       :file-seq
       (fn [this path]
-        (map :path (file-info-seq this path)))
+        (map :path (di/file-info-seq this path)))
 
       ;; Not using the impl here as it would result in an
       ;; excessive number of api calls. We get all that we
@@ -310,7 +308,7 @@
           ;; that does not seem to exist, we need to explicitly try
           ;; adding a separator character to it and calling s3/list-objects
           ;; on that.
-          (if (directory? this path)
+          (if (di/directory? this path)
             ;; it is a directory and it exists, so
             ;; we should go do a list-object call
             (let [{bucket :bucket key :key} (s3-bucket-key path)]
@@ -320,9 +318,9 @@
                                                       bucket
                                                       {:prefix key})))))
             ;; not a directory
-            (if (exists? this path)
-              [(file-info this path)]
-              (file-info-seq this (str path "/"))))))
+            (if (di/exists? this path)
+              [(di/file-info this path)]
+              (di/file-info-seq this (str path "/"))))))
 
       ;; Normalize file names for s3 objects need to look like
       ;; s3://bucket/path/to/object for compatibility for tools
@@ -362,7 +360,7 @@
 (defrecord MockFileSystem [fs-data])
 
 (extend MockFileSystem
-  FileSystem
+  di/FileSystem
   (merge
     file-info-impls
     { :exists?
@@ -375,7 +373,7 @@
 
       :mod-time
       (fn [this path]
-        (if-not (exists? this path)
+        (if-not (di/exists? this path)
           (throw+ {:msg (str "file not found: " path)})
           (condp = (get-in this [:fs-data path :mod-time])
             :pre (Long/MIN_VALUE)
@@ -385,8 +383,8 @@
       :file-seq
       (fn [this path]
         (keys (filter (fn [[name opts]]
-                        (and (not (opts :directory))
-                             (.startsWith name path)))
+                        (and (not (:directory opts))
+                             (.startsWith ^String name path)))
                       (:fs-data this))))
 
       :normalized-filename
@@ -438,17 +436,17 @@
     [fs prefix filename]))
 
 (defn fs
-  "Automatically determines the filesystem from the filename and dispatched
-   the call to fn."
-  [fn filename]
+  "Automatically determines the filesystem from the filename and dispatches
+   the call to f."
+  [f filename]
   (let [[system _ name] (get-fs filename)]
-    (fn system name)))
+    (f system name)))
 
 (defn normalized-path
   "Returns absolute path preserving the prefix."
   [path]
   (let [[filesystem prefix filename] (get-fs path)]
-    (make-path prefix (normalized-filename filesystem filename))))
+    (make-path prefix (di/normalized-filename filesystem filename))))
 
 (defn pick-by-mod-time
   "Traverses the full directory tree starting at path, applies given
@@ -457,8 +455,8 @@
    transformation to return a minimum, or - to return the maximum mod-time
    file). Returns a file-info structure (see FileSystem/file-info)."
   [path transform]
-  (first (sort-by #(transform (% :mod-time))
-                  (fs file-info-seq path))))
+  (apply min-key (comp transform :mod-time)
+         (fs di/file-info-seq path)))
 
 (defn oldest-in
   [path]

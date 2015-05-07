@@ -1,19 +1,19 @@
 (ns drake.protocol
   (:refer-clojure :exclude [file-seq])
-  (:require [clojure.string :as str]
+  (:require [slingshot.slingshot :refer [throw+]]
             [fs.core :as fs]
+            [clojure.string :as str]
+            [clojure.tools.logging :refer [debug]]
+            [clojure.java.io :refer [writer]]
             digest
-            [drake.plugins :as plugins])
-  (:use [slingshot.slingshot :only [throw+]]
-        [clojure.tools.logging :only [debug]]
-        [clojure.java.io :only [writer]]
-        drake-interface.core
-        drake.shell
-        drake.utils
-        drake.options))
+            [drake.plugins :as plugins]
+            [drake-interface.core :as di]
+            [drake.shell :refer [shell]]
+            [drake.utils :as utils :refer [relative-path]]
+            [drake.options :as options]))
 
 (deftype ProtocolUnsupported []
-  Protocol
+  di/Protocol
   (run [_ _]
     (throw+ {:msg "unsupported protocol"})))
 
@@ -46,7 +46,7 @@
    Returns the filename."
   [{:keys [cmds] :as step}]
   (let [filename (format (str "%s" java.io.File/separator "%s-%s.bat")
-                         (*options* :tmpdir)
+                         (:tmpdir options/*options*)
                          (get-protocol-name step)
                          (digest/md5 (apply str cmds)))]
     ;; we need to use fs.core/file here, since fs.core/with-cwd only changes the
@@ -63,7 +63,7 @@
     (fs/mkdirs dir))
   ;; we need to use fs.core/file here, since fs.core/with-cwd only changes the
   ;; working directory for fs.core namespace
-  (fs/file (str dir java.io.File/separator prefix "-" start-time-filename)))
+  (fs/file (str dir java.io.File/separator prefix "-" utils/start-time-filename)))
 
 (defn run-interpreter
   "Common implementation for most of interpreter protocols, that is, when

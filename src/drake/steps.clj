@@ -12,21 +12,21 @@
   Then this final big list of steps is processed one-by-one to make sure
   dependants are always run after their dependencies, as well as process
   exclusions (see add-step function)."
-  (:use [clojure.tools.logging :only [debug trace]]
-        [slingshot.slingshot :only [throw+]]
-        drake.utils
-        drake.options
-        [drake.fs :only [remove-extra-slashes normalized-path]])
   (:require [clojure.string :as str]
             [clojure.set :as set]
-            [fs.core :as fs]))
+            [fs.core :as fs]
+            [clojure.tools.logging :refer [debug trace]]
+            [slingshot.slingshot :refer [throw+]]
+            [drake.utils :as utils :refer [clip reverse-multimap concat-distinct]]
+            [drake.options :refer [*options*]]
+            [drake.fs :refer [remove-extra-slashes normalized-path]]))
 
 (defn step-str
   "Returns a string representation of the step as a comma-separated
    list of its outputs and tags.
    TODO(artem) tags are not supported now."
   [step]
-  (str/join ", " (step :outputs)))
+  (str/join ", " (:outputs step)))
 
 (defn add-dependencies
   "Given a parse tree after string substitutions, adds step dependencies to
@@ -60,13 +60,13 @@
 
         build-variants (fn [variants] (map step-index-map variants))
         output-map-lookup-regexp
-          (apply merge-multimaps-distinct
+          (apply utils/merge-multimaps-distinct
                  (build-variants [:raw-outputs
                                   (map-key remove-extra-slashes :raw-outputs)
                                   :outputs
                                   (map-key remove-extra-slashes :outputs)]))
-        output-map-lookup (merge-multimaps-distinct output-map-lookup-regexp
-                                                    normalized-output-map)
+        output-map-lookup (utils/merge-multimaps-distinct output-map-lookup-regexp
+                                                          normalized-output-map)
         ;;_ (prn output-map-lookup)
         ]
     (assoc raw-parse-tree
@@ -81,15 +81,15 @@
                  :parents (apply
                            concat-distinct
                            (concat (map normalized-output-map
-                                        (map normalized-path (% :inputs)))
+                                        (map normalized-path (:inputs %)))
                                    (map output-tags-map
-                                        (% :input-tags))))
+                                        (:input-tags %))))
                  :children (apply
                             concat-distinct
                             (concat (map normalized-input-map
-                                         (map normalized-path (% :outputs)))
+                                         (map normalized-path (:outputs %)))
                                     (map input-tags-map
-                                         (% :output-tags)))))
+                                         (:output-tags %)))))
               steps))))
 
 ;; No way to get to MAX_PATH from Java
@@ -104,11 +104,11 @@
    Returns the parse tree with added :dir to each step."
   [{:keys [steps] :as parse-tree}]
   (trace "Naming steps' temporary directories...")
-  (let [drake-dir (fs/absolute-path (*options* :tmpdir))]
+  (let [drake-dir (fs/absolute-path (:tmpdir *options*))]
     (if (> (count drake-dir) (dec MAX_PATH))
       (throw+ {:msg (format "workflow directory name %s is too long."
                             drake-dir)}))
-    (let [cut #(.substring % 0 (min (count %) MAX_PATH))
+    (let [cut #(subs % 0 (min (count %) MAX_PATH))
           dirs (map (fn [{:keys [raw-outputs output-tags] :as step}]
                       (cut (str drake-dir "/"
                                 ;; e.g. "output1,dir1_dir2_output2,tag1"
@@ -145,7 +145,7 @@
                         dots (= match-type :output))
         targets (if everything
                   ;; optimization for a frequent case
-                  (range 0 (count (parse-tree :steps)))
+                  (map-indexed (fn [i _] i) (:steps parse-tree))
                   (if-not (or regexp-search dots)
                     (apply concat-distinct
                            (vals (select-keys
@@ -175,17 +175,17 @@
    current-chain is a vector right now, a hashset would be faster,
    but I would like to preserve the order for being able to print
    a nice error message.
-  
+
    valid-step-indices is a set of steps that are valid for expansion.
    nil means that all steps are valid for expansion."
   [tree-steps index up-tree current-chain valid-step-indices]
   ;;(prn index)
-  
+
   ;; Check if current step is in list of valid steps
   (if (or (not valid-step-indices) (valid-step-indices index))
     (let [step (tree-steps index)
           current-chain-and-me (conj current-chain index)]
-      (if (not= -1 (.indexOf current-chain index))
+      (when (some #{index} current-chain)
         (throw+ {:msg (str "cycle dependency detected: "
                            (str/join " -> " (map #(step-str (tree-steps %))
                                                  current-chain-and-me)))}))
@@ -199,13 +199,13 @@
     []))
 
 (defn expand-step-restricted
-  "Like expand-step below, but only expand the steps that are in the 
+  "Like expand-step below, but only expand the steps that are in the
    valid-step-indices.  If valid-step-indices is nil, expand them all"
   [parse-tree index tree-mode valid-step-indices]
   ;;(prn (parse-tree :steps))
   (if (= tree-mode :only)
     [index]
-    (expand-step-recur (parse-tree :steps) index (nil? tree-mode) [] valid-step-indices)))
+    (expand-step-recur (:steps parse-tree) index (nil? tree-mode) [] valid-step-indices)))
 
 (defn expand-step
    "Given a step index, return an ordered list of all steps involved
@@ -248,10 +248,10 @@
                 (cond
                   (= \% (first clipped-name))
                     [:tag (clip clipped-name)]
-                  (= "()" (.substring clipped-name
-                                      (max 0 (- (count clipped-name) 2))))
-                    [:method (.substring clipped-name 0
-                                         (- (count clipped-name) 2))]
+                  (= "()" (subs clipped-name
+                                (max 0 (- (count clipped-name) 2))))
+                    [:method (subs clipped-name 0
+                                   (- (count clipped-name) 2))]
                   :else
                     [:output clipped-name])]
           {:name  clipped-name
@@ -337,7 +337,7 @@
                          ;; same logic for tag and methods as for build -
                          ;; if it's specified directly, the step will be built
                          ;; (method takes precedence here)
-                         :match-type (some (set [old-match-type match-type])
+                         :match-type (some (hash-set old-match-type match-type)
                                            [:method :tag :output])))
            (inc pos)]))
       ;; step doesn't exist
@@ -354,8 +354,8 @@
               insert-position (if (empty? used-dependencies)
                                 pos
                                 ;; this should be enough for a million steps
-                                (- (apply min (map #((current-steps-map %) :pos)
-                                                   used-dependencies))
+                                (- (apply min (for [dep used-dependencies]
+                                                (get-in current-steps-map [dep :pos])))
                                    0.0000001))]
           ;; add a new step to the map, with a new field specifying its
           ;; order (:pos)
@@ -366,20 +366,23 @@
   "Checks that all selected steps have unique outputs.
    Returns the steps given or throws an exception."
   [parse-tree steps]
-  (reduce #(if (%1 %2)
-             (throw+ {:msg (str "duplicated output: " %2)})
-             (conj %1 %2))
-          #{}
-          (map normalized-path
-               (mapcat #(get-in parse-tree [:steps (% :index) :outputs]) steps)))
+  (let [output-counts (frequencies (for [{:keys [index]} steps
+                                         output (get-in parse-tree [:steps index :outputs])]
+                                     (normalized-path output)))
+        repeated-outputs (for [[output n] output-counts
+                               :when (> n 1)]
+                           output)]
+    (when (seq repeated-outputs)
+      (throw+ {:msg (str "duplicated outputs: "
+                         (str/join ", " repeated-outputs))})))
   steps)
 
 (defn select-steps
   "Given a parse tree and an array of target selection expressions,
    returns an ordered list of step indexes to be run."
   [parse-tree target-names]
-  (with-time-elapsed
-    (in-ms debug "Selecting steps")
+  (utils/with-time-elapsed
+    (utils/in-ms debug "Selecting steps")
     (let [steps (expand-targets parse-tree
                                 (match-target-steps
                                   parse-tree

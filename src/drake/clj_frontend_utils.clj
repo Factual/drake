@@ -2,12 +2,11 @@
   (:require [clojure.string :as str]
             [drake.parser :as parse]
             [drake.parser_utils :refer [illegal-syntax-error-fn
-                                        throw-parse-error
-                                        state-s]]
+                                        throw-parse-error make-state]]
             [drake.steps :as d-steps]
             [drake.utils :as d-utils]
             [drake.options :refer [*options*]]
-            [drake.event]
+            [drake.event] ;; to make sure its deftypes are loaded
             [name.choi.joshua.fnparse :as p]
             [slingshot.slingshot :refer [throw+]]
             [clojure.pprint :refer [pprint]]
@@ -28,6 +27,13 @@
   (pprint x)
   x)
 
+(defn varargs->map [args]
+  (cond (empty? args) {}
+        (next args) (apply hash-map args)
+        (map? (first args)) (first args)
+        :else (throw (IllegalArgumentException.
+                      (format "Can't make a map of %s" (pr-str args))))))
+
 (def var-re
   "Regular Expression for variable subsitution.  re-groups on the
   match should return a two element vector, where the first element is
@@ -43,22 +49,32 @@
 
 (defn var-sub
   "Substitute the matches to $[XXX] with the value of XXX in the vars
-  map. Throw an error if XXX is not found.  Return an array of characters"
+  map. Throw an error if XXX is not found."
   [vars s]
   (let [sub-fn (fn [var-match]
                  (let [var-name (second var-match)]
                    (var-check vars var-name)
                    (vars var-name)))]
-    (concat (str/replace s var-re sub-fn))))
+    (str/replace s var-re sub-fn)))
 
 ;; (var-sub {"xxx" "value1" "yyy" "value2"} "test$[xxx]sdf $[yyy] sdf")
 ;; (var-sub {"xxx" "value1"} "test$[xxx]sdf $[yyy] sdf")
 ;; (var-sub {} "test no var")
 ;; (var-sub {"test_var" "test_value"} "$[test_var]")
+;; (var-sub {"test_var" "test_value"} "$[test_var]post")
+;; (var-sub {"test_var" "test_value"} "pre$[test_var]")
+;; (var-sub {"test_var" "test_value"} "pre$[test_var]post")
 
-(defn var-sub->str
-  [vars s]
-  (apply str (var-sub vars s)))
+(defn var-sub-map
+  "Substitute both the keys and values of acceptor-map using vars.
+  See var-sub."
+  [vars acceptor-map]
+  (into {}
+        (map (fn [[k v]] [(var-sub vars k) (var-sub vars v)])
+             acceptor-map)))
+
+;; (var-sub-map {"xxx" "value1" "yyy" "value2"} {"test$[xxx]sdf $[yyy] sdf" "no var here"})
+;; (var-sub-map {"xxx" "value1" "yyy" "value2"} {"no var here" "test$[xxx]sdf $[yyy] sdf"})
 
 (def var-split-re
   "Regular expression to split a string at variables while also
@@ -129,37 +145,31 @@
   invalid method-mode, method-mode is set without method, commands
   with method-mode set to \"use\""
   [parse-tree step-map]
-  (let [step-method (get-in step-map [:opts :method])
-        method-mode (get-in step-map [:opts :method-mode])
+  (let [{step-method :method, :keys [method-mode]} (:opts step-map)
         methods (set (keys (:methods parse-tree)))
         commands (:cmds step-map)
         state nil]
     (cond
      (not (or (empty? step-method) (methods step-method)))
-     (throw-parse-error state
-                        (format "method '%s' undefined at this point." step-method)
-                        nil)
+     (throw-parse-error state "method '%s' undefined at this point."
+                        step-method)
 
      (not (or (empty? method-mode) (#{"use" "append" "replace"} method-mode)))
      (throw-parse-error state
-                        (format
-                         (str "%s is not a valid method-mode, valid values are: "
-                              "use (default), append, and replace.")
-                         method-mode)
-                        nil)
+                        (str "%s is not a valid method-mode, valid values are: "
+                             "use (default), append, and replace.")
+                        method-mode)
 
      (not (or step-method (empty? method-mode)))
      (throw-parse-error state
-                        "method-mode specified but method name not given"
-                        nil)
+                        "method-mode specified but method name not given")
 
      (and step-method (not (#{"append" "replace"} method-mode))
           (not (empty? commands)))
      (throw-parse-error state
                         (str "commands not allowed for method calls "
                              "(use method-mode:append or method-mode:replace "
-                             "to allow)")
-                        nil))))
+                             "to allow)")))))
 (defn add-step-ids
   "Add Unique ID to each step in parse-tree"
   [parse-tree]
@@ -180,18 +190,11 @@
 
 ;; Below here are functions for testing
 
-(defn ensure-final-newline
-  "Make a the string ends with a newline"
-  [s]
-  (if (.endsWith s "\n")
-    s
-    (str s "\n")))
-
 (defn str->parse-tree
   "Take a string s and makes a raw parse-tree."
   [s]
-  (let [state (struct state-s
-                      (ensure-final-newline s)
+  (let [state (make-state
+                      (d-utils/ensure-final-newline s)
                       {}
                       #{}
                       1 1)]
@@ -254,7 +257,7 @@
                             (pprint (:step event-map))))
       :step-end       (println (step-string event-map)
                                "Step Finished @" (event-time event-map))
-      :step-error     (do (println "\nEnconterred an Error:")
+      :step-error     (do (println "\nEncountered an Error:")
                           (pprint event-map)))))
 
 

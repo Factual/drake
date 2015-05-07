@@ -5,11 +5,7 @@
 ;;;; can track the progress of a workflow.
 
 (ns drake.event
-  (:require [cheshire.core :as json]
-            [clj-logging-config.log4j :as log4j])
-  (:use [clojure.tools.logging :only [info debug trace error]]
-        [slingshot.slingshot :only [try+ throw+]]
-        sosueme.throwables))
+  (:require [cheshire.core :as json]))
 
 ;;; Class definitions
 

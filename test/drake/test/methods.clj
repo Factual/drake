@@ -83,7 +83,7 @@ method_redef() [test]
 ")
 
 (deftest test-methods
-  (comment (log4j/set-loggers! 
+  (comment (log4j/set-loggers!
     "drake" {:level :debug :name "console" :pattern "%m%n"} ))
   (log4j/set-loggers! "drake" { :level :warn })
   (let [data (parse-func TEST-DATA)]

@@ -1,18 +1,28 @@
 #!/bin/bash
 # Runs Drake without Nailgun (needs an uberjar)
-DRAKE_HOME=$(dirname $(dirname $0))
-DRAKE_JAR=$DRAKE_HOME/target/drake.jar
+DRAKE_HOME=${DRAKE_HOME-$(dirname $(dirname $0))}
+echo "Using DRAKE_HOME: ${DRAKE_HOME}"
+
+DRAKE_JAR=$DRAKE_HOME/drake.jar
+
+if [[ ! -f $DRAKE_JAR ]]; then
+  DRAKE_JAR=$DRAKE_HOME/target/drake.jar
+fi
 
 if [[ ! -f $DRAKE_JAR ]]; then
   echo "========= UBERJAR COMPILING ========="
   cd $DRAKE_HOME
   lein uberjar
+  cd - > /dev/null
   echo "========= UBERJAR COMPILED ========="
 fi
 
-if [[ `which drip` ]]; then
-  drip -jar $DRAKE_JAR "$@"
-else
-  java -jar $DRAKE_JAR "$@"
+if [[ `which hadoop` ]]; then
+  HADOOP_CLASSPATH=`hadoop classpath 2>/dev/null`
 fi
 
+if [[ `which drip` ]]; then
+  drip -cp ${HADOOP_CLASSPATH}:${DRAKE_JAR} drake.core "$@"
+else
+  java -cp ${HADOOP_CLASSPATH}:${DRAKE_JAR} drake.core "$@"
+fi

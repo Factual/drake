@@ -86,6 +86,37 @@
 out <- in
   cat $[INPUT] > $OUTPUT"))))
 
+(deftest step-vars-test
+  (is (=
+       (-> (new-workflow {})
+           (set-var "xxx" "yyy")
+           (step ["test-out"]
+                 []
+                 ["echo \"$test_variable_yyy\" > $OUTPUT"]
+                 {:vars {"test_variable_$[xxx]" "test variable content $[xxx]"}}))
+       {:steps
+        [{:cmds ['(\e \c \h \o \space
+                  \" \$ \t \e \s \t \_ \v \a \r \i \a \b \l \e \_ \y \y \y \"
+                  \space \> \space \$ \O \U \T \P \U \T)],
+          :inputs (),
+          :input-tags (),
+          :raw-outputs ["test-out"],
+          :outputs '("test-out"),
+          :output-tags (),
+          :vars
+          {"INPUTN" "*placeholder*",
+           "INPUTS" "*placeholder*",
+           "INPUT" "*placeholder*",
+           "OUTPUT0" "*placeholder*",
+           "OUTPUT" "*placeholder*",
+           "OUTPUTS" "*placeholder*",
+           "OUTPUTN" "*placeholder*",
+           "test_variable_yyy" "test variable content yyy"
+           "xxx" "yyy"},
+          :opts {}}],
+        :methods {},
+        :vars {"xxx" "yyy"}})))
+
 (deftest subsitution-in-file-test
   (is (=
        (-> (new-workflow {})
@@ -130,6 +161,25 @@ sort_and_unique() [shell my_option:my_value]
 
 output1 <- input1 [method:sort_and_unique]
 output2 <- input2 [method:sort_and_unique my_option:new_my_value]")))))
+
+(deftest method-vars-test
+  (is (=
+       (-> (new-workflow {})
+           (set-var "xxx" "yyy")
+           (method 
+            "test"
+            ["echo test $test_var_yyy"]
+            {:vars {"test_var_$[xxx]" "test_value_$[xxx]"}}))
+       {:steps [],
+        :methods
+        {"test"
+         {:opts {},
+          :vars {"test_var_yyy" "test_value_yyy"
+                 "xxx" "yyy"},
+          :cmds ['(\e \c \h \o \space
+                  \t \e \s \t \space
+                  \$ \t \e \s \t \_ \v \a \r \_ \y \y \y)]}},
+        :vars {"xxx" "yyy"}})))
 
 (deftest template-test
   (is (=

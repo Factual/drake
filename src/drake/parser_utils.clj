@@ -1,15 +1,28 @@
 (ns drake.parser_utils
   (:require [name.choi.joshua.fnparse :as p]
-            [clojure.tools.logging :refer [warn debug trace]])
-  (:use [slingshot.slingshot :only [throw+]]))
+            [flatland.useful.datatypes :refer [assoc-record]]
+            [clojure.tools.logging :refer [warn debug trace]]
+            [slingshot.slingshot :refer [throw+]]))
 
 ;; The parsing state data structure. The remaining tokens are stored
 ;; in :remainder, and the current column and line are stored in their
 ;; respective fields. :vars is a map of additional key/value pairs that
 ;; can help keep state. As FnParse applies rules to this state and consumes
 ;; tokens, the state gets modified accordingly.
-(defstruct state-s :remainder :vars :methods :column :line)
+;;
+;; This is a record for performance reasons: this map gets updated very often,
+;; and copying the array-map is otherwise needlessly expensive
 
+(defrecord State [remainder vars methods column line value-ignroed])
+
+(defn make-state [remainder vars methods column line]
+  (->State remainder vars methods column line false))
+
+(defn remainder-accessor [^State s]
+  (.remainder s))
+
+(defn remainder-setter [^State s new-remainder]
+  (assoc-record s :remainder new-remainder))
 
 ;; rep+ and rep* return a vector of the products of the rules being repeated.
 ;; Even if a rule's product is nil, the nil would show up in the vector.
@@ -45,8 +58,8 @@
 
 ;; parse errors
 
-(defn throw-parse-error [state message message-args]
-  (throw+ {:msg 
+(defn throw-parse-error [state message & message-args]
+  (throw+ {:msg
            (str (if (:file-path state) (str "In " (:file-path state) ", ") "")
                 (format "parse error at line %s, column %s: "
                         (:line state) (:column state))
@@ -63,13 +76,13 @@
 
 (defn expectation-error-fn [expectation]
   (fn [remainder state]
-    (throw+ {:msg (format "%s expected where \"%s\" is"
-                          expectation (or (first-word remainder) "EOF"))})))
+    (throw-parse-error state "%s expected where \"%s\" is"
+                       expectation (or (first-word remainder) "EOF"))))
 
 (defn illegal-syntax-error-fn [var-type]
   (fn [remainder state]
-    (throw+ {:msg (format "illegal syntax starting with \"%s\" for %s"
-                          (or (first-word remainder) "EOF") var-type)})))
+    (throw-parse-error state "illegal syntax starting with \"%s\" for %s"
+                       (or (first-word remainder) "EOF") var-type)))
 
 
 ;; And here are where this parser's rules are defined.
@@ -101,8 +114,9 @@
 (def return-lit (p/lit \return))
 (def windows-newline-lit (p/conc return-lit newline-lit))
 (def line-break (b-char (p/alt windows-newline-lit newline-lit return-lit)))
+(def continuation (p/conc (p/lit \\) line-break))
 (def ws (p/constant-semantics (p/rep+ (p/alt space tab line-break)) :ws))
-(def inline-ws (p/constant-semantics (p/rep+ (p/alt space tab)) :inline-ws))
+(def inline-ws (p/constant-semantics (p/rep+ (p/alt space tab continuation)) :inline-ws))
 
 (defn opt-inline-ws-wrap [rule]
   (p/complex [_ (p/opt inline-ws)
@@ -157,8 +171,20 @@
                                               double-quote
                                               backslash
                                               line-break)))
-(def non-double-quote-or-backslash (p/except p/anything 
+(def non-double-quote-or-backslash (p/except p/anything
                                              (p/alt double-quote backslash)))
+
+(defn delimited [delim body]
+  (p/conc delim body delim))
+
+(defn ignore-delimiter [parser]
+  (p/semantics parser #(apply str (second %))))
+
+(defn include-delimiter [parser]
+  (p/semantics parser #(apply str `(~(first %) ~@(second %) ~(last %)))))
+
+(def single-quote-shell-string
+  (include-delimiter (delimited single-quote (p/rep* non-single-quote))))
 
 (def fractional-part (p/conc decimal-point (p/rep* decimal-digit)))
 
@@ -168,12 +194,6 @@
           (expectation-error-fn
             (str "in number literal, after an exponent sign, decimal"
                  "digit")))))
-
-(def single-quote-shell-string
-  (p/semantics (p/conc single-quote
-                       (p/rep* non-single-quote)
-                       single-quote)
-               flatten-apply-str))
 
 (def number-lit
   (p/complex [minus (p/opt minus-sign)
@@ -201,7 +221,7 @@
     (-> digits apply-str (Integer/parseInt 16) char)))
 (def escaped-characters
   {\\ \\, \/ \/, \b \backspace, \f \formfeed, \n \newline, \r \return,
-   \t \tab, \" \", \$ \$, \) \)})
+   \t \tab, \" \", \' \', \$ \$, \) \)})
 
 (def normal-escape-sequence
   (p/semantics (p/lit-alt-seq (keys escaped-characters) nb-char-lit)
@@ -215,3 +235,9 @@
 
 (def string-char
   (p/alt escape-sequence unescaped-char))
+
+(def strong-quote
+  (p/complex [_ single-quote
+              chars (p/rep* (p/except p/anything single-quote))
+              _ single-quote]
+             (apply str chars)))

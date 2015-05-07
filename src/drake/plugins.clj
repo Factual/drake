@@ -2,9 +2,9 @@
   "Supports Drake's approach to plugins. Primary entry points are:
      load-plugin-deps
      get-plugin-fn"
-  (:use [clojure.tools.logging :only [debug]]
-        [slingshot.slingshot :only [try+ throw+]])
-  (:require [fs.core :as fs]
+  (:require [clojure.tools.logging :refer [debug]]
+            [slingshot.slingshot :refer [try+ throw+]]
+            [fs.core :as fs]
             [cemerick.pomegranate :as pom]))
 
 (def DEFAULT-REPOS (merge cemerick.pomegranate.aether/maven-central
@@ -26,7 +26,7 @@
                             :repositories repos)
       (catch org.sonatype.aether.resolution.DependencyResolutionException e
         (throw+
-         {:msg (str "Plugin error. " (.getMessage e))})))))
+         {:msg (str "Plugin error. " (.getMessage ^Exception e))})))))
 
 (defn load-plugin-deps
   "Loads onto the classpath all plugins specified in plugins configuration file f.
@@ -42,7 +42,7 @@
     (add-deps conf)))
 
 (defn req-ns
-  "Attempts to require the namespace named ns-name.
+  "Attempts to require the namespace named ns-symbol.
    Returns truthy only if succussful."
   [ns-symbol]
   (try+ (require ns-symbol)

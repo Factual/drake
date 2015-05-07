@@ -1,10 +1,10 @@
 (ns drake.shell
-  (:use [clojure.string :only [join]]
-        [clojure.tools.logging :only [debug]]
-        [slingshot.slingshot :only [throw+]]
-        [clojure.java.io :only [as-file]]
-        drake.stdin)
-  (:require [fs.core :as fs]))
+  (:require [clojure.string :refer [join]]
+            [clojure.tools.logging :refer [debug]]
+            [clojure.java.io :refer [as-file]]
+            [slingshot.slingshot :refer [throw+]]
+            [fs.core :as fs]
+            [drake.stdin :as stdin]))
 
 ;; Copied in full from clojure.java.shell
 (defn- ^"[Ljava.lang.String;" as-env-strings
@@ -33,10 +33,10 @@
 
 (defn- copy-stdin
   "Copies stdin to a child process."
-  [proc]
+  [^Process proc]
   (let [child-stdin-stream (.getOutputStream proc)]
     (try
-      (while (process-line-stdin
+      (while (stdin/process-line-stdin
               #(do
                  (if %
                    (do
@@ -81,26 +81,25 @@
 
    Loosely based on clojure.java.shell/sh."
   [& args]
-  (let [[cmd raw-opts] (split-with string? args)
-        opts (apply hash-map raw-opts)
-        {:keys [out err die use-shell no-stdin]} opts
+  (let [[cmd {:keys [out err die use-shell no-stdin env replace-env] :as opts}]
+        (split-with string? args)
         windows? (.startsWith (System/getProperty "os.name") "Win")
-        env (as-env-strings (if (:replace-env opts)
-                              (:env opts)
-                              (merge (into {} (System/getenv)) (:env opts))))
-        cmd-for-exec ^"[Ljava.lang.String;"
-                     (into-array (if-not use-shell
-                                   cmd
-                                   [(if windows? "cmd" (get (System/getenv) "SHELL")) 
-                                    (if windows? "/C" "-c")
-                                    (join " " cmd)]))
+        env (as-env-strings (if replace-env
+                              env
+                              (merge (into {} (System/getenv)) env)))
+        ^"[Ljava.lang.String;" cmd-for-exec
+        (into-array (if-not use-shell
+                      cmd
+                      [(if windows? "cmd" (get (System/getenv) "SHELL"))
+                       (if windows? "/C" "-c")
+                       (join " " cmd)]))
         proc (.exec (Runtime/getRuntime)
                     cmd-for-exec
-                    env
-                    fs/*cwd*)]
+                    ^"[Ljava.lang.String;" env
+                    (fs/file fs/*cwd*))]
     ;; Pass stdin to process unless :no-stdin option is set
     ;; Usually set when async is on
-    (let [stdin  (and (not no-stdin) (Thread. #(copy-stdin proc)))
+    (let [^Thread stdin  (and (not no-stdin) (Thread. #(copy-stdin proc)))
           ;; because we're starting two threads to process stdout & stderr,
           ;; there's NO GUARANTEE that lines output to these streams will appear
           ;; in correct order relative to each other. if the child process
@@ -117,12 +116,12 @@
                             (.getErrorStream proc)
                             (if err err [System/err])))]
       ;; start threads
-      (doseq [t [stdin stdout stderr]] (when t (.start t)))
+      (doseq [^Thread t [stdin stdout stderr]] (when t (.start t)))
       ;; we have to wait until stdout and stderr threads finish,
       ;; otherwise when the process exits, we may not have finished
       ;; copying; this does not apply to stdin since it's blocked on user
       ;; input
-      (doseq [t [stdout stderr]] (.join t))
+      (doseq [^Thread t [stdout stderr]] (.join t))
       (let [exit-code (.waitFor proc)]
         (when stdin
           ;; the process exited at this point, interrupt the thread
@@ -131,6 +130,14 @@
           ;; now we can wait for its completion
           (.join stdin))
         (if (and (not= 0 exit-code) die)
-          (throw+ {:msg (str "shell command failed with exit code " exit-code)
-                   :args args
-                   :exit exit-code}))))))
+          (let [message (str "shell command failed with exit code " exit-code)]
+            (Thread/sleep 500) ;; let stdout/stderr finish printing?
+            (throw (ex-info message (merge {:msg message
+                                            :cmd (seq cmd-for-exec)
+                                            :opts (dissoc opts :env)
+                                            :exit-code exit-code}
+                                           (when (and (not use-shell)
+                                                      (= 2 (count cmd)))
+                                             (let [file (fs/file (second cmd))]
+                                               (when (fs/exists? file)
+                                                 {:file (slurp file)}))))))))))))

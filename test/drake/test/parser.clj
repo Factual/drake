@@ -1,10 +1,12 @@
 (ns drake.test.parser
   (:use [clojure.tools.logging :only [warn debug trace]]
         clojure.test)
-  (:require [drake.parser :as d]))
+  (:require [drake.parser :as d]
+            [drake.parser_utils :as p])
+  (:import java.io.File))
 
-(defstruct state-s :vars :methods :line :column :remainder)
-(def make-state (partial struct state-s {"BASE" "/base"} #{} 0 0))
+(defn make-state [remainder]
+  (p/make-state remainder {"BASE" "/base"} #{} 0 0))
 
 (defn prod-eq?
   [actual-tuple expected-product]
@@ -38,6 +40,23 @@
   (is (var-eq? (d/var-def-line
                 (make-state "MYVAR=$(echo \"foo bar\" | sed s/o/u/g)\n"))
                "MYVAR" "fuu bar")))
+
+(defmacro with-ignored-command [[command-binding] & body]
+  `(let [f# (doto (File/createTempFile "drake-test" nil)
+              (.delete))
+         filename# (.getPath f#)
+         ~command-binding (format "$(echo ignored | tee %s)" filename#)]
+     ~@body
+     (is (not (.exists f#)))
+     (when (.exists f#)
+       (.delete f#))))
+
+(deftest ignored-shell-commands-not-run
+  (with-ignored-command [command]
+    (is (var-eq? (d/var-def-line (-> (format "CREATE:=%s\n" command)
+                                     (make-state)
+                                     (assoc :vars {"CREATE" "already-set"})))
+                 "CREATE" "already-set"))))
 
 (deftest options-test
   (is (prod-eq? (d/options (make-state "[shell]")) {:protocol "shell"}))
@@ -78,10 +97,10 @@
   (is (= (dissoc
           (first
            (d/step-def-line (make-state
-                             "a, %outtag1, %outtag2 <- b, c, %intag\n")))
+                             "'tom '\\''&'\\'' jerry', a, %outtag1, %outtag2 <- b, c, %intag\n")))
           :vars)
-         {:raw-outputs ["a"]
-          :outputs ["/base/a"]
+         {:raw-outputs ["tom '&' jerry" "a"]
+          :outputs ["/base/tom '&' jerry" "/base/a"]
           :output-tags ["outtag1" "outtag2"]
           :inputs '("/base/b" "/base/c")
           :input-tags ["intag"]
@@ -136,6 +155,22 @@
                                               :my_option "my_value"}
                                        :vars {"BASE" "/base"}}}})))
 
+(deftest ambiguity-test
+  (with-ignored-command [command]
+    (let [actual-prod
+          (d/workflow
+           (-> (make-state
+                (format (str "\n"
+                             "X:=%s \n"
+                             "combined.csv , z.csv <- a.csv, b.csv [protocol:bash +ignore] \n"
+                             "  q $[INPUTS]\n"
+                             "\n"
+                             "<- combined.csv\n"
+                             "  grep -v \"Scott's Cakes\" $INPUT > $OUTPUT\n")
+                        command))
+               (assoc :vars {"X" "exists"})))]
+      (is (var-eq? actual-prod "X" "exists")))))
+
 (deftest workflow-test
   (let [actual-prod
         (first
@@ -155,6 +190,20 @@
            [[\space \space \q \space #{"INPUTS"}]]))
     ))
 
+(deftest blank-line-test
+  (let [actual-prod
+        (first
+         (d/workflow
+          (make-state
+           (str "A <- B\n"
+                "  echo 1\n"
+                "\n"
+                "  echo 2\n"
+                "\n"
+                "C <- D\n"
+                "  echo 3\n"))))]
+    (is (= [2 1] (map (comp count :cmds) (:steps actual-prod))))))
+
 (deftest newline-test
   (let [actual-prod
         (first
@@ -167,21 +216,33 @@
     (is (= (count (:steps actual-prod)) 2))
     ))
 
+(defn locally [directive filename]
+  (str directive " "
+       (System/getProperty "user.dir")
+       "/test/drake/test/resources/"
+       filename
+       "\n"))
+
 (deftest include-test
   (let [actual-prod (d/call-or-include-line
                      (make-state
-                      (str "%include "
-                           (System/getProperty "user.dir")
-                           "/test/drake/test/resources/nested.d\n")))]
+                      (locally "%include" "nested.d")))]
     (is (var-eq? actual-prod "NESTEDVAR" "/foo"))
-    (is (var-eq? actual-prod "BASE" "/base/nest/")))
+    (is (var-eq? actual-prod "BASE" "/base/nest/"))
+    (is (contains? (:methods (second actual-prod))
+                   "sample_method")))
   (let [actual-prod (d/call-or-include-line
                      (make-state
-                      (str "%call "
-                           (System/getProperty "user.dir")
-                           "/test/drake/test/resources/nested.d\n")))]
+                      (locally "%call" "nested.d")))]
     (is (var-eq? actual-prod "NESTEDVAR" nil))
-    (is (var-eq? actual-prod "BASE" "/base"))))
+    (is (var-eq? actual-prod "BASE" "/base"))
+    (is (empty? (:methods (second actual-prod)))))
+  (let [actual-prod
+        (first
+         (d/workflow
+          (make-state (str (locally "%include" "nested.d")
+                           "sample <- [method:sample_method]\n"))))]
+    (is (contains? (:methods actual-prod) "sample_method"))))
 
 (def INLINE-SHELL-TEST-DATA "$(for DUDE in dude.txt babe.txt belle.txt; do echo \\\"$DUDE <\\\"\\\"-\\\"; echo \\\"  echo $DUDE\\\"; echo; done)\n")
 
@@ -197,6 +258,10 @@
     (is (= (get-in actual-prod [:steps 1 :raw-outputs 0]) "babe.txt"))
     (is (= (get-in actual-prod [:steps 2 :raw-outputs 0]) "belle.txt"))))
 
+(deftest test-shell-with-parens
+  (is (var-eq? (d/var-def-line (make-state "FOO=a$(echo '()')\n"))
+               "FOO" "a()")))
+
 (deftest errors-test
   (is (thrown-with-msg? Exception
         #"variable .* undefined at this point."
@@ -206,9 +271,8 @@
         (d/parse-str "VARNAME=abc^efg" nil)))
   (is (thrown-with-msg? Exception
         #"illegal syntax starting with .* for variable"
-        (d/parse-str (str  "%include "
-                           (System/getProperty "user.dir")
-                           "/test/drake/test/resources/bad_nested.d\n") nil)))
+        (d/parse-str (locally "%include" "bad_nested.d")
+                     nil)))
   (is (thrown-with-msg? Exception
         #"commands not allowed for method calls"
         (d/parse-str

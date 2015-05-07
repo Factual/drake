@@ -249,8 +249,8 @@ file:test2 <- test:A [test]
     (test-targets data "=double/and/trailing/slashes" "/")
     ;; All of this is equivalent - with BASE or without, and duplicated
     ;; and trailing slashes do not matter
-    (test-targets data "+=test:/base//a" "a")
-    (test-targets data "+=test:/base/a" "a")
+;    (test-targets data "+=test:/base//a" "a")
+;    (test-targets data "+=test:/base/a" "a")
     ;; matching without BASE
     (test-targets data "+=/a/" "a")
     (test-targets data "+=//a//" "a")

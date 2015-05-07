@@ -1,16 +1,14 @@
 (ns drake.parser
-  (:use [clojure.tools.logging :only [warn debug trace]]
-        [slingshot.slingshot :only [throw+]]
-        drake.shell
-        [drake.steps :only [add-dependencies calc-step-dirs]]
-        drake.utils
-        drake.parser_utils)
-  (:require [name.choi.joshua.fnparse :as p]
+  (:require [clojure.tools.logging :refer [warn debug trace]]
             [clojure.string :as s]
             [clojure.core.memoize :as memo]
-            [fs.core :as fs]
-            clojure.stacktrace
-            ))
+            [slingshot.slingshot :refer [throw+]]
+            [drake.shell :refer [shell]]
+            [drake.steps :refer [add-dependencies calc-step-dirs]]
+            [drake.utils :as utils :refer [clip ensure-final-newline]]
+            [drake.parser_utils :refer :all]
+            [name.choi.joshua.fnparse :as p]
+            [fs.core :as fs]))
 
   "This namespace is responsible for the overall parsing of a .d file into
    a standard 'parse tree'. Contains the top level logic to take a .d file name,
@@ -85,16 +83,6 @@
 (def default-base "")
 
 ;;
-;; Helper functions
-;;
-
-(defn ensure-ends-with-newline
-  [s]
-  (if (.endsWith s "\n") 
-    s 
-    (str s "\n")))
-
-;;
 ;; Drake-specific grammar rules
 ;;
 
@@ -112,7 +100,7 @@
 ;; escaped.
 ;; 3. Maybe allow using string literals for filenames as well ("filename")?
 (def filename-chars
-  (p/alt alphanumeric underscore hyphen period colon forward-slash equal-sign))
+  (p/alt alphanumeric underscore hyphen period colon forward-slash))
 
 (def inline-comment
   (p/conc semicolon (p/rep* non-line-break)))
@@ -142,16 +130,14 @@
               var-name (p/semantics (p/rep+ var-name-chars) apply-str)
               _ (p/failpoint close-bracket
                              (illegal-syntax-error-fn "variable"))
-              vars (p/get-info :vars)
-              inputs (p/get-info :inputs)
+              {:keys [vars inputs] :as state} p/get-state
               ]
              ;; even though we don't always make substitutions here,
              ;; we still check if the variable is defined
              ;; (unless it's a method in which case
              ;; we just don't know what variables will be available)
              (if (and var-check (not (contains? vars var-name)))
-               (throw+ {:msg (format "variable \"%s\" undefined at this point."
-                                     var-name)})
+               (throw-parse-error state "variable \"%s\" undefined at this point." var-name)
                (if-not substitute-value
                  #{var-name}
                  (get vars var-name)))))
@@ -174,7 +160,7 @@
   (let [cmd-out (java.io.StringWriter.)
         new-options (concat options [:out [cmd-out]])]
     (apply shell new-options)
-    (.toString cmd-out)))
+    (str cmd-out)))
 
 (def shell-memo (memo/memo shell-helper))
 
@@ -192,25 +178,31 @@
    [_ dollar-sign
     _ open-paren
     prod (p/semantics
-          (p/rep+ (p/alt single-quote-shell-string 
+          (p/rep+ (p/alt single-quote-shell-string
                          double-quote-shell-string
                          (var-sub true true)
                          (p/except string-char close-paren)))
           apply-str)
     _ (p/failpoint close-paren
                    (illegal-syntax-error-fn "command substitution"))
-    line (p/get-info :line) 
-    column (p/get-info :column)]
-
-    ;; stderr preserved by default
-    (let [result (shell-memo prod :line line :column column :die true :use-shell true)]
-      (debug "line =" line " column=" column " shell =" prod)
-      (debug "shell result = " result)
-      (s/trim-newline result))))
+    line (p/get-info :line)
+    column (p/get-info :column)
+    value-ignored (p/get-info :value-ignored)]
+   (if value-ignored
+     (format "[[shell expansion $(%s) which would be ignored by := assignment]]" prod)
+     ;; stderr preserved by default
+     (let [result (shell-memo prod :line line :column column :die true :use-shell true)]
+       (debug "line =" line " column=" column " shell =" prod)
+       (debug "shell result = " result)
+       (s/trim-newline result)))))
 
 (defn string-substitution
   [chars]
-  (p/semantics (p/rep+ (p/alt (var-sub true true) command-sub chars))
+  (p/semantics (p/rep+ (p/alt (var-sub true true)
+                              strong-quote
+                              escape-sequence
+                              command-sub
+                              chars))
                apply-str))
 
 (def option-true-bool
@@ -266,9 +258,9 @@
                          vals
                          (throw-parse-error
                           p/get-state
-                          (format "option \"%s\" cannot have multiple values."
-                                  (name key))
-                          nil)))]) val-vectors))))
+                          "option \"%s\" cannot have multiple values."
+                          (name key))))])
+                  val-vectors))))
 
 (def options
   "input: options for a step definition. ie., [shell +hadoop my_var:my_value]
@@ -308,11 +300,12 @@
 (defn add-prefix
   "Appends prefix if necessary (unless prepended by '!')."
   [prefix file]
-  (if (= \! (first file))
-    (clip file)
-    (str prefix file)))
+  (cond (= \! (first file)) (clip file)
+        (= \/ (first file)) file
+        (re-matches #"[a-zA-z][a-zA-Z0-9+.-]*:.*" file) file
+        :else (str prefix file)))
 
-(defn add-path-sep-suffix [path]
+(defn add-path-sep-suffix [^String path]
   (if (or (empty? path)
           (.endsWith path "/")
           (.endsWith path ":"))
@@ -340,12 +333,11 @@
        'INPUT2' 'tim.yaml'
      }"
   [items prefix]
-  (reduce
-   #(assoc %1 (str prefix (first %2)) (second %2))
-   {prefix (first items)
-    (str prefix "S") (s/join " " items)
-    (str prefix "N") (count items)}
-   (keep-indexed vector items)))
+  (into {prefix (first items),
+         (str prefix "S") (s/join " " items),
+         (str prefix "N") (count items)}
+        (for [[i v] (map-indexed vector items)]
+          [(str prefix i) v])))
 
 ;; TODO(artem)
 ;; Should we move this to a common library?
@@ -461,8 +453,11 @@
 
     ;; generate vars from step-def-line, so that commands can refer to them
     _ (p/update-info :vars #(merge % (:vars step-def-product)))
-    commands (p/failpoint (p/rep* (command-line true))
-                          (illegal-syntax-error-fn "step"))
+
+    ;; make sure that non-indented blank lines don't terminate the command list
+    commands (p/rep* (p/alt (p/constant-semantics line-break :empty)
+                            (command-line true)))
+    :let [commands (remove #{:empty} commands)]
 
     ;; auto generated vars only persist during the step; unwind var scope
     _ (p/set-info :vars orig-vars)
@@ -470,32 +465,28 @@
    (let [step-prod (merge
                     step-def-product
                     (deep-merge commands))
-         method (get-in step-def-product [:opts :method])
-         method-mode (get-in step-def-product [:opts :method-mode])]
+         {:keys [method method-mode template]} (:opts step-def-product)]
      (cond
       (not (or (empty? method) (methods method)))
-      (throw-parse-error state (format "method '%s' undefined at this point."
-                                       method)
-                         nil)
+      (throw-parse-error state "method '%s' undefined at this point."
+                         method)
 
       (not (or (empty? method-mode) (#{"use" "append" "replace"} method-mode)))
       (throw-parse-error state (str "invalid method-mode, valid values are: "
-                                    "use (default), append, and replace.")
-                         nil)
+                                    "use (default), append, and replace."))
 
       (not (or method (empty? method-mode)))
       (throw-parse-error state
-                         "method-mode specified but method name not given"
-                         nil)
+                         "method-mode specified but method name not given")
 
       (and method (not (#{"append" "replace"} method-mode))
            (not (empty? commands)))
       (throw-parse-error state
                          (str "commands not allowed for method calls "
                               "(use method-mode:append or method-mode:replace "
-                              "to allow)") nil)
+                              "to allow)"))
 
-      (= true (get-in step-def-product [:opts :template]))
+      template
       {:templates [step-prod]}
 
       :else
@@ -539,18 +530,23 @@
    my_var=my_value\n
    output: nil, but state is updated with var definition"
   (p/complex
-   [var-name (p/rep+ var-name-chars)
+   [vars (p/get-info :vars)
+    var-name (p/rep+ var-name-chars)
+    _ (p/opt inline-ws)
     has-colon (p/opt colon)
     _ equal-sign
+    _ (p/opt inline-ws)
+    :let [use-value (or (not has-colon) (empty? (get vars (apply-str var-name))))]
+    _ (p/update-info :value-ignored (constantly (not use-value)))
     var-value (p/alt (string-substitution var-value-chars) string-lit)
+    _ (p/update-info :value-ignored (constantly false))
     _ (p/opt inline-ws)
     _ (p/opt inline-comment)
     _ (p/failpoint line-break (illegal-syntax-error-fn "variable definition"))
-    vars (p/get-info :vars)
-    _ (if (and has-colon (not (empty? (get vars (apply-str var-name)))))
-        p/emptiness  ; nothing if := assignment but the var is not empty
+    _ (if use-value
         (p/update-info :vars
-                     #(assoc % (apply-str var-name) var-value)))]
+                       #(assoc % (apply-str var-name) var-value))
+        p/emptiness)]
     nil))
 
 (declare call-or-include-line)
@@ -585,19 +581,19 @@
      line (p/get-info :line)]
 
     (parse-state
-      (struct state-s
-              (ensure-ends-with-newline tokens)
-              vars 
-              methods 
-              0 
-              line)))) ; try to preserve line number as best we can 
+      (make-state
+              (ensure-final-newline tokens)
+              vars
+              methods
+              0
+              line)))) ; try to preserve line number as best we can
 
 (def inline-shell-cmd-line
   "input: shell command on its own line, e.g.
   $(echo '%include dude.d')
   The output of the shell command will be placed inline the workflow file.
   This can be recursive, i.e. shell commands can print more shell commands.
-  
+
   Split into two parts for much the same reason as call-or-include-line is."
   (p/complex
    [prod inline-shell-helper
@@ -623,15 +619,15 @@
    (let [raw-base (get vars "BASE" default-base)
          base (add-path-sep-suffix raw-base)
          ;; Need to use fs/file here to honor cwd
-         tokens (slurp (fs/file file-path))
+         ^String tokens (slurp (fs/file file-path))
          prod (parse-state
-               (assoc (struct state-s
-                        (if (.endsWith tokens "\n") tokens (str tokens "\n"))
+               (assoc (make-state
+                        (ensure-final-newline tokens)
                         vars methods 0 0)
                  :file-path file-path))]
      (if (= directive "include")
-       prod ;call-or-include line will merge vars from prod into parent's vars
-       (dissoc prod :vars))))) ;vars from %call should not affect parent
+       prod ;call-or-include line will merge vars+methods from prod into parent's vars
+       (dissoc prod :vars :methods))))) ;vars+methods from %call should not affect parent
 
 (def call-or-include-line
   "input: directive to call/include another Drake workflow. ie.,
@@ -649,8 +645,9 @@
    \"complex\". Thus we add a wrapper rule to set the variable."
   (p/complex
    [prod call-or-include-helper
-    _ (if (:vars prod)
-        (p/set-info :vars (:vars prod))
+    _ (if (some prod [:vars :methods])
+        (p/conc (p/set-info :vars (:vars prod))
+                (p/set-info :methods (:methods prod)))
         p/emptiness)]
    (dissoc prod :vars)))
 
@@ -658,22 +655,24 @@
 ;; The functions below uses the rules to parse workflows.
 
 (defn parse-state  [state]
-  (->
-   (p/rule-match workflow
-                 #((illegal-syntax-error-fn "start of workflow")
-                   (:remainder %2) %2) ;; fail
-                 #((illegal-syntax-error-fn "workflow")
-                   (:remainder %2) %2) ;; incomplete match
-                 state)
-   add-dependencies
-   calc-step-dirs))
+  (with-redefs [p/*remainder-accessor* remainder-accessor
+                p/*remainder-setter* remainder-setter]
+    (->
+     (p/rule-match workflow
+                   #((illegal-syntax-error-fn "start of workflow")
+                     (:remainder %2) %2) ;; fail
+                   #((illegal-syntax-error-fn "workflow")
+                     (:remainder %2) %2) ;; incomplete match
+                   state)
+     add-dependencies
+     calc-step-dirs)))
 
-(defn parse-str [tokens vars]
+(defn parse-str [^String tokens vars]
   (trace "Parsing started...")
-  (with-time-elapsed
-    (in-ms debug "Parsing")
-    (parse-state (struct state-s
-                         (if (.endsWith tokens "\n") tokens (str tokens "\n"))
+  (utils/with-time-elapsed
+    (utils/in-ms debug "Parsing")
+    (parse-state (make-state
+                         (ensure-final-newline tokens)
                          (merge {"BASE" default-base} vars)
                          #{}
                          1 1))))

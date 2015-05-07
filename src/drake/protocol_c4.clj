@@ -2,23 +2,18 @@
   "Implements a c4 protocol for Drake steps. Sexy.
    https://github.com/Factual/c4"
   (:require [c4.core :as c4]
-            [clojure.string :as str]
-            [clojure.java.io :as io]
-            [cemerick.pomegranate :as pom]
-            [sosueme.conf :as conf]
-            [fs.core :as fs]
-            [factql.core :as factql]
             [c4.apis.foursquare :as foursquare]
             [c4.apis.yelp :as yelp]
             [c4.apis.google :as google]
-            [sosueme.conf :as conf]
+            [clojure.string :as str]
+            [clojure.tools.logging :refer [debug]]
+            [cemerick.pomegranate :as pom]
+            [slingshot.slingshot :refer [throw+]]
             [fs.core :as fs]
-            [retry.core :as retry])
-  (:use [clojure.tools.logging :only [debug]]
-        [slingshot.slingshot :only [throw+]]
-        factql.core
-        drake.protocol
-        [drake-interface.core :only [Protocol]]))
+            [factql.core :as factql]
+            [sosueme.conf :as conf]
+            [drake.protocol :as protocol]
+            [drake-interface.core :refer [Protocol]]))
 
 
 ;;
@@ -93,6 +88,28 @@
 
 (defn dot-factual-file-exists? [name]
   (fs/exists? (dot-factual-file name)))
+
+(defmacro with-ns
+  "Uses ns-resolve to pull in the specified namespace(s) and functions.
+   This is handy for the on-the-fly eval of c4 step code, i.e. when we
+   need to make extra stuff available.
+
+   First argument is a hash-map, each key is a namespace and each val is
+   the set of functions needed from that namespace.
+
+   Example c4 step code that uses this:
+   out.json <- in.json [c4row]
+     (with-ns {clojure.data [diff]}
+       (first (diff (row \"aColumn\"))))"
+ [needed-functions & body]
+  `(do
+     ~@(for [namespace (keys needed-functions)]
+         `(require '~namespace))
+     (let [~@(apply concat
+                    (for [[namespace vars] needed-functions
+                          v vars]
+                      [v `@(ns-resolve '~namespace '~v)]))]
+       (do ~@body))))
 
 (defn init-if! [service auth-fn]
   (let [auth-file (str service "-auth.yaml")]
@@ -197,11 +214,11 @@
 
 (defn- register-c4-protocol!
   [[protocol-name func]]
-  (register-protocols! protocol-name
-                       (reify Protocol
-                         (cmds-required? [_] false)
-                         (run [_ step]
-                           (exec-or-passthru step func)))))
+  (protocol/register-protocols! protocol-name
+                                (reify Protocol
+                                  (cmds-required? [_] false)
+                                  (run [_ step]
+                                    (exec-or-passthru step func)))))
 
 (dorun (map register-c4-protocol! [["c4" exec-c4]
                                    ["c4row" exec-row-xform]
