@@ -1,4 +1,4 @@
-## Unreleased
+## 0.1.7
 ### New Features
 * Created core/DEFAULT-TARGETV constant; use in clj_frontend
 * Added with-ns macro to support c4 runtime dependency resolution
@@ -6,6 +6,7 @@
 * Added `--var x=y --var a=b` syntax, as better version of `--vars x=y,a=b`
 * Added `--graph` option to help visualize a workflow
 * bugfix: [#157] (https://github.com/Factual/drake/issues/157)
+* Added [handy drake script](https://github.com/Factual/drake/blob/master/bin/drake) for convenience and better customized hadoop client version.
 
 ### Bug Fixes
 * Allow unindented blank lines in step definitions, as per [#72](https://github.com/Factual/drake/issues/129)
