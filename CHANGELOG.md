@@ -1,4 +1,4 @@
-## 0.2.0
+## 0.1.7
 ### New Features
 * Created core/DEFAULT-TARGETV constant; use in clj_frontend
 * Added with-ns macro to support c4 runtime dependency resolution
