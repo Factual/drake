@@ -149,6 +149,11 @@ There are annotated workflow examples in the demos directory.
 
 There's a [Google Group for Drake](https://groups.google.com/forum/?fromgroups#!forum/drake-workflow) where you can ask questions. And if you found a bug or want to submit a feature request, go to [Drake's GitHub issues page](https://github.com/Factual/drake/issues?sort=created&state=open).
 
+## Visualize your workflow
+See more [detail](https://github.com/Factual/drake/wiki/Visualize-your-workflow)
+
+<img src="https://cloud.githubusercontent.com/assets/855457/7533038/509e37f8-f5a0-11e4-8c2e-8951272811af.png"/>
+
 ## Asynchronous Execution of Steps
 
 Please see [the wiki page on async](https://github.com/Factual/drake/wiki/Async-Execution-of-Steps).
