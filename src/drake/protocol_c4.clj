@@ -7,7 +7,6 @@
             [cemerick.pomegranate :as pom]
             [slingshot.slingshot :refer [throw+]]
             [fs.core :as fs]
-            [sosueme.conf :as conf]
             [drake.protocol :as protocol]
             [drake-interface.core :refer [Protocol]]))
 
@@ -60,14 +59,6 @@
     (when (not= output-cnt 1)
       (throw+ {:msg "c4: your c4 steps need exactly 1 output"}))))
 
-(defn dot-factual-file [name]
-  (-> (fs/home)
-      (fs/file ".factual")
-      (fs/file name)))
-
-(defn dot-factual-file-exists? [name]
-  (fs/exists? (dot-factual-file name)))
-
 (defmacro with-ns
   "Uses ns-resolve to pull in the specified namespace(s) and functions.
    This is handy for the on-the-fly eval of c4 step code, i.e. when we
@@ -89,14 +80,6 @@
                           v vars]
                       [v `@(ns-resolve '~namespace '~v)]))]
        (do ~@body))))
-
-(defn init-if! [service auth-fn]
-  (let [auth-file (str service "-auth.yaml")]
-    (if (dot-factual-file-exists? auth-file)
-      (do
-        (auth-fn (conf/dot-factual auth-file))
-        (debug "c4: Found auth for" service))
-      (debug "c4: Did not find" auth-file "; not initiating" service))))
 
 (defn add-ns [clj-str]
   (str "(ns drake.protocol-c4)\n" clj-str))
