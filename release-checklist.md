@@ -9,3 +9,5 @@
   * Create release label, using github release feature
   * Update README uberjar link
   * Notify newsgroup
+  * Release on Homebrew, send a pull request
+  * TODO: release for apt-get
