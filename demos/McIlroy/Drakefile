@@ -13,10 +13,9 @@
 ; saves a sorted list of those words along with their frequencies.
 ;
 word-freqs.txt <- book.txt
-  cat $INPUT |
-  tr -cs A-Za-z '\n' |
+  tr -cs A-Za-z '\n' < $INPUT |
   tr A-Z a-z |
   sort |
   uniq -c |
   sort -rn |
-  sed 12q > $OUTPUT
+  head -n12 > $OUTPUT
