@@ -29,7 +29,7 @@ if [[ `which hadoop` ]]; then
   HADOOP_VERSION=`hadoop version | head -1`
   echo $HADOOP_VERSION
 else
-  echo "Warning: hadoop client not found. HDFS related feature will not work correctly"
+  echo "Warning: hadoop client not found. HDFS related feature will not work correctly. Ignore this message if you don't need HDFS support."
 fi
 
 if [[ `which drip` ]]; then
