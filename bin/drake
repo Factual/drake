@@ -10,15 +10,21 @@ if [[ ! -f $DRAKE_JAR ]]; then
 fi
 
 if [[ ! -f $DRAKE_JAR ]]; then
+  echo ""
   echo "========= UBERJAR COMPILING ========="
   cd $DRAKE_HOME
   lein uberjar
   cd - > /dev/null
-  echo "========= UBERJAR COMPILED ========="
+  echo "========= UBERJAR COMPILED =========="
+  echo ""
 fi
 
 if [[ `which hadoop` ]]; then
   HADOOP_CLASSPATH=`hadoop classpath 2>/dev/null`
+  HADOOP_VERSION=`hadoop version | head -1`
+  echo $HADOOP_VERSION
+else
+  echo "Warning: hadoop client not found. HDFS related feature will not work correctly"
 fi
 
 if [[ `which drip` ]]; then
