@@ -1,6 +1,11 @@
 #!/bin/bash
 # Runs Drake without Nailgun (needs an uberjar)
-DRAKE_HOME=${DRAKE_HOME-$(dirname $(dirname $0))}
+DRAKE_PATH=$0
+if [[ -L $DRAKE_PATH ]]; then
+  DRAKE_PATH=`readlink $0`
+fi
+
+DRAKE_HOME=${DRAKE_HOME-$(dirname $(dirname $DRAKE_PATH))}
 echo "Using DRAKE_HOME: ${DRAKE_HOME}"
 
 DRAKE_JAR=$DRAKE_HOME/drake.jar
