@@ -1,9 +1,6 @@
 #!/bin/bash
 # Runs Drake without Nailgun (needs an uberjar)
 
-DRAKE_VERSION=v0.1.7
-DRAKE_URL=https://github.com/Factual/drake/releases/download/$DRAKE_VERSION/drake.jar
-
 # This needs to be defined before we call HTTP_CLIENT below
 if [ "$HTTP_CLIENT" = "" ]; then
     if type -p curl >/dev/null 2>&1; then
@@ -15,6 +12,19 @@ if [ "$HTTP_CLIENT" = "" ]; then
         HTTP_CLIENT="wget -O"
     fi
 fi
+
+DRAKE_SCRIPT_URL=https://raw.githubusercontent.com/Factual/drake/master/bin/drake
+DRAKE_TMP_SCRIPT=/tmp/drake_script.sh.tmp
+
+if [ "$1" = "upgrade" ]; then
+  $HTTP_CLIENT $DRAKE_TMP_SCRIPT $DRAKE_SCRIPT_URL
+  mv $DRAKE_TMP_SCRIPT $(dirname $0)/drake
+  chmod 744 $(dirname $0)/drake
+  exit 0
+fi
+
+DRAKE_VERSION=v0.1.7
+DRAKE_URL=https://github.com/Factual/drake/releases/download/$DRAKE_VERSION/drake.jar
 
 function build_jar {
   echo "Using DRAKE_HOME: $DRAKE_HOME"
