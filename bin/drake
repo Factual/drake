@@ -33,7 +33,7 @@ if [ "$1" = "upgrade" ]; then
     SCRIPT_TARGET=$(dirname $0)/drake
   fi
   mv $DRAKE_TMP_SCRIPT $SCRIPT_TARGET
-  chmod 744 $SCRIPT_TARGET
+  chmod 755 $SCRIPT_TARGET
   exec $SCRIPT_TARGET version
   exit 0
 fi
