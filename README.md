@@ -22,13 +22,20 @@ If you like screencasts, check out this [Drake walk-through video](http://www.yo
 You will need to have a JVM installed. Drake has been tested under Linux, Mac OS X and Windows 8.
 We've not tested it on other operating systems.
 
+Drake installs itself on the first run of the `drake` shell script; there is no
+separate install script.  Follow these instructions to install Leiningen manually:
+
+1. Make sure you have a Java JDK version 6 or later.
+2. [Download the `drake` script from the `master` branch](https://raw.githubusercontent.com/Factual/drake/master/bin/drake)
+ of this project.
+3. Place it on your `$PATH`. (`~/bin` is a good choice if it is on your path.)
+4. Set it to be executable. (`chmod 755 ~/bin/lein`)
+5. Run it.
+
 ### Download or build the uberjar
 
 You can build Drake from source, which is the preferred way to run the most
-up-to-date version, or you can
-[download a prebuilt uberjar](https://github.com/Factual/drake/releases/download/v0.1.7/drake.jar)
-
-,which may not be the most recent version of Drake.
+up-to-date version, or you can [download a prebuilt uberjar](https://github.com/Factual/drake/releases/download/v0.1.7/drake.jar), which may not be the most recent version of Drake.
 
 Following are instructions for building from source. Drake is a Clojure project, so you will need to have [leiningen](https://github.com/technomancy/leiningen).
 
