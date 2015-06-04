@@ -28,7 +28,7 @@ fi
 
 if [ "$1" = "upgrade" ]; then
   $HTTP_CLIENT $DRAKE_TMP_SCRIPT $DRAKE_SCRIPT_URL
-  if [[ -L $0 ]]; then
+  if [ -L $0 ]; then
     SCRIPT_TARGET=$(dirname `readlink $0`)/drake
   else
     SCRIPT_TARGET=$(dirname $0)/drake
@@ -53,10 +53,10 @@ function build_jar {
   fi
 }
 
-if [[ -z ${DRAKE_HOME:+x} ]]; then
+if [ -z ${DRAKE_HOME:+x} ]; then
   echo "Detecting DRAKE_HOME......"
   DRAKE_SCRIPT_PATH=$0
-  if [[ -L $DRAKE_SCRIPT_PATH ]]; then
+  if [ -L $DRAKE_SCRIPT_PATH ]; then
     DRAKE_SCRIPT_PATH=`readlink $0`
   fi
   DRAKE_HOME=$(dirname $(dirname $DRAKE_SCRIPT_PATH))
@@ -81,14 +81,16 @@ fi
 
 ## Try to include local hadoop library to classpath for HDFS support
 ## If hadoop client is not installed locally, it defaults to build-in hadoop version
-if [[ `which hadoop` ]]; then
-  HADOOP_CLASSPATH=`hadoop classpath 2>/dev/null`
-  HADOOP_VERSION=`hadoop version | head -1`
-  echo $HADOOP_VERSION
-else
-  echo ""
-  echo "Warning: hadoop client not found. HDFS related feature will not work correctly. Ignore this message if you don't need HDFS support."
-  echo ""
+if [ -z ${HADOOP_CLASSPATH:+x} ]; then
+  if [[ `which hadoop` ]]; then
+    HADOOP_CLASSPATH=`hadoop classpath 2>/dev/null`
+    HADOOP_VERSION=`hadoop version | head -1`
+    echo $HADOOP_VERSION
+  else
+    echo ""
+    echo "Warning: hadoop client not found. HDFS related feature will not work correctly. Ignore this message if you don't need HDFS support."
+    echo ""
+  fi
 fi
 
 if [[ `which drip` ]]; then
