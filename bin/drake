@@ -80,6 +80,7 @@ fi
 
 ## Try to include local hadoop library to classpath for HDFS support
 ## If hadoop client is not installed locally, it defaults to build-in hadoop version
+## It doesn't matter if you do not need HDFS support
 if [ -z ${HADOOP_CLASSPATH:+x} ]; then
   if [[ `which hadoop` ]]; then
     HADOOP_CLASSPATH=`hadoop classpath 2>/dev/null`
