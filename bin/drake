@@ -13,8 +13,18 @@ if [ "$HTTP_CLIENT" = "" ]; then
     fi
 fi
 
+DRAKE_VERSION=v0.1.7
+
 DRAKE_SCRIPT_URL=https://raw.githubusercontent.com/Factual/drake/master/bin/drake
+DRAKE_URL=https://github.com/Factual/drake/releases/download/$DRAKE_VERSION/drake.jar
+
 DRAKE_TMP_SCRIPT=/tmp/drake_script.sh.tmp
+
+if [ "$1" = "version" ]; then
+  echo "Drake version: $DRAKE_VERSION"
+  lein version
+  exit 0
+fi
 
 if [ "$1" = "upgrade" ]; then
   $HTTP_CLIENT $DRAKE_TMP_SCRIPT $DRAKE_SCRIPT_URL
@@ -22,9 +32,6 @@ if [ "$1" = "upgrade" ]; then
   chmod 744 $(dirname $0)/drake
   exit 0
 fi
-
-DRAKE_VERSION=v0.1.7
-DRAKE_URL=https://github.com/Factual/drake/releases/download/$DRAKE_VERSION/drake.jar
 
 function build_jar {
   echo "Using DRAKE_HOME: $DRAKE_HOME"
