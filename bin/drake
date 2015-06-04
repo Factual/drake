@@ -28,8 +28,14 @@ fi
 
 if [ "$1" = "upgrade" ]; then
   $HTTP_CLIENT $DRAKE_TMP_SCRIPT $DRAKE_SCRIPT_URL
-  mv $DRAKE_TMP_SCRIPT $(dirname $0)/drake
-  chmod 744 $(dirname $0)/drake
+  if [[ -L $0 ]]; then
+    SCRIPT_TARGET=$(dirname `readlink $0`)/drake
+  else
+    SCRIPT_TARGET=$(dirname $0)/drake
+  fi
+  mv $DRAKE_TMP_SCRIPT $SCRIPT_TARGET
+  chmod 744 $SCRIPT_TARGET
+  exec $SCRIPT_TARGET version
   exit 0
 fi
 
