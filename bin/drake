@@ -67,7 +67,7 @@ if [ ! -z ${DRAKE_HOME:+x} ] && [ -d $DRAKE_HOME ] && [ -f "$DRAKE_HOME/project.
 else
   DRAKE_HOME=~/.drakerc
   mkdir -p $DRAKE_HOME/jar
-  DRAKE_JAR=$DRAKE_HOME/jar/drake-$DRAKE_VERSION.jar
+  DRAKE_JAR=$DRAKE_HOME/jar/drake-$DRAKE_VERSION-standalone.jar
   if [ ! -f $DRAKE_JAR ]; then
     $HTTP_CLIENT $DRAKE_JAR $DRAKE_URL
     exit_code=$?
@@ -79,6 +79,8 @@ else
 fi
 
 
+## Try to include local hadoop library to classpath for HDFS support
+## If hadoop client is not installed locally, it defaults to build-in hadoop version
 if [[ `which hadoop` ]]; then
   HADOOP_CLASSPATH=`hadoop classpath 2>/dev/null`
   HADOOP_VERSION=`hadoop version | head -1`
