@@ -22,7 +22,6 @@ DRAKE_TMP_SCRIPT=/tmp/drake_script.sh.tmp
 
 if [ "$1" = "version" ]; then
   echo "Drake version: $DRAKE_VERSION"
-  lein version
   exit 0
 fi
 
