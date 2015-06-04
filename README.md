@@ -23,7 +23,7 @@ You will need to have a JVM installed. Drake has been tested under Linux, Mac OS
 We've not tested it on other operating systems.
 
 Drake installs itself on the first run of the `drake` shell script; there is no
-separate install script.  Follow these instructions to install Leiningen manually:
+separate install script.  Follow these instructions to install drake manually:
 
 1. Make sure you have a Java JDK version 6 or later.
 2. [Download the `drake` script from the `master` branch](https://raw.githubusercontent.com/Factual/drake/master/bin/drake)
