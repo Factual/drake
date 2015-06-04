@@ -80,8 +80,6 @@ The JVM startup time can be a nuisance. To reduce startup time, we recommend usi
 
 ## Basic Usage
 
-Drake documentation refers to running Drake as "drake". If you are instead running the uberjar, just replace "drake" with "java -jar drake.jar" in the examples.
-
 The [wiki](https://github.com/Factual/drake/wiki) is the home for Drake's documentation, but here are simple notes on usage:
 
 To build a specific target (and any out-of-date dependencies, if necessary):
