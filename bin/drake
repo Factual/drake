@@ -1,39 +1,73 @@
 #!/bin/bash
 # Runs Drake without Nailgun (needs an uberjar)
-DRAKE_PATH=$0
-if [[ -L $DRAKE_PATH ]]; then
-  DRAKE_PATH=`readlink $0`
+
+DRAKE_VERSION=v0.1.7
+DRAKE_URL=https://github.com/Factual/drake/releases/download/$DRAKE_VERSION/drake.jar
+
+# This needs to be defined before we call HTTP_CLIENT below
+if [ "$HTTP_CLIENT" = "" ]; then
+    if type -p curl >/dev/null 2>&1; then
+        if [ "$https_proxy" != "" ]; then
+            CURL_PROXY="-x $https_proxy"
+        fi
+        HTTP_CLIENT="curl $CURL_PROXY -f -L -o"
+    else
+        HTTP_CLIENT="wget -O"
+    fi
 fi
 
-DRAKE_HOME=${DRAKE_HOME-$(dirname $(dirname $DRAKE_PATH))}
-echo "Using DRAKE_HOME: ${DRAKE_HOME}"
-
-DRAKE_JAR=$DRAKE_HOME/drake.jar
-
-if [[ ! -f $DRAKE_JAR ]]; then
+function build_jar {
+  echo "Using DRAKE_HOME: $DRAKE_HOME"
   DRAKE_JAR=$DRAKE_HOME/target/drake.jar
+  if [[ ! -f $DRAKE_JAR ]]; then
+    echo ""
+    echo "========= UBERJAR COMPILING ========="
+    cd $DRAKE_HOME
+    lein uberjar
+    cd - > /dev/null
+    echo "========= UBERJAR COMPILED =========="
+    echo ""
+  fi
+}
+
+if [[ -z ${DRAKE_HOME:+x} ]]; then
+  echo "Detecting DRAKE_HOME......"
+  DRAKE_SCRIPT_PATH=$0
+  if [[ -L $DRAKE_SCRIPT_PATH ]]; then
+    DRAKE_SCRIPT_PATH=`readlink $0`
+  fi
+  DRAKE_HOME=$(dirname $(dirname $DRAKE_SCRIPT_PATH))
 fi
 
-if [[ ! -f $DRAKE_JAR ]]; then
-  echo ""
-  echo "========= UBERJAR COMPILING ========="
-  cd $DRAKE_HOME
-  lein uberjar
-  cd - > /dev/null
-  echo "========= UBERJAR COMPILED =========="
-  echo ""
+if [ ! -z ${DRAKE_HOME:+x} ] && [ -d $DRAKE_HOME ] && [ -f "$DRAKE_HOME/project.clj" ] ; then
+  build_jar
+else
+  DRAKE_HOME=~/.drakerc
+  mkdir -p $DRAKE_HOME/jar
+  DRAKE_JAR=$DRAKE_HOME/jar/drake-$DRAKE_VERSION.jar
+  if [ ! -f $DRAKE_JAR ]; then
+    $HTTP_CLIENT $DRAKE_JAR $DRAKE_URL
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+      echo "ERROR: Failed to download $DRAKE_URL with exit code $exit_code"
+      exit 1
+    fi
+  fi
 fi
+
 
 if [[ `which hadoop` ]]; then
   HADOOP_CLASSPATH=`hadoop classpath 2>/dev/null`
   HADOOP_VERSION=`hadoop version | head -1`
   echo $HADOOP_VERSION
 else
+  echo ""
   echo "Warning: hadoop client not found. HDFS related feature will not work correctly. Ignore this message if you don't need HDFS support."
+  echo ""
 fi
 
 if [[ `which drip` ]]; then
-  drip -cp ${HADOOP_CLASSPATH}:${DRAKE_JAR} drake.core "$@"
+  drip -cp $HADOOP_CLASSPATH:$DRAKE_JAR drake.core "$@"
 else
-  java -cp ${HADOOP_CLASSPATH}:${DRAKE_JAR} drake.core "$@"
+  java -cp $HADOOP_CLASSPATH:$DRAKE_JAR drake.core "$@"
 fi
