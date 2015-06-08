@@ -61,11 +61,13 @@
 ;; TODO(artem) Tags are not supported here
 (defn- step-string
   "Returns step's symbolic representation for printing."
-  [step]
-  (str/join " <- "
-            (for [[tags files] [[:output-tags :outputs] [:input-tags :inputs]]]
-              (str/join ", " (concat (map (partial str "%") (step tags))
-                                     (step files))))))
+  ([step]
+     (step-string step identity))
+  ([step step-modifier]
+     (str/join " <- "
+               (for [[tags files] [[:output-tags :outputs] [:input-tags :inputs]]]
+                 (str/join ", " (concat (map (partial str "%") (step tags))
+                                        (map step-modifier (step files))))))))
 
 (defn- user-confirms?
   "Returns true if the user enters 'Y', otherwise returns false."
@@ -285,7 +287,8 @@
                                  (get-in parse-tree [:steps index])
                                  (contains? #{"projected timestamped"
                                               "forced"}
-                                            cause)))
+                                            cause))
+                                (utils/strip-base parse-tree))
                    cause)))))
 
 ;; TODO(artem):

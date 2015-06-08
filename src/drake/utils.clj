@@ -1,8 +1,9 @@
 (ns drake.utils
   (:require [jlk.time.core :as time]
             [clojure.string :as str]
+            [ordered.set :as ordered]
             [fs.core :as fs])
-  (:require [ordered.set :as ordered]))
+  (:import (java.util.regex Pattern)))
 
 ;; TODO(artem)
 ;; The several functions below in between + lines are not Drake-specific and
@@ -86,3 +87,11 @@
   [file]
   (subs (.getAbsolutePath (fs/file file))
         (inc (count (.getAbsolutePath (fs/file fs/*cwd*))))))
+
+(defn strip-base
+  "Given a parse tree, returns a function that will strip BASE prefixes from a string."
+  [parse-tree]
+  (let [base (get-in parse-tree [:vars "BASE"])
+        re (re-pattern (format "^%s/" (Pattern/quote base)))]
+    (fn [target]
+      (str/replace target re ""))))
