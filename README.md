@@ -29,7 +29,7 @@ separate install script.  Follow these instructions to install drake manually:
 2. [Download the `drake` script from the `master` branch](https://raw.githubusercontent.com/Factual/drake/master/bin/drake)
  of this project.
 3. Place it on your `$PATH`. (`~/bin` is a good choice if it is on your path.)
-4. Set it to be executable. (`chmod 755 ~/bin/lein`)
+4. Set it to be executable. (`chmod 755 ~/bin/drake`)
 5. Run it.
 
 ### Download or build the uberjar
