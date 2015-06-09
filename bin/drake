@@ -68,6 +68,7 @@ else
   mkdir -p $DRAKE_HOME/jar
   DRAKE_JAR=$DRAKE_HOME/jar/drake-$DRAKE_VERSION-standalone.jar
   if [ ! -f $DRAKE_JAR ]; then
+    echo "Downloading drake jar for version $DRAKE_VERSION"
     $HTTP_CLIENT $DRAKE_JAR $DRAKE_URL
     exit_code=$?
     if [ $exit_code -ne 0 ]; then
