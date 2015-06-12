@@ -21,11 +21,12 @@ DRAKE_URL=https://github.com/Factual/drake/releases/download/$DRAKE_VERSION/drak
 DRAKE_TMP_SCRIPT=/tmp/drake_script.sh.tmp
 
 if [ "$1" = "version" ]; then
-  echo "Drake version: $DRAKE_VERSION"
+  echo "Drake now is on version: $DRAKE_VERSION"
   exit 0
 fi
 
 if [ "$1" = "upgrade" ]; then
+  echo "Downloading latest drake script..."
   $HTTP_CLIENT $DRAKE_TMP_SCRIPT $DRAKE_SCRIPT_URL
   if [ -L $0 ]; then
     SCRIPT_TARGET=$(dirname `readlink $0`)/drake
@@ -34,6 +35,7 @@ if [ "$1" = "upgrade" ]; then
   fi
   mv $DRAKE_TMP_SCRIPT $SCRIPT_TARGET
   chmod 755 $SCRIPT_TARGET
+  echo "Drake script has been upgraded to latest version."
   exec $SCRIPT_TARGET version
   exit 0
 fi
@@ -68,13 +70,17 @@ else
   mkdir -p $DRAKE_HOME/jar
   DRAKE_JAR=$DRAKE_HOME/jar/drake-$DRAKE_VERSION-standalone.jar
   if [ ! -f $DRAKE_JAR ]; then
-    echo "Downloading drake jar for version $DRAKE_VERSION"
-    $HTTP_CLIENT $DRAKE_JAR $DRAKE_URL
+    echo "Downloading drake jar for version $DRAKE_VERSION..."
+    echo ""
+    $HTTP_CLIENT $DRAKE_JAR.tmp $DRAKE_URL
     exit_code=$?
     if [ $exit_code -ne 0 ]; then
       echo "ERROR: Failed to download $DRAKE_URL with exit code $exit_code"
       exit 1
     fi
+    mv $DRAKE_JAR.tmp $DRAKE_JAR
+    echo ""
+    echo "Drake jar downloaded for version $DRAKE_VERSION."
   fi
 fi
 
@@ -86,13 +92,19 @@ if [ -z ${HADOOP_CLASSPATH:+x} ]; then
   if [[ `which hadoop` ]]; then
     HADOOP_CLASSPATH=`hadoop classpath 2>/dev/null`
     HADOOP_VERSION=`hadoop version | head -1`
-    echo $HADOOP_VERSION
+    echo ""
+    echo "Found $HADOOP_VERSION"
+    echo ""
   else
     echo ""
     echo "Warning: hadoop client not found. HDFS related feature will not work correctly. Ignore this message if you don't need HDFS support."
     echo ""
   fi
 fi
+
+echo ""
+echo "Start working on Drakefile......"
+echo ""
 
 if [[ `which drip` ]]; then
   drip -cp $HADOOP_CLASSPATH:$DRAKE_JAR drake.core "$@"
