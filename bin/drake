@@ -1,5 +1,9 @@
 #!/bin/bash
-# Runs Drake without Nailgun (needs an uberjar)
+
+# Ensure this file is executable via `chmod a+x drake`, then place it
+# somewhere on your $PATH, like ~/bin. Drake will be
+# installed upon first run into the ~/.drakerc directory.
+
 
 # This needs to be defined before we call HTTP_CLIENT below
 if [ "$HTTP_CLIENT" = "" ]; then
@@ -85,9 +89,9 @@ else
 fi
 
 
-## Try to include local hadoop library to classpath for HDFS support
-## If hadoop client is not installed locally, it defaults to build-in hadoop version
-## It doesn't matter if you do not need HDFS support
+# Tries to include local hadoop library on classpath for HDFS support.
+# If Hadoop client is not installed locally, defaults to built-in hadoop version.
+# If you don't need HDFS support with your Drake workflows, none of this matters.
 if [ -z ${HADOOP_CLASSPATH:+x} ]; then
   if [[ `which hadoop` ]]; then
     HADOOP_CLASSPATH=`hadoop classpath 2>/dev/null`
@@ -97,13 +101,13 @@ if [ -z ${HADOOP_CLASSPATH:+x} ]; then
     echo ""
   else
     echo ""
-    echo "Warning: hadoop client not found. HDFS related feature will not work correctly. Ignore this message if you don't need HDFS support."
+    echo "Warning: Hadoop client not found. HDFS related features will probably not work correctly. Ignore this message if you don't need HDFS support."
     echo ""
   fi
 fi
 
 echo ""
-echo "Start working on Drakefile......"
+echo "Running drake..."
 echo ""
 
 if [[ `which drip` ]]; then
