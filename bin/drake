@@ -24,12 +24,12 @@ DRAKE_URL=https://github.com/Factual/drake/releases/download/$DRAKE_VERSION/drak
 
 DRAKE_TMP_SCRIPT=/tmp/drake_script.sh.tmp
 
-if [ "$1" = "version" ]; then
+if [ "$1" = "--version" ]; then
   echo "Drake now is on version: $DRAKE_VERSION"
   exit 0
 fi
 
-if [ "$1" = "upgrade" ]; then
+if [ "$1" = "--upgrade" ]; then
   echo "Downloading latest drake script..."
   $HTTP_CLIENT $DRAKE_TMP_SCRIPT $DRAKE_SCRIPT_URL
   if [ -L $0 ]; then
