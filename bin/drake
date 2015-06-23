@@ -59,7 +59,6 @@ function build_jar {
 }
 
 if [ -z ${DRAKE_HOME:+x} ]; then
-  echo "Detecting DRAKE_HOME......"
   DRAKE_SCRIPT_PATH=$0
   if [ -L $DRAKE_SCRIPT_PATH ]; then
     DRAKE_SCRIPT_PATH=`readlink $0`
@@ -96,19 +95,8 @@ if [ -z ${HADOOP_CLASSPATH:+x} ]; then
   if [[ `which hadoop` ]]; then
     HADOOP_CLASSPATH=`hadoop classpath 2>/dev/null`
     HADOOP_VERSION=`hadoop version | head -1`
-    echo ""
-    echo "Found $HADOOP_VERSION"
-    echo ""
-  else
-    echo ""
-    echo "Warning: Hadoop client not found. HDFS related features will probably not work correctly. Ignore this message if you don't need HDFS support."
-    echo ""
   fi
 fi
-
-echo ""
-echo "Running drake..."
-echo ""
 
 if [[ `which drip` ]]; then
   drip -cp $HADOOP_CLASSPATH:$DRAKE_JAR drake.core "$@"
