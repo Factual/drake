@@ -24,26 +24,6 @@ DRAKE_URL=https://github.com/Factual/drake/releases/download/$DRAKE_VERSION/drak
 
 DRAKE_TMP_SCRIPT=/tmp/drake_script.sh.tmp
 
-if [ "$1" = "--version" ]; then
-  echo "Drake now is on version: $DRAKE_VERSION"
-  exit 0
-fi
-
-if [ "$1" = "--upgrade" ]; then
-  echo "Downloading latest drake script..."
-  $HTTP_CLIENT $DRAKE_TMP_SCRIPT $DRAKE_SCRIPT_URL
-  if [ -L $0 ]; then
-    SCRIPT_TARGET=$(dirname `readlink $0`)/drake
-  else
-    SCRIPT_TARGET=$(dirname $0)/drake
-  fi
-  mv $DRAKE_TMP_SCRIPT $SCRIPT_TARGET
-  chmod 755 $SCRIPT_TARGET
-  echo "Drake script has been upgraded to latest version."
-  exec $SCRIPT_TARGET version
-  exit 0
-fi
-
 function build_jar {
   echo "Using DRAKE_HOME: $DRAKE_HOME"
   DRAKE_JAR=$DRAKE_HOME/target/drake.jar
@@ -98,7 +78,38 @@ if [ -z ${HADOOP_CLASSPATH:+x} ]; then
   fi
 fi
 
+if [ "$1" = "--version" ]; then
+  echo "Drake now is on version: $DRAKE_VERSION"
+  exit 0
+fi
+
+if [ "$1" = "--upgrade" ]; then
+  echo "Downloading latest drake script..."
+  $HTTP_CLIENT $DRAKE_TMP_SCRIPT $DRAKE_SCRIPT_URL
+  if [ -L $0 ]; then
+    SCRIPT_TARGET=$(dirname `readlink $0`)/drake
+  else
+    SCRIPT_TARGET=$(dirname $0)/drake
+  fi
+  mv $DRAKE_TMP_SCRIPT $SCRIPT_TARGET
+  chmod 755 $SCRIPT_TARGET
+  echo "Drake script has been upgraded to latest version."
+  exec $SCRIPT_TARGET version
+  exit 0
+fi
+
+if [ "$1" = "--hadoop-version" ]; then
+  if [ ! -z ${HADOOP_VERSION:+x} ]; then
+    echo "Found $HADOOP_VERSION on local"
+  else
+    echo "Warning: Hadoop client not found. HDFS related features will probably not work correctly. Ignore this message if you don't need HDFS support."
+  fi
+  exit 0
+fi
+
+
 if [[ `which drip` ]]; then
+  echo "Using drip to start up JVM..."
   drip -cp $HADOOP_CLASSPATH:$DRAKE_JAR drake.core "$@"
 else
   java -cp $HADOOP_CLASSPATH:$DRAKE_JAR drake.core "$@"
