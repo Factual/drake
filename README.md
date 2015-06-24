@@ -32,6 +32,10 @@ separate install script.  Follow these instructions to install drake manually:
 4. Set it to be executable. (`chmod 755 ~/bin/drake`)
 5. Run it.
 
+### Upgrade your drake script
+
+Starting from version 1.0.0, drake script can be upgraded by `drake --upgrade`. Drake script will be downloaded from master branch and overwrite your local one in your $PATH
+
 ### Download or build the uberjar
 
 You can build Drake from source or run from a prebuilt jar. Detail instructions is [here](https://github.com/Factual/drake/wiki/Download-or-build-the-uberjar)
