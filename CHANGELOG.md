@@ -1,3 +1,12 @@
+## 1.0.0
+### New Features
+* Support symbolic link even if DRAKE_HOME is not defined
+* Overhauled `drake` script to support install and upgrades
+
+### Maintenance / Generic Improvements
+* Trimmed dependencies: Removed Factual API features; Upgraded to c4 version 0.2.1 which dropped 3rd party API dependencies.
+* Upgraded to Clojure 1.6.0
+
 ## 0.1.7
 ### New Features
 * Created core/DEFAULT-TARGETV constant; use in clj_frontend
