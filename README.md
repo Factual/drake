@@ -32,46 +32,21 @@ separate install script.  Follow these instructions to install drake manually:
 4. Set it to be executable. (`chmod 755 ~/bin/drake`)
 5. Run it.
 
+### Upgrade your drake script
+
+Starting from version 1.0.0, drake script can be upgraded by `drake --upgrade`. Drake script will be downloaded from master branch and overwrite your local one in your $PATH
+
 ### Download or build the uberjar
 
-You can build Drake from source, which is the preferred way to run the most
-up-to-date version, or you can [download a prebuilt uberjar](https://github.com/Factual/drake/releases/download/v0.1.7/drake.jar), which may not be the most recent version of Drake.
+You can build Drake from source or run from a prebuilt jar. Detail instructions is [here](https://github.com/Factual/drake/wiki/Download-or-build-the-uberjar)
 
-Following are instructions for building from source. Drake is a Clojure project, so you will need to have [leiningen](https://github.com/technomancy/leiningen).
-
-#### Clone the project:
-
-```bash
-$ git clone git@github.com:Factual/drake.git
-$ cd drake
-```
-
-#### Build the uberjar:
-
-```bash
-$ lein uberjar
-```
-
-### Run Drake from the uberjar
-
-Once you've built or downloaded the uberjar, you can run Drake like this:
-
-```bash
-$ java -jar drake.jar
-```
-
-You can pass in arguments and options to Drake by putting them at the end of the above command, e.g.:
-
-```bash
-$ java -jar drake.jar --version
-```
 
 ### Use Drake as a Clojure library
 
 You can programmatically use Drake from your Clojure project by using [Drake's Clojure front end](https://github.com/Factual/drake/wiki/A-Clojure-Frontend-to-Drake). Your project.clj dependencies should include the latest Drake library, e.g.:
 
 ```clojure
-[factual/drake "0.1.7"]
+[factual/drake "1.0.0"]
 ```
 
 ### Faster startup time

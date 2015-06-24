@@ -17,7 +17,7 @@ if [ "$HTTP_CLIENT" = "" ]; then
     fi
 fi
 
-DRAKE_VERSION=v0.1.7
+DRAKE_VERSION=v1.0.0
 
 DRAKE_SCRIPT_URL=https://raw.githubusercontent.com/Factual/drake/master/bin/drake
 DRAKE_URL=https://github.com/Factual/drake/releases/download/$DRAKE_VERSION/drake.jar
@@ -36,6 +36,25 @@ if [ "$1" = "--upgrade" ]; then
   chmod 755 $SCRIPT_TARGET
   echo "Drake script has been upgraded to latest version."
   exec $SCRIPT_TARGET version
+  exit 0
+fi
+
+# Tries to include local hadoop library on classpath for HDFS support.
+# If Hadoop client is not installed locally, defaults to built-in hadoop version.
+# If you don't need HDFS support with your Drake workflows, none of this matters.
+if [ -z ${HADOOP_CLASSPATH:+x} ]; then
+  if [[ `which hadoop` ]]; then
+    HADOOP_CLASSPATH=`hadoop classpath 2>/dev/null`
+    HADOOP_VERSION=`hadoop version | head -1`
+  fi
+fi
+
+if [ "$1" = "--hadoop-version" ]; then
+  if [ ! -z ${HADOOP_VERSION:+x} ]; then
+    echo "Found $HADOOP_VERSION on local"
+  else
+    echo "Warning: Hadoop client not found. HDFS related features will probably not work correctly. Ignore this message if you don't need HDFS support."
+  fi
   exit 0
 fi
 
@@ -82,28 +101,8 @@ else
   fi
 fi
 
-
-# Tries to include local hadoop library on classpath for HDFS support.
-# If Hadoop client is not installed locally, defaults to built-in hadoop version.
-# If you don't need HDFS support with your Drake workflows, none of this matters.
-if [ -z ${HADOOP_CLASSPATH:+x} ]; then
-  if [[ `which hadoop` ]]; then
-    HADOOP_CLASSPATH=`hadoop classpath 2>/dev/null`
-    HADOOP_VERSION=`hadoop version | head -1`
-  fi
-fi
-
 if [ "$1" = "--version" ]; then
   echo "Drake now is on version: $DRAKE_VERSION"
-  exit 0
-fi
-
-if [ "$1" = "--hadoop-version" ]; then
-  if [ ! -z ${HADOOP_VERSION:+x} ]; then
-    echo "Found $HADOOP_VERSION on local"
-  else
-    echo "Warning: Hadoop client not found. HDFS related features will probably not work correctly. Ignore this message if you don't need HDFS support."
-  fi
   exit 0
 fi
 
