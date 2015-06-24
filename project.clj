@@ -28,7 +28,7 @@
                  [factual/c4 "0.2.1"]
                  [hdfs-clj "0.1.3"]    ;; for HDFS support
                  [org.apache.hadoop/hadoop-core "0.20.2"]
-                 [clj-aws-s3 "0.3.10"]    ;; for AWS S3 support
+                 [clj-aws-s3 "0.3.10" :exclusions [joda-time]]    ;; for AWS S3 support
                  ;; for plugins
                  [com.cemerick/pomegranate "0.2.0"]]
   :test-selectors {:regression   :regression
