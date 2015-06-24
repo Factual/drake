@@ -1,4 +1,4 @@
-## 0.2.0
+## 1.0.0
 ### New Features
 * Support symbolic link even if DRAKE_HOME is not defined
 * Overhauled `drake` script to support install and upgrades
