@@ -5,7 +5,6 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :scm {:name "git"
         :url "https://github.com/Factual/drake"}
-  :signing {:gpg-key "1402451C"}
   :deploy-repositories [["clojars" {:creds :gpg}]]
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/core.memoize "0.5.6"]
