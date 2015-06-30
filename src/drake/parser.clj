@@ -3,10 +3,12 @@
             [clojure.string :as s]
             [clojure.core.memoize :as memo]
             [slingshot.slingshot :refer [throw+]]
+            [drake.fs :as dfs]
             [drake.shell :refer [shell]]
             [drake.steps :refer [add-dependencies calc-step-dirs]]
             [drake.utils :as utils :refer [clip ensure-final-newline]]
             [drake.parser_utils :refer :all]
+            [drake-interface.core :as di]
             [name.choi.joshua.fnparse :as p]
             [fs.core :as fs]))
 
@@ -297,13 +299,48 @@
                         second))]   ;; first is ",", second is <file-name>
    (cons first-file rest-files)))
 
-(defn add-prefix
+(def ^:private ^:const opt-flag \?)
+
+(defn optional-input?
+  "Check if the first character of a file specification is '?',
+   indicating it is an optional input"
+  [input]
+  (= opt-flag (first input)))
+
+(defn normalize-optional-file
+  [filename]
+  (if (optional-input? filename)
+    (subs filename 1)
+    filename))
+
+(defn make-file-stats
+  [filename]
+  (let [filepath (normalize-optional-file filename)]
+    {:optional (optional-input? filename)
+     :exists (dfs/fs di/data-in? filepath)
+     :path filepath
+     :file filename}))
+
+(defn modify-filename
+  [filename mod-fn]
+  (if (optional-input? filename)
+    (str opt-flag (mod-fn (normalize-optional-file filename)))
+    (mod-fn filename)))
+
+(defn- add-prefix*
   "Appends prefix if necessary (unless prepended by '!')."
   [prefix file]
   (cond (= \! (first file)) (clip file)
         (= \/ (first file)) file
         (re-matches #"[a-zA-z][a-zA-Z0-9+.-]*:.*" file) file
         :else (str prefix file)))
+
+(defn add-prefix
+  "add-prefix*, with support for file naming conventions"
+  [prefix file]
+  (modify-filename
+   file
+   (fn [f] (add-prefix* prefix f))))
 
 (defn add-path-sep-suffix [^String path]
   (if (or (empty? path)
@@ -338,6 +375,24 @@
          (str prefix "N") (count items)}
         (for [[i v] (map-indexed vector items)]
           [(str prefix i) v])))
+
+(defn- fname->var
+  "Convert a file name to a var if it exists. If it
+   does not exist, and is not optional, use empty
+   string as var representation"
+  [filename]
+  (let [file-stats (make-file-stats filename)]
+    (if (and (not (:exists file-stats))
+             (:optional file-stats))
+      ""
+      (:path file-stats))))
+
+(defn existing-inputs-map
+  "Like inouts-map, except optional but nonexisting
+   input files are replaced by empty strings"
+  [items prefix]
+  (let [items (map fname->var items)]
+    (inouts-map items prefix)))
 
 ;; TODO(artem)
 ;; Should we move this to a common library?
