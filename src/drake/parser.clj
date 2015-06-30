@@ -3,10 +3,12 @@
             [clojure.string :as s]
             [clojure.core.memoize :as memo]
             [slingshot.slingshot :refer [throw+]]
+            [drake.fs :as dfs]
             [drake.shell :refer [shell]]
             [drake.steps :refer [add-dependencies calc-step-dirs]]
             [drake.utils :as utils :refer [clip ensure-final-newline]]
             [drake.parser_utils :refer :all]
+            [drake-interface.core :as di]
             [name.choi.joshua.fnparse :as p]
             [fs.core :as fs]))
 
@@ -297,13 +299,34 @@
                         second))]   ;; first is ",", second is <file-name>
    (cons first-file rest-files)))
 
+(defn optional-file?
+  "Check if the first character of a file specification is '?',
+   indicating it is optional"
+  [filename]
+  (= \? (first filename)))
+
+(defn normalize-optional-file
+  [filename]
+  (if (optional-file? filename)
+    (subs filename 1)
+    filename))
+
+(defn modify-filename
+  [filename mod-fn]
+  (if (optional-file? filename)
+    (str "?" (mod-fn (normalize-optional-file filename)))
+    (mod-fn filename)))
+
 (defn add-prefix
   "Appends prefix if necessary (unless prepended by '!')."
   [prefix file]
-  (cond (= \! (first file)) (clip file)
-        (= \/ (first file)) file
-        (re-matches #"[a-zA-z][a-zA-Z0-9+.-]*:.*" file) file
-        :else (str prefix file)))
+  (modify-filename
+   file
+   (fn [f]
+     (cond (= \! (first f)) (clip f)
+           (= \/ (first f)) f
+           (re-matches #"[a-zA-z][a-zA-Z0-9+.-]*:.*" f) f
+           :else (str prefix f)))))
 
 (defn add-path-sep-suffix [^String path]
   (if (or (empty? path)
@@ -338,6 +361,20 @@
          (str prefix "N") (count items)}
         (for [[i v] (map-indexed vector items)]
           [(str prefix i) v])))
+
+(defn- fname->var
+  [filename]
+  (if (optional-file? filename)
+    (let [filename (normalize-optional-file filename)]
+      (or (dfs/fs di/data-in? filename) ""))
+    filename))
+
+(defn existing-inputs-map
+  "Like inouts-map, except optional but nonexisting
+   input files are replaced by empty strings"
+  [items prefix]
+  (let [items (map fname->var items)]
+    (inouts-map items prefix)))
 
 ;; TODO(artem)
 ;; Should we move this to a common library?
