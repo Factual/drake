@@ -301,21 +301,29 @@
 
 (def ^:private ^:const opt-flag \?)
 
-(defn optional-file?
+(defn optional-input?
   "Check if the first character of a file specification is '?',
-   indicating it is optional"
-  [filename]
-  (= opt-flag (first filename)))
+   indicating it is an optional input"
+  [input]
+  (= opt-flag (first input)))
 
 (defn normalize-optional-file
   [filename]
-  (if (optional-file? filename)
+  (if (optional-input? filename)
     (subs filename 1)
     filename))
 
+(defn make-file-stats
+  [filename]
+  (let [filepath (normalize-optional-file filename)]
+    {:optional (optional-input? filename)
+     :exists (dfs/fs di/data-in? filepath)
+     :path filepath
+     :file filename}))
+
 (defn modify-filename
   [filename mod-fn]
-  (if (optional-file? filename)
+  (if (optional-input? filename)
     (str opt-flag (mod-fn (normalize-optional-file filename)))
     (mod-fn filename)))
 
@@ -365,11 +373,15 @@
           [(str prefix i) v])))
 
 (defn- fname->var
+  "Convert a file name to a var if it exists. If it
+   does not exist, and is not optional, use empty
+   string as var representation"
   [filename]
-  (if (optional-file? filename)
-    (let [filename (normalize-optional-file filename)]
-      (if (dfs/fs di/data-in? filename) filename ""))
-    filename))
+  (let [file-stats (make-file-stats filename)]
+    (if (and (not (:exists file-stats))
+             (:optional file-stats))
+      ""
+      (:file file-stats))))
 
 (defn existing-inputs-map
   "Like inouts-map, except optional but nonexisting

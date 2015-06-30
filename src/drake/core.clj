@@ -181,16 +181,10 @@
       :vars vars
       :opts (if-not method opts (merge (:opts method) opts)))))
 
-(defn- make-input-stats
-  [file]
-  {:optional (parser/optional-file? file)
-   :exists (fs di/data-in? (parser/normalize-optional-file file))
-   :file file})
-
 (defn- existing-and-empty-inputs
   "Remove '?' denoting optional file from front of path"
   [inputs]
-  (let [inputs-info (map make-input-stats inputs)]
+  (let [inputs-info (map parser/make-file-stats inputs)]
     [;; Existing files
      (->> (filter :exists inputs-info)
           (map :file))
