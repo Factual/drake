@@ -381,7 +381,7 @@
     (if (and (not (:exists file-stats))
              (:optional file-stats))
       ""
-      (:file file-stats))))
+      (:path file-stats))))
 
 (defn existing-inputs-map
   "Like inouts-map, except optional but nonexisting
