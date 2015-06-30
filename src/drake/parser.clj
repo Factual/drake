@@ -299,11 +299,13 @@
                         second))]   ;; first is ",", second is <file-name>
    (cons first-file rest-files)))
 
+(def ^:private ^:const opt-flag \?)
+
 (defn optional-file?
   "Check if the first character of a file specification is '?',
    indicating it is optional"
   [filename]
-  (= \? (first filename)))
+  (= opt-flag (first filename)))
 
 (defn normalize-optional-file
   [filename]
@@ -314,7 +316,7 @@
 (defn modify-filename
   [filename mod-fn]
   (if (optional-file? filename)
-    (str "?" (mod-fn (normalize-optional-file filename)))
+    (str opt-flag (mod-fn (normalize-optional-file filename)))
     (mod-fn filename)))
 
 (defn add-prefix
