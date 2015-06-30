@@ -368,7 +368,7 @@
   [filename]
   (if (optional-file? filename)
     (let [filename (normalize-optional-file filename)]
-      (or (dfs/fs di/data-in? filename) ""))
+      (if (dfs/fs di/data-in? filename) filename ""))
     filename))
 
 (defn existing-inputs-map
