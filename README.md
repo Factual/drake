@@ -19,8 +19,7 @@ If you like screencasts, check out this [Drake walk-through video](http://www.yo
 
 ## Installation
 
-You will need to have the [Java Virtual Machine (JVM)] installed. Drake has been tested under Linux, Mac OS X and Windows 8.
-We've not tested it on other operating systems.
+Drake has been tested under Linux, Mac OS X and Windows 8. We've not tested it on other operating systems.
 
 Drake installs itself on the first run of the `drake` shell script; there is no
 separate install script.  Follow these instructions to install drake manually:
