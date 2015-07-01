@@ -178,6 +178,6 @@ Courtesy of [@daguar](https://gist.github.com/daguar), an [alternative approach 
 
 ## License
 
-Source Copyright © 2012-2013 Factual, Inc.
+Source Copyright © 2012-2015 Factual, Inc.
 
 Distributed under the Eclipse Public License, the same as Clojure uses. See the file COPYING.
