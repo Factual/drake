@@ -185,12 +185,11 @@
   "Remove '?' denoting optional file from front of path"
   [inputs]
   (let [inputs-info (map parser/make-file-stats inputs)]
-    [;; Existing files
-     (->> (filter :exists inputs-info)
-          (map :file))
-     ;; Non-existing, non-optional files
-     (->> (remove #(or (:optional %) (:exists %)) inputs-info)
-          (map :file))]))
+    {:existing (->> (filter :exists inputs-info)
+                    (map :file))
+     ;; Non-existing, non-optional inputs
+     :missing (->> (remove (some-fn :optional :exists) inputs-info)
+                   (map :file))}))
 
 (defn- should-build?
   "Given the parse tree and a step index, determines whether it should
@@ -211,7 +210,7 @@
   [step forced triggered match-type fail-on-empty]
   (trace "should-build? fail-on-empty: " fail-on-empty)
   (let [{:keys [inputs outputs opts]} (branch-adjust-step step false)
-        [inputs empty-inputs] (existing-and-empty-inputs inputs)
+        {inputs :inputs empty-inputs :missing} (existing-and-empty-inputs inputs)
         no-outputs (empty? outputs)]
     (trace "should-build? forced:" forced)
     (trace "should-build? match-type:" match-type)
