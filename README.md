@@ -1,6 +1,6 @@
 # Drake
 
-<img src="https://lh6.googleusercontent.com/-ambIXyQ9iK8/UPj3E2_eqpI/AAAAAAAAACE/Ssf_jhok7fk/s800/drake-text-alpha-scaled-left-space.png" align="right"/>
+<img src="https://lh4.googleusercontent.com/0NC0xDay_iDgfqKqSZ72mPuj4bTSOBQr6UCb50NzOQRGL1zprio-hR6yhPRkSFkrcxKPHQ=w2512-h1162" align="right"/>
 
 Drake is a simple-to-use, extensible, text-based data workflow tool that organizes command execution around data and its dependencies. Data processing steps are defined along with their inputs and outputs and Drake automatically resolves their dependencies and calculates:
 
@@ -19,26 +19,32 @@ If you like screencasts, check out this [Drake walk-through video](http://www.yo
 
 ## Installation
 
-You will need to have a JVM installed. Drake has been tested under Linux, Mac OS X and Windows 8.
-We've not tested it on other operating systems.
+Drake has been tested under Linux, Mac OS X and Windows 8. We've not tested it on other operating systems.
 
 Drake installs itself on the first run of the `drake` shell script; there is no
 separate install script.  Follow these instructions to install drake manually:
 
-1. Make sure you have a Java JDK version 6 or later.
+1. Make sure you have [Java](https://www.java.com) version 6 or later.
 2. [Download the `drake` script from the `master` branch](https://raw.githubusercontent.com/Factual/drake/master/bin/drake)
  of this project.
-3. Place it on your `$PATH`. (`~/bin` is a good choice if it is on your path.)
+3. Place the `drake` script on your `$PATH`. (`~/bin` is a good choice if it is on your path.)
 4. Set it to be executable. (`chmod 755 ~/bin/drake`)
-5. Run it.
+5. Run it (`drake`) 
 
-### Upgrade your drake script
+### Homebrew
 
-Starting from version 1.0.0, drake script can be upgraded by `drake --upgrade`. Drake script will be downloaded from master branch and overwrite your local one in your $PATH
+If you're on a Mac you can alternatively use [Homebrew](http://brew.sh/) to install Drake:
+```
+brew install drake
+```
+
+### Upgrade Drake
+
+Starting with Drake version 1.0.0, once you have Drake installed you can easily upgrade your version of Drake by running `drake --upgrade`. The latest version of Drake will be downloaded and installed for you.
 
 ### Download or build the uberjar
 
-You can build Drake from source or run from a prebuilt jar. Detail instructions is [here](https://github.com/Factual/drake/wiki/Download-or-build-the-uberjar)
+You can build Drake from source or run from a prebuilt jar. [Detailed instructions](https://github.com/Factual/drake/wiki/Download-or-build-the-uberjar)
 
 
 ### Use Drake as a Clojure library
@@ -163,8 +169,14 @@ Also thanks to [Lars Yencken](https://github.com/larsyencken), [utilities for ma
 
 Courtesy of [@daguar](https://gist.github.com/daguar), an [alternative approach to installing Drake on Mac OS X](https://gist.github.com/daguar/5368778).
 
+[Original blog post](http://blog.factual.com/introducing-drake-a-kind-of-make-for-data) announcing Drake's open source release
+
+[An epic knock-down-drag-out set of threads on Hacker News](https://news.ycombinator.com/item?id=5110921) discussing the design merits of Drake
+
+
+
 ## License
 
-Source Copyright © 2012-2013 Factual, Inc.
+Source Copyright © 2012-2015 Factual, Inc.
 
 Distributed under the Eclipse Public License, the same as Clojure uses. See the file COPYING.
