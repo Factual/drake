@@ -109,7 +109,7 @@ fi
 
 if [[ `which drip` ]]; then
   echo "Using drip to start up JVM..."
-  drip -cp $HADOOP_CLASSPATH:$DRAKE_JAR drake.core "$@"
+  drip -cp $HADOOP_CLASSPATH:DRAKE_JAR drake.core "$@"
 else
-  java -cp $HADOOP_CLASSPATH:$DRAKE_JAR drake.core "$@"
+  java -cp $HADOOP_CLASSPATH:DRAKE_JAR drake.core "$@"
 fi
