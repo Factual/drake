@@ -7,7 +7,7 @@
 DRAKE_VERSION=v1.0.0
 
 if [ "$1" = "--upgrade" ]; then
-  echo "This version of Leiningen was installed with a package manager, but"
+  echo "This version of drake was installed with a package manager, but"
   echo "the upgrade task is intended for manual installs. Please use your"
   echo "package manager's built-in upgrade facilities instead."
   exit 1
