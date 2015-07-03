@@ -1,6 +1,6 @@
 # Drake
 
-<img src="https://lh4.googleusercontent.com/0NC0xDay_iDgfqKqSZ72mPuj4bTSOBQr6UCb50NzOQRGL1zprio-hR6yhPRkSFkrcxKPHQ=w2512-h1162" align="right"/>
+<img src="http://gdurl.com/MpUL" align="right"/>
 
 Drake is a simple-to-use, extensible, text-based data workflow tool that organizes command execution around data and its dependencies. Data processing steps are defined along with their inputs and outputs and Drake automatically resolves their dependencies and calculates:
 
