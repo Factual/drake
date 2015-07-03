@@ -101,18 +101,21 @@
     (assoc step :inputs branch-adjusted-inputs
                 :outputs branch-adjusted-outputs)))
 
-(defn- normalize-filename-for-run
+(defn- normalize-filename-for-run*
   "Normalizes filename and also removes local filesystem prefix (file:) from
    it. This is safe to do since it's the default filesystem,
    but it gives us a bit easier compatibility with existing tools."
   [filename]
+  (let [n (dfs/normalized-path filename)]
+    (if (= "file" (dfs/path-fs n))
+      (dfs/path-filename n)
+      n)))
+
+(defn- normalize-filename-for-run
+  [filename]
   (parser/modify-filename
    filename
-   (fn [f]
-     (let [n (dfs/normalized-path f)]
-       (if (= "file" (dfs/path-fs n))
-         (dfs/path-filename n)
-         n)))))
+   normalize-filename-for-run*))
 
 (defn- despace-cmds
   "Given a sequence of commands, removes leading whitespace found in the first

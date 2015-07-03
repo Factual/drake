@@ -327,16 +327,20 @@
     (str opt-flag (mod-fn (normalize-optional-file filename)))
     (mod-fn filename)))
 
-(defn add-prefix
+(defn- add-prefix*
   "Appends prefix if necessary (unless prepended by '!')."
+  [prefix file]
+  (cond (= \! (first file)) (clip file)
+        (= \/ (first file)) file
+        (re-matches #"[a-zA-z][a-zA-Z0-9+.-]*:.*" file) file
+        :else (str prefix file)))
+
+(defn add-prefix
+  "add-prefix*, with support for file naming conventions"
   [prefix file]
   (modify-filename
    file
-   (fn [f]
-     (cond (= \! (first f)) (clip f)
-           (= \/ (first f)) f
-           (re-matches #"[a-zA-z][a-zA-Z0-9+.-]*:.*" f) f
-           :else (str prefix f)))))
+   (fn [f] (add-prefix* prefix f))))
 
 (defn add-path-sep-suffix [^String path]
   (if (or (empty? path)
