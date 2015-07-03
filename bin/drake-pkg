@@ -4,7 +4,7 @@
 # It has all the self-install, self-upgrade and build from source feature stripped out.
 
 
-DRAKE_VERSION=v1.0.0
+DRAKE_VERSION=1.0.0
 
 if [ "$1" = "--upgrade" ]; then
   echo "This version of drake was installed with a package manager, but"
