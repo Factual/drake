@@ -742,6 +742,14 @@
               parse-tree (assoc parse-tree :steps steps)]
           (f parse-tree))))))
 
+(defn- get-logfile [logfile]
+  (if (fs/absolute? logfile)
+    logfile
+    (let [w (:workflow *options*)]
+      (if (fs/directory? w)
+        (fs/file w logfile)
+        (fs/file (fs/parent w) logfile)))))
+
 (defn configure-logging
   []
   (let [loglevel (cond
@@ -750,10 +758,7 @@
                    (:quiet *options*) :error
                    :else :info)
         logfile (:logfile *options*)
-        logfile (if (fs/absolute? logfile)
-                  logfile
-                  (fs/file (fs/parent (:workflow *options*))
-                           logfile))]
+        logfile (get-logfile logfile)]
     (log4j/set-loggers! "drake"
                         {:out logfile
                          :level loglevel
