@@ -1,3 +1,10 @@
+## 1.0.1
+### New Features
+* Optional input files [#181](https://github.com/Factual/drake/pull/181)
+
+### Bug fixes
+* drake.log was sometimes put in the wrong directory [#183](https://github.com/Factual/drake/issues/183)
+
 ## 1.0.0
 ### New Features
 * Support symbolic link even if DRAKE_HOME is not defined

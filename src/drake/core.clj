@@ -35,7 +35,7 @@
 (defn- shutdown [exit-code]
   (throw+ {:exit-code exit-code}))
 
-(def VERSION "1.0.0")
+(def VERSION "1.0.1")
 (def DEFAULT-VARS-SPLIT-REGEX-STR ; matches and consumes a comma; requires that an even number of "
                                   ; characters exist between the comma and end of string
   "(?x)       ## (?x) enables inline formatting and comments
@@ -101,13 +101,21 @@
     (assoc step :inputs branch-adjusted-inputs
                 :outputs branch-adjusted-outputs)))
 
-(defn- normalize-filename-for-run
+(defn- normalize-filename-for-run*
   "Normalizes filename and also removes local filesystem prefix (file:) from
    it. This is safe to do since it's the default filesystem,
    but it gives us a bit easier compatibility with existing tools."
   [filename]
   (let [n (dfs/normalized-path filename)]
-    (if (= "file" (dfs/path-fs n)) (dfs/path-filename n) n)))
+    (if (= "file" (dfs/path-fs n))
+      (dfs/path-filename n)
+      n)))
+
+(defn- normalize-filename-for-run
+  [filename]
+  (parser/modify-filename
+   filename
+   normalize-filename-for-run*))
 
 (defn- despace-cmds
   "Given a sequence of commands, removes leading whitespace found in the first
@@ -144,7 +152,7 @@
         normalized-outputs (map normalize-filename-for-run outputs)
         normalized-inputs (map normalize-filename-for-run inputs)
         vars (merge vars
-                    (parser/inouts-map normalized-inputs "INPUT")
+                    (parser/existing-inputs-map normalized-inputs "INPUT")
                     (parser/inouts-map normalized-outputs "OUTPUT"))
         method (methods (:method opts))
         method-mode (:method-mode opts)
@@ -176,6 +184,16 @@
       :vars vars
       :opts (if-not method opts (merge (:opts method) opts)))))
 
+(defn- existing-and-empty-inputs
+  "Remove '?' denoting optional file from front of path"
+  [inputs]
+  (let [inputs-info (map parser/make-file-stats inputs)]
+    {:existing (->> (filter :exists inputs-info)
+                    (map :file))
+     ;; Non-existing, non-optional inputs
+     :missing (->> (remove (some-fn :optional :exists) inputs-info)
+                   (map :file))}))
+
 (defn- should-build?
   "Given the parse tree and a step index, determines whether it should
    be built and returns the reason (e.g. 'timestamped') or
@@ -195,7 +213,7 @@
   [step forced triggered match-type fail-on-empty]
   (trace "should-build? fail-on-empty: " fail-on-empty)
   (let [{:keys [inputs outputs opts]} (branch-adjust-step step false)
-        empty-inputs (filter #(not (fs di/data-in? %)) inputs)
+        {inputs :inputs empty-inputs :missing} (existing-and-empty-inputs inputs)
         no-outputs (empty? outputs)]
     (trace "should-build? forced:" forced)
     (trace "should-build? match-type:" match-type)
@@ -320,16 +338,6 @@
    true if the step was actually run; false if skipped."
   [parse-tree step-number {:keys [index build match-type opts]}]
   (let [{:keys [inputs] :as step} (get-in parse-tree [:steps index])]
-    ;; TODO(artem)
-    ;; Somewhere here, before running the step or checking timestamps, we need to
-    ;; check for optional files and replace them with empty strings if they're
-    ;; not found (according to the spec). We shouldn't just rewrite :inputs and
-    ;; should probably separate two versions, since the step name
-    ;; (used in debugging and log files names) should not vary.
-    ;; For now just check that none of the input files is optional.
-    (if (some #(= \? (first %)) inputs)
-      (throw+ {:msg (str "optional input files are not supported yet: "
-                         inputs)}))
     (let [step-descr (step-string (branch-adjust-step step false))
           step (-> step
                    (update-in [:opts] merge opts)
@@ -698,9 +706,8 @@
      (parse-cli-vars (:vars *options*) split-regex-str)
      (into {} (for [v (:var *options*)]
                 (str/split v #"=")))
-     (if-let [base (:base *options*)]
-       {"BASE" base}
-       {"BASE" (fs/absolute-path (fs/parent (figure-workflow-file)))}))))
+     {"BASE" (or (:base *options*)
+                 (fs/absolute-path (fs/parent (figure-workflow-file))))})))
 
 (defn- with-workflow-file
   "Reads the workflow file from command-line options, parses it,
@@ -735,6 +742,14 @@
               parse-tree (assoc parse-tree :steps steps)]
           (f parse-tree))))))
 
+(defn- get-logfile [logfile]
+  (if (fs/absolute? logfile)
+    logfile
+    (let [w (:workflow *options*)]
+      (if (fs/directory? w)
+        (fs/file w logfile)
+        (fs/file (fs/parent w) logfile)))))
+
 (defn configure-logging
   []
   (let [loglevel (cond
@@ -743,10 +758,7 @@
                    (:quiet *options*) :error
                    :else :info)
         logfile (:logfile *options*)
-        logfile (if (fs/absolute? logfile)
-                  logfile
-                  (fs/file (fs/parent (:workflow *options*))
-                           logfile))]
+        logfile (get-logfile logfile)]
     (log4j/set-loggers! "drake"
                         {:out logfile
                          :level loglevel

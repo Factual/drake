@@ -1,6 +1,6 @@
 # Drake
 
-<img src="http://gdurl.com/MpUL" align="right"/>
+<img src="http://gdurl.com/2jhD" align="right"/>
 
 Drake is a simple-to-use, extensible, text-based data workflow tool that organizes command execution around data and its dependencies. Data processing steps are defined along with their inputs and outputs and Drake automatically resolves their dependencies and calculates:
 
@@ -52,7 +52,7 @@ You can build Drake from source or run from a prebuilt jar. [Detailed instructio
 You can programmatically use Drake from your Clojure project by using [Drake's Clojure front end](https://github.com/Factual/drake/wiki/A-Clojure-Frontend-to-Drake). Your project.clj dependencies should include the latest Drake library, e.g.:
 
 ```clojure
-[factual/drake "1.0.0"]
+[factual/drake "1.0.1"]
 ```
 
 ### Faster startup time
