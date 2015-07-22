@@ -213,7 +213,7 @@
   [step forced triggered match-type fail-on-empty]
   (trace "should-build? fail-on-empty: " fail-on-empty)
   (let [{:keys [inputs outputs opts]} (branch-adjust-step step false)
-        {inputs :inputs empty-inputs :missing} (existing-and-empty-inputs inputs)
+        {inputs :existing empty-inputs :missing} (existing-and-empty-inputs inputs)
         no-outputs (empty? outputs)]
     (trace "should-build? forced:" forced)
     (trace "should-build? match-type:" match-type)
