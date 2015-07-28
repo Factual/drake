@@ -682,7 +682,7 @@
                  :file-path file-path))]
      (if (= directive "include")
        prod ;call-or-include line will merge vars+methods from prod into parent's vars
-       (dissoc prod :vars :methods))))) ;vars+methods from %call should not affect parent
+       (dissoc prod :vars :methods))))) ;but vars+methods from %call should not affect parent
 
 (def call-or-include-line
   "input: directive to call/include another Drake workflow. ie.,
@@ -698,11 +698,19 @@
    our state stuct. However, we can only set the state vars during the rule
    matching phase, which comes before the product manipulation phase when using
    \"complex\". Thus we add a wrapper rule to set the variable."
+  ;; note that there are two distinct things named :methods - one in the monad's state
+  ;; slot, which is a set of known method names, and one in the return-value slot, ie
+  ;; the production, which is a map from method name to method definition.
+  ;; so, we need to include the :methods from the production of the call-or-include-helper
+  ;; in the production of this rule, but also add just the keys of that map into the
+  ;; state of this rule
   (p/complex
    [prod call-or-include-helper
-    _ (if (some prod [:vars :methods])
-        (p/conc (p/set-info :vars (:vars prod))
-                (p/set-info :methods (:methods prod)))
+    _ (if-let [vars (:vars prod)]
+        (p/set-info :vars vars)
+        p/emptiness)
+    _ (if-let [methods (:methods prod)]
+        (p/update-info :methods #(into % (keys methods)))
         p/emptiness)]
    (dissoc prod :vars)))
 
