@@ -657,12 +657,21 @@
         p/emptiness)]
    (dissoc prod :vars)))
 
+(defn- attach-exec-dir
+  [prod file-path]
+  (if-let [dir (dfs/get-directory file-path)]
+    (update-in prod [:steps]
+               (fn [steps]
+                 (mapv #(assoc % :exec-dir (.getPath dir)) steps)))
+    prod))
+
 (def call-or-include-helper
   "See call-or-include-line below"
   (p/complex
    [_ percent-sign
     directive  (p/semantics (p/alt (p/lit-conc-seq "include" nb-char-lit)
-                               (p/lit-conc-seq "call" nb-char-lit))
+                               (p/lit-conc-seq "call" nb-char-lit)
+                               (p/lit-conc-seq "new-directive" nb-char-lit))
                             apply-str)
     _ inline-ws
     file-path file-name
@@ -680,9 +689,10 @@
                         (ensure-final-newline tokens)
                         vars methods 0 0)
                  :file-path file-path))]
-     (if (= directive "include")
-       prod ;call-or-include line will merge vars+methods from prod into parent's vars
-       (dissoc prod :vars :methods))))) ;but vars+methods from %call should not affect parent
+     (condp = directive
+       "include" prod ;call-or-include line will merge vars+methods from prod into parent's vars
+       "call" (dissoc prod :vars :methods) ;but vars+methods from %call should not affect parent
+       "new-directive" (attach-exec-dir prod file-path)))))
 
 (def call-or-include-line
   "input: directive to call/include another Drake workflow. ie.,

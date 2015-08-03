@@ -50,6 +50,12 @@
       (catch java.lang.InterruptedException _)    ;; if we interrupt
       (catch java.io.IOException _))))            ;; if the process dies
 
+(defn- get-run-dir
+  [exec-dir]
+  (if exec-dir
+    exec-dir
+    fs/*cwd*))
+
 (defn shell
   "Runs the specified command and arguments using the system shell.
 
@@ -81,7 +87,7 @@
 
    Loosely based on clojure.java.shell/sh."
   [& args]
-  (let [[cmd {:keys [out err die use-shell no-stdin env replace-env] :as opts}]
+  (let [[cmd {:keys [out err die use-shell no-stdin env replace-env exec-dir] :as opts}]
         (split-with string? args)
         windows? (.startsWith (System/getProperty "os.name") "Win")
         env (as-env-strings (if replace-env
@@ -96,7 +102,7 @@
         proc (.exec (Runtime/getRuntime)
                     cmd-for-exec
                     ^"[Ljava.lang.String;" env
-                    (fs/file fs/*cwd*))]
+                    (fs/file (get-run-dir exec-dir)))]
     ;; Pass stdin to process unless :no-stdin option is set
     ;; Usually set when async is on
     (let [^Thread stdin  (and (not no-stdin) (Thread. #(copy-stdin proc)))
