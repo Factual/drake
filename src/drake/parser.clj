@@ -682,7 +682,7 @@
     _ (p/opt inline-comment)
     vars (p/get-info :vars)
     methods (p/get-info :methods)
-    _ (p/failpoint line-break (illegal-syntax-error-fn "%call / %include / %include-context"))]
+    _ (p/failpoint line-break (illegal-syntax-error-fn "%call / %include / %context"))]
    (let [raw-base (get vars "BASE" default-base)
          base (add-path-sep-suffix raw-base)
          ;; Need to use fs/file here to honor cwd
