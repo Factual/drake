@@ -188,12 +188,13 @@
     _ (p/failpoint close-paren
                    (illegal-syntax-error-fn "command substitution"))
     line (p/get-info :line)
+    exec-dir (p/get-info :exec-dir)
     column (p/get-info :column)
     value-ignored (p/get-info :value-ignored)]
    (if value-ignored
      (format "[[shell expansion $(%s) which would be ignored by := assignment]]" prod)
      ;; stderr preserved by default
-     (let [result (shell-memo prod :line line :column column :die true :use-shell true)]
+     (let [result (shell-memo prod :line line :column column :die true :use-shell true :exec-dir exec-dir)]
        (debug "line =" line " column=" column " shell =" prod)
        (debug "shell result = " result)
        (s/trim-newline result)))))
@@ -658,20 +659,22 @@
    (dissoc prod :vars)))
 
 (defn- attach-exec-dir
-  [prod file-path]
-  (if-let [dir (dfs/get-directory file-path)]
-    (update-in prod [:steps]
-               (fn [steps]
-                 (mapv #(assoc % :exec-dir (.getPath dir)) steps)))
-    prod))
+  [prod exec-dir]
+  (update-in prod [:steps]
+             (fn [steps]
+               (mapv #(assoc % :exec-dir exec-dir) steps))))
+
+(def ^:const ^:private directive-include "include")
+(def ^:const ^:private directive-call "call")
+(def ^:const ^:private directive-new "new-directive")
 
 (def call-or-include-helper
   "See call-or-include-line below"
   (p/complex
    [_ percent-sign
-    directive  (p/semantics (p/alt (p/lit-conc-seq "include" nb-char-lit)
-                               (p/lit-conc-seq "call" nb-char-lit)
-                               (p/lit-conc-seq "new-directive" nb-char-lit))
+    directive  (p/semantics (p/alt (p/lit-conc-seq directive-include nb-char-lit)
+                               (p/lit-conc-seq directive-call nb-char-lit)
+                               (p/lit-conc-seq directive-new nb-char-lit))
                             apply-str)
     _ inline-ws
     file-path file-name
@@ -679,20 +682,22 @@
     _ (p/opt inline-comment)
     vars (p/get-info :vars)
     methods (p/get-info :methods)
-    _ (p/failpoint line-break (illegal-syntax-error-fn "%call / %include"))]
+    _ (p/failpoint line-break (illegal-syntax-error-fn "%call / %include / %new-directive"))]
    (let [raw-base (get vars "BASE" default-base)
          base (add-path-sep-suffix raw-base)
          ;; Need to use fs/file here to honor cwd
          ^String tokens (slurp (fs/file file-path))
+         exec-dir (when (= directive directive-new) (dfs/get-directory-path file-path))
          prod (parse-state
                (assoc (make-state
                         (ensure-final-newline tokens)
                         vars methods 0 0)
+                 :exec-dir exec-dir
                  :file-path file-path))]
      (condp = directive
-       "include" prod ;call-or-include line will merge vars+methods from prod into parent's vars
-       "call" (dissoc prod :vars :methods) ;but vars+methods from %call should not affect parent
-       "new-directive" (attach-exec-dir prod file-path)))))
+       directive-include prod ;call-or-include line will merge vars+methods from prod into parent's vars
+       directive-call (dissoc prod :vars :methods) ;but vars+methods from %call should not affect parent
+       directive-new (attach-exec-dir prod exec-dir)))))
 
 (def call-or-include-line
   "input: directive to call/include another Drake workflow. ie.,
