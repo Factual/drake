@@ -666,7 +666,7 @@
 
 (def ^:const ^:private directive-include "include")
 (def ^:const ^:private directive-call "call")
-(def ^:const ^:private directive-new "new-directive")
+(def ^:const ^:private directive-context "context")
 
 (def call-or-include-helper
   "See call-or-include-line below"
@@ -674,7 +674,7 @@
    [_ percent-sign
     directive  (p/semantics (p/alt (p/lit-conc-seq directive-include nb-char-lit)
                                (p/lit-conc-seq directive-call nb-char-lit)
-                               (p/lit-conc-seq directive-new nb-char-lit))
+                               (p/lit-conc-seq directive-context nb-char-lit))
                             apply-str)
     _ inline-ws
     file-path file-name
@@ -682,12 +682,12 @@
     _ (p/opt inline-comment)
     vars (p/get-info :vars)
     methods (p/get-info :methods)
-    _ (p/failpoint line-break (illegal-syntax-error-fn "%call / %include / %new-directive"))]
+    _ (p/failpoint line-break (illegal-syntax-error-fn "%call / %include / %include-context"))]
    (let [raw-base (get vars "BASE" default-base)
          base (add-path-sep-suffix raw-base)
          ;; Need to use fs/file here to honor cwd
          ^String tokens (slurp (fs/file file-path))
-         exec-dir (when (= directive directive-new) (dfs/get-directory-path file-path))
+         exec-dir (when (= directive directive-context) (dfs/get-directory-path file-path))
          prod (parse-state
                (assoc (make-state
                         (ensure-final-newline tokens)
@@ -697,7 +697,7 @@
      (condp = directive
        directive-include prod ;call-or-include line will merge vars+methods from prod into parent's vars
        directive-call (dissoc prod :vars :methods) ;but vars+methods from %call should not affect parent
-       directive-new (attach-exec-dir prod exec-dir)))))
+       directive-context (attach-exec-dir prod exec-dir)))))
 
 (def call-or-include-line
   "input: directive to call/include another Drake workflow. ie.,

@@ -52,9 +52,7 @@
 
 (defn- get-run-dir
   [exec-dir]
-  (if exec-dir
-    exec-dir
-    fs/*cwd*))
+  (or exec-dir fs/*cwd*))
 
 (defn shell
   "Runs the specified command and arguments using the system shell.
