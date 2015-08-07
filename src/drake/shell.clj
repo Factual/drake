@@ -50,10 +50,6 @@
       (catch java.lang.InterruptedException _)    ;; if we interrupt
       (catch java.io.IOException _))))            ;; if the process dies
 
-(defn- get-run-dir
-  [exec-dir]
-  (or exec-dir fs/*cwd*))
-
 (defn shell
   "Runs the specified command and arguments using the system shell.
 
@@ -100,7 +96,7 @@
         proc (.exec (Runtime/getRuntime)
                     cmd-for-exec
                     ^"[Ljava.lang.String;" env
-                    (fs/file (get-run-dir exec-dir)))]
+                    (fs/file (or exec-dir fs/*cwd*)))]
     ;; Pass stdin to process unless :no-stdin option is set
     ;; Usually set when async is on
     (let [^Thread stdin  (and (not no-stdin) (Thread. #(copy-stdin proc)))
