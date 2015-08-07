@@ -29,7 +29,7 @@
                  [org.apache.hadoop/hadoop-core "0.20.2"]
                  [clj-aws-s3 "0.3.10" :exclusions [joda-time]]    ;; for AWS S3 support
                  ;; for plugins
-                 [com.cemerick/pomegranate "0.2.0"]]
+                 [com.cemerick/pomegranate "0.2.0" :exclusions [org.apache.httpcomponents/httpcore]]]
   :test-selectors {:regression   :regression
                    :default      (complement :regression)
                    :all          (constantly true)}
