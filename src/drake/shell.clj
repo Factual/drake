@@ -1,6 +1,6 @@
 (ns drake.shell
   (:require [clojure.string :refer [join]]
-            [clojure.tools.logging :refer [debug]]
+            [clojure.tools.logging :as log :refer [debug]]
             [clojure.java.io :refer [as-file]]
             [slingshot.slingshot :refer [throw+]]
             [fs.core :as fs]
@@ -50,6 +50,14 @@
       (catch java.lang.InterruptedException _)    ;; if we interrupt
       (catch java.io.IOException _))))            ;; if the process dies
 
+(defn shell-cmd-prelude [& unix-suffix]
+  (if (.startsWith (System/getProperty "os.name") "Win")
+       ["cmd" "/C"]
+       (cons (or (get (System/getenv) "SHELL")
+                 (do (log/warnf "$SHELL not set; defaulting to /bin/sh")
+                     "/bin/sh"))
+             unix-suffix)))
+
 (defn shell
   "Runs the specified command and arguments using the system shell.
 
@@ -83,16 +91,15 @@
   [& args]
   (let [[cmd {:keys [out err die use-shell no-stdin env replace-env] :as opts}]
         (split-with string? args)
-        windows? (.startsWith (System/getProperty "os.name") "Win")
         env (as-env-strings (if replace-env
                               env
                               (merge (into {} (System/getenv)) env)))
         ^"[Ljava.lang.String;" cmd-for-exec
-        (into-array (if-not use-shell
+        (into-array String
+                    (if-not use-shell
                       cmd
-                      [(if windows? "cmd" (get (System/getenv) "SHELL"))
-                       (if windows? "/C" "-c")
-                       (join " " cmd)]))
+                      `[~@(shell-cmd-prelude "-c")
+                        ~(join " "  cmd)]))
         proc (.exec (Runtime/getRuntime)
                     cmd-for-exec
                     ^"[Ljava.lang.String;" env
