@@ -319,7 +319,7 @@
     {:optional (optional-input? filename)
      :exists (dfs/fs di/data-in? filepath)
      :path filepath
-     :file filename}))
+     :raw-name filename}))
 
 (defn modify-filename
   [filename mod-fn]
