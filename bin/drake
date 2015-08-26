@@ -60,7 +60,7 @@ fi
 
 function build_jar {
   echo "Using DRAKE_HOME: $DRAKE_HOME"
-  DRAKE_JAR=$DRAKE_HOME/target/drake.jar
+  DRAKE_JAR=${DRAKE_JAR:-$DRAKE_HOME/target/drake.jar}
   if [[ ! -f $DRAKE_JAR ]]; then
     echo ""
     echo "========= UBERJAR COMPILING ========="
@@ -84,8 +84,8 @@ if [ ! -z ${DRAKE_HOME:+x} ] && [ -d $DRAKE_HOME ] && [ -f "$DRAKE_HOME/project.
   build_jar
 else
   DRAKE_HOME=~/.drakerc
-  mkdir -p $DRAKE_HOME/jar
-  DRAKE_JAR=$DRAKE_HOME/jar/drake-$DRAKE_VERSION-standalone.jar
+  DRAKE_JAR=${DRAKE_JAR:-$DRAKE_HOME/jar/drake-$DRAKE_VERSION-standalone.jar}
+  mkdir -p $(dirname $DRAKE_JAR)
   if [ ! -f $DRAKE_JAR ]; then
     echo "Downloading drake jar for version $DRAKE_VERSION..."
     echo ""
