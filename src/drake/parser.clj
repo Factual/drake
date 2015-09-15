@@ -659,10 +659,13 @@
    (dissoc prod :vars)))
 
 (defn- attach-exec-dir
-  [prod exec-dir]
-  (update-in prod [:steps]
-             (fn [steps]
-               (mapv #(assoc % :exec-dir exec-dir) steps))))
+  [prod file-path]
+  (let [exec-dir (dfs/get-directory-path file-path)]
+    (-> prod
+        (assoc :exec-dir exec-dir)
+        (update-in [:steps]
+                   (fn [steps]
+                     (mapv #(assoc % :exec-dir exec-dir) steps))))))
 
 (def ^:const ^:private directive-include "include")
 (def ^:const ^:private directive-call "call")
@@ -687,17 +690,15 @@
          base (add-path-sep-suffix raw-base)
          ;; Need to use fs/file here to honor cwd
          ^String tokens (slurp (fs/file file-path))
-         exec-dir (when (= directive directive-context) (dfs/get-directory-path file-path))
          prod (parse-state
                (assoc (make-state
                         (ensure-final-newline tokens)
                         vars methods 0 0)
-                 :exec-dir exec-dir
                  :file-path file-path))]
      (condp = directive
        directive-include prod ;call-or-include line will merge vars+methods from prod into parent's vars
        directive-call (dissoc prod :vars :methods) ;but vars+methods from %call should not affect parent
-       directive-context (attach-exec-dir prod exec-dir)))))
+       directive-context (attach-exec-dir prod file-path)))))
 
 (def call-or-include-line
   "input: directive to call/include another Drake workflow. ie.,
