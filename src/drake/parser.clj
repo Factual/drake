@@ -661,15 +661,22 @@
 (defn- attach-exec-dir
   [prod file-path]
   (let [exec-dir (dfs/get-directory-path file-path)]
-    (-> prod
-        (assoc :exec-dir exec-dir)
-        (update-in [:steps]
-                   (fn [steps]
-                     (mapv #(assoc % :exec-dir exec-dir) steps))))))
+    (update-in prod [:steps]
+               (fn [steps]
+                 (mapv #(assoc % :exec-dir exec-dir) steps)))))
 
 (def ^:const ^:private directive-include "include")
 (def ^:const ^:private directive-call "call")
 (def ^:const ^:private directive-context "context")
+
+(defn- make-call-or-include-state
+  [directive tokens vars methods file-path]
+  (let [exec-dir (when (= directive directive-context) (dfs/get-directory-path file-path))
+        state (assoc (make-state (ensure-final-newline tokens) vars methods 0 0)
+                :file-path file-path)]
+    (if exec-dir
+      (assoc state :exec-dir exec-dir)
+      state)))
 
 (def call-or-include-helper
   "See call-or-include-line below"
@@ -690,11 +697,8 @@
          base (add-path-sep-suffix raw-base)
          ;; Need to use fs/file here to honor cwd
          ^String tokens (slurp (fs/file file-path))
-         prod (parse-state
-               (assoc (make-state
-                        (ensure-final-newline tokens)
-                        vars methods 0 0)
-                 :file-path file-path))]
+         state (make-call-or-include-state directive-context tokens vars methods file-path)
+         prod (parse-state state)]
      (condp = directive
        directive-include prod ;call-or-include line will merge vars+methods from prod into parent's vars
        directive-call (dissoc prod :vars :methods) ;but vars+methods from %call should not affect parent
