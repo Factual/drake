@@ -605,7 +605,7 @@
         p/emptiness)]
     nil))
 
-(declare call-or-include-line)
+(declare inclusion-directive-line)
 (declare inline-shell-cmd-line)
 
 (def workflow
@@ -615,7 +615,7 @@
           (p/rep* (p/alt inline-shell-cmd-line
                          step-lines
                          method-lines
-                         call-or-include-line
+                         inclusion-directive-line
                          (nil-semantics (p/conc (p/opt inline-ws) line-break))
                                         ;; any ws ending with line-break
                          (nil-semantics (p/conc inline-comment line-break))
@@ -650,7 +650,7 @@
   The output of the shell command will be placed inline the workflow file.
   This can be recursive, i.e. shell commands can print more shell commands.
 
-  Split into two parts for much the same reason as call-or-include-line is."
+  Split into two parts for much the same reason as inclusion-directive-line is."
   (p/complex
    [prod inline-shell-helper
     _ (if (:vars prod)
@@ -669,7 +669,7 @@
 (def ^:const ^:private directive-call "call")
 (def ^:const ^:private directive-context "context")
 
-(defn- make-call-or-include-state
+(defn- make-inclusion-directive-state
   [directive tokens vars methods file-path]
   (let [exec-dir (when (= directive directive-context) (dfs/get-directory-path file-path))
         state (assoc (make-state (ensure-final-newline tokens) vars methods 0 0)
@@ -678,8 +678,8 @@
       (assoc state :exec-dir exec-dir)
       state)))
 
-(def call-or-include-helper
-  "See call-or-include-line below"
+(def inclusion-directive-helper
+  "See inclusion-directive-line below"
   (p/complex
    [_ percent-sign
     directive  (p/semantics (p/alt (p/lit-conc-seq directive-include nb-char-lit)
@@ -697,14 +697,14 @@
          base (add-path-sep-suffix raw-base)
          ;; Need to use fs/file here to honor cwd
          ^String tokens (slurp (fs/file file-path))
-         state (make-call-or-include-state directive-context tokens vars methods file-path)
+         state (make-inclusion-directive-state directive-context tokens vars methods file-path)
          prod (parse-state state)]
      (condp = directive
        directive-include prod ;call-or-include line will merge vars+methods from prod into parent's vars
        directive-call (dissoc prod :vars :methods) ;but vars+methods from %call should not affect parent
        directive-context (attach-exec-dir prod file-path)))))
 
-(def call-or-include-line
+(def inclusion-directive-line
   "input: directive to call/include another Drake workflow. ie.,
    %include nested.d
    output: same as if the lines of the nested file were copy and pasted into
@@ -712,7 +712,7 @@
    definitions in the nested workflow will not exist after the call is
    completed.
 
-   This is split into 2 parts, call-or-include-line and call-or-include-helper,
+   This is split into 2 parts, inclusion-directive-line and inclusion-directive-helper,
    mainly because we need to call parse-state during the rule-product
    manipulation phase, and then we need to save vars from the %include into
    our state stuct. However, we can only set the state vars during the rule
@@ -721,11 +721,11 @@
   ;; note that there are two distinct things named :methods - one in the monad's state
   ;; slot, which is a set of known method names, and one in the return-value slot, ie
   ;; the production, which is a map from method name to method definition.
-  ;; so, we need to include the :methods from the production of the call-or-include-helper
+  ;; so, we need to include the :methods from the production of the inclusion-directive-helper
   ;; in the production of this rule, but also add just the keys of that map into the
   ;; state of this rule
   (p/complex
-   [prod call-or-include-helper
+   [prod inclusion-directive-helper
     _ (if-let [vars (:vars prod)]
         (p/set-info :vars vars)
         p/emptiness)
