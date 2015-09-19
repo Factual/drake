@@ -4,7 +4,6 @@
   (:require [c4.core :as c4]
             [clojure.string :as str]
             [clojure.tools.logging :refer [debug]]
-            [cemerick.pomegranate :as pom]
             [slingshot.slingshot :refer [throw+]]
             [fs.core :as fs]
             [drake.protocol :as protocol]
