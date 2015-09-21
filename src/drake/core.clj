@@ -189,10 +189,10 @@
   [inputs]
   (let [inputs-info (map parser/make-file-stats inputs)]
     {:existing (->> (filter :exists inputs-info)
-                    (map :file))
+                    (map :path))
      ;; Non-existing, non-optional inputs
      :missing (->> (remove (some-fn :optional :exists) inputs-info)
-                   (map :file))}))
+                   (map :path))}))
 
 (defn- should-build?
   "Given the parse tree and a step index, determines whether it should
