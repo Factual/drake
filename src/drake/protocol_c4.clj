@@ -175,6 +175,8 @@
                                   (run [_ step]
                                     (exec-or-passthru step func)))))
 
+(def ^:const c4-protocols ["c4" "c4row" "c4rows"])
+
 (dorun (map register-c4-protocol! [["c4" exec-c4]
                                    ["c4row" exec-row-xform]
                                    ["c4rows" exec-rows]]))

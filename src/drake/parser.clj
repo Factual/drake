@@ -8,6 +8,7 @@
             [drake.steps :refer [add-dependencies calc-step-dirs]]
             [drake.utils :as utils :refer [clip ensure-final-newline]]
             [drake.parser_utils :refer :all]
+            [drake.protocol-c4 :as c4]
             [drake-interface.core :as di]
             [name.choi.joshua.fnparse :as p]
             [fs.core :as fs]))
@@ -658,9 +659,22 @@
         p/emptiness)]
    (dissoc prod :vars)))
 
-(defn- attach-exec-dir
+(def ^:private ^:const context-incompatible-protocols
+  (set c4/c4-protocols))
+
+(defn- check-context-incompatible-protocols
+  [steps]
+  (doall
+   (some (fn [step]
+           (let [protocol (-> step :opts :protocol)]
+             (when (contains? context-incompatible-protocols protocol)
+               (throw+ {:msg (str "protocol " protocol " not supported with %context")}))))
+         steps)))
+
+(defn- postprocess-context
   [prod file-path]
   (let [exec-dir (dfs/get-directory-path file-path)]
+    (check-context-incompatible-protocols (:steps prod))
     (update-in prod [:steps]
                (fn [steps]
                  (mapv #(assoc % :exec-dir exec-dir) steps)))))
@@ -702,7 +716,7 @@
      (condp = directive
        directive-include prod ;call-or-include line will merge vars+methods from prod into parent's vars
        directive-call (dissoc prod :vars :methods) ;but vars+methods from %call should not affect parent
-       directive-context (attach-exec-dir prod file-path)))))
+       directive-context (postprocess-context prod file-path)))))
 
 (def inclusion-directive-line
   "input: directive to call/include another Drake workflow. ie.,
