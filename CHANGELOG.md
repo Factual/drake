@@ -2,7 +2,7 @@
 ### New Features
 * Optional input files [#181](https://github.com/Factual/drake/pull/181)
 
-### Bug fixes
+### Bug Fixes
 * drake.log was sometimes put in the wrong directory [#183](https://github.com/Factual/drake/issues/183)
 
 ## 1.0.0
