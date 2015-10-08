@@ -1,4 +1,4 @@
-(defproject factual/drake "1.0.1"
+(defproject factual/drake "1.0.2"
   :description "Drake: the data processing workflow tool (a.k.a. 'make for data')"
   :url "https://github.com/Factual/drake"
   :license {:name "Eclipse Public License"
