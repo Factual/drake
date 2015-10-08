@@ -1,3 +1,12 @@
+## 1.0.2
+### New Features
+* If you have no `SHELL` environment variable when running a command, we now default to `/bin/sh`
+* Added support for environment variable `DRAKE_JAR` to let you store drake elsewhere
+
+### Bug Fixes
+* Fix handling of optional input files
+* Fix various interactions between method definitinos and `%include` directives
+
 ## 1.0.1
 ### New Features
 * Optional input files [#181](https://github.com/Factual/drake/pull/181)
