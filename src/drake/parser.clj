@@ -524,20 +524,20 @@
                     (deep-merge commands))
          {:keys [method method-mode template]} (:opts step-def-product)]
      (cond
-      (not (or (empty? method) (methods method)))
+      (and (seq method) (not (methods method)))
       (throw-parse-error state "method '%s' undefined at this point."
                          method)
 
-      (not (or (empty? method-mode) (#{"use" "append" "replace"} method-mode)))
+      (and (seq method-mode) (not (#{"use" "append" "replace"} method-mode)))
       (throw-parse-error state (str "invalid method-mode, valid values are: "
                                     "use (default), append, and replace."))
 
-      (not (or method (empty? method-mode)))
+      (and (seq method-mode) (not method))
       (throw-parse-error state
                          "method-mode specified but method name not given")
 
-      (and method (not (#{"append" "replace"} method-mode))
-           (not (empty? commands)))
+      (and method (seq commands)
+           (not (#{"append" "replace"} method-mode)))
       (throw-parse-error state
                          (str "commands not allowed for method calls "
                               "(use method-mode:append or method-mode:replace "
