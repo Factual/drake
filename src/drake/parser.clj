@@ -676,8 +676,7 @@
   (let [exec-dir (dfs/get-directory-path file-path)]
     (check-context-incompatible-protocols (:steps prod))
     (update-in prod [:steps]
-               (fn [steps]
-                 (mapv #(assoc % :exec-dir exec-dir) steps)))))
+               (partial mapv #(assoc % :exec-dir exec-dir)))))
 
 (def ^:const ^:private directive-include "include")
 (def ^:const ^:private directive-call "call")
@@ -685,12 +684,10 @@
 
 (defn- make-inclusion-directive-state
   [directive tokens vars methods file-path]
-  (let [exec-dir (when (= directive directive-context) (dfs/get-directory-path file-path))
-        state (assoc (make-state (ensure-final-newline tokens) vars methods 0 0)
-                :file-path file-path)]
-    (if exec-dir
-      (assoc state :exec-dir exec-dir)
-      state)))
+  (merge (assoc (make-state (ensure-final-newline tokens) vars methods 0 0)
+           :file-path file-path)
+         (when (= directive directive-context)
+           {:exec-dir (dfs/get-directory-path file-path)})))
 
 (def inclusion-directive-helper
   "See inclusion-directive-line below"
