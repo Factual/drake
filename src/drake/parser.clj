@@ -708,7 +708,7 @@
          base (add-path-sep-suffix raw-base)
          ;; Need to use fs/file here to honor cwd
          ^String tokens (slurp (fs/file file-path))
-         state (make-inclusion-directive-state directive-context tokens vars methods file-path)
+         state (make-inclusion-directive-state directive tokens vars methods file-path)
          prod (parse-state state)]
      (condp = directive
        directive-include prod ;call-or-include line will merge vars+methods from prod into parent's vars
