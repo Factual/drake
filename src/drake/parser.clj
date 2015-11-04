@@ -8,6 +8,7 @@
             [drake.steps :refer [add-dependencies calc-step-dirs]]
             [drake.utils :as utils :refer [clip ensure-final-newline]]
             [drake.parser_utils :refer :all]
+            [drake.protocol-c4 :as c4]
             [drake-interface.core :as di]
             [name.choi.joshua.fnparse :as p]
             [fs.core :as fs]))
@@ -188,12 +189,13 @@
     _ (p/failpoint close-paren
                    (illegal-syntax-error-fn "command substitution"))
     line (p/get-info :line)
+    exec-dir (p/get-info :exec-dir)
     column (p/get-info :column)
     value-ignored (p/get-info :value-ignored)]
    (if value-ignored
      (format "[[shell expansion $(%s) which would be ignored by := assignment]]" prod)
      ;; stderr preserved by default
-     (let [result (shell-memo prod :line line :column column :die true :use-shell true)]
+     (let [result (shell-memo prod :line line :column column :die true :use-shell true :exec-dir exec-dir)]
        (debug "line =" line " column=" column " shell =" prod)
        (debug "shell result = " result)
        (s/trim-newline result)))))
@@ -604,7 +606,7 @@
         p/emptiness)]
     nil))
 
-(declare call-or-include-line)
+(declare inclusion-directive-line)
 (declare inline-shell-cmd-line)
 
 (def workflow
@@ -614,7 +616,7 @@
           (p/rep* (p/alt inline-shell-cmd-line
                          step-lines
                          method-lines
-                         call-or-include-line
+                         inclusion-directive-line
                          (nil-semantics (p/conc (p/opt inline-ws) line-break))
                                         ;; any ws ending with line-break
                          (nil-semantics (p/conc inline-comment line-break))
@@ -649,7 +651,7 @@
   The output of the shell command will be placed inline the workflow file.
   This can be recursive, i.e. shell commands can print more shell commands.
 
-  Split into two parts for much the same reason as call-or-include-line is."
+  Split into two parts for much the same reason as inclusion-directive-line is."
   (p/complex
    [prod inline-shell-helper
     _ (if (:vars prod)
@@ -657,12 +659,43 @@
         p/emptiness)]
    (dissoc prod :vars)))
 
-(def call-or-include-helper
-  "See call-or-include-line below"
+(def ^:private ^:const context-incompatible-protocols
+  (set c4/c4-protocols))
+
+(defn- check-context-incompatible-protocols
+  [steps]
+  (doall
+   (some (fn [step]
+           (let [protocol (-> step :opts :protocol)]
+             (when (contains? context-incompatible-protocols protocol)
+               (throw+ {:msg (str "protocol " protocol " not supported with %context")}))))
+         steps)))
+
+(defn- postprocess-context
+  [prod file-path]
+  (let [exec-dir (dfs/get-directory-path file-path)]
+    (check-context-incompatible-protocols (:steps prod))
+    (update-in prod [:steps]
+               (partial mapv #(assoc % :exec-dir exec-dir)))))
+
+(def ^:const ^:private directive-include "include")
+(def ^:const ^:private directive-call "call")
+(def ^:const ^:private directive-context "context")
+
+(defn- make-inclusion-directive-state
+  [directive tokens vars methods file-path]
+  (merge (assoc (make-state (ensure-final-newline tokens) vars methods 0 0)
+           :file-path file-path)
+         (when (= directive directive-context)
+           {:exec-dir (dfs/get-directory-path file-path)})))
+
+(def inclusion-directive-helper
+  "See inclusion-directive-line below"
   (p/complex
    [_ percent-sign
-    directive  (p/semantics (p/alt (p/lit-conc-seq "include" nb-char-lit)
-                               (p/lit-conc-seq "call" nb-char-lit))
+    directive  (p/semantics (p/alt (p/lit-conc-seq directive-include nb-char-lit)
+                               (p/lit-conc-seq directive-call nb-char-lit)
+                               (p/lit-conc-seq directive-context nb-char-lit))
                             apply-str)
     _ inline-ws
     file-path file-name
@@ -670,21 +703,19 @@
     _ (p/opt inline-comment)
     vars (p/get-info :vars)
     methods (p/get-info :methods)
-    _ (p/failpoint line-break (illegal-syntax-error-fn "%call / %include"))]
+    _ (p/failpoint line-break (illegal-syntax-error-fn "%call / %include / %context"))]
    (let [raw-base (get vars "BASE" default-base)
          base (add-path-sep-suffix raw-base)
          ;; Need to use fs/file here to honor cwd
          ^String tokens (slurp (fs/file file-path))
-         prod (parse-state
-               (assoc (make-state
-                        (ensure-final-newline tokens)
-                        vars methods 0 0)
-                 :file-path file-path))]
-     (if (= directive "include")
-       prod ;call-or-include line will merge vars+methods from prod into parent's vars
-       (dissoc prod :vars :methods))))) ;but vars+methods from %call should not affect parent
+         state (make-inclusion-directive-state directive tokens vars methods file-path)
+         prod (parse-state state)]
+     (condp = directive
+       directive-include prod ;call-or-include line will merge vars+methods from prod into parent's vars
+       directive-call (dissoc prod :vars :methods) ;but vars+methods from %call should not affect parent
+       directive-context (postprocess-context prod file-path)))))
 
-(def call-or-include-line
+(def inclusion-directive-line
   "input: directive to call/include another Drake workflow. ie.,
    %include nested.d
    output: same as if the lines of the nested file were copy and pasted into
@@ -692,7 +723,7 @@
    definitions in the nested workflow will not exist after the call is
    completed.
 
-   This is split into 2 parts, call-or-include-line and call-or-include-helper,
+   This is split into 2 parts, inclusion-directive-line and inclusion-directive-helper,
    mainly because we need to call parse-state during the rule-product
    manipulation phase, and then we need to save vars from the %include into
    our state stuct. However, we can only set the state vars during the rule
@@ -701,11 +732,11 @@
   ;; note that there are two distinct things named :methods - one in the monad's state
   ;; slot, which is a set of known method names, and one in the return-value slot, ie
   ;; the production, which is a map from method name to method definition.
-  ;; so, we need to include the :methods from the production of the call-or-include-helper
+  ;; so, we need to include the :methods from the production of the inclusion-directive-helper
   ;; in the production of this rule, but also add just the keys of that map into the
   ;; state of this rule
   (p/complex
-   [prod call-or-include-helper
+   [prod inclusion-directive-helper
     _ (if-let [vars (:vars prod)]
         (p/set-info :vars vars)
         p/emptiness)

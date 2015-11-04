@@ -89,7 +89,7 @@
 
    Loosely based on clojure.java.shell/sh."
   [& args]
-  (let [[cmd {:keys [out err die use-shell no-stdin env replace-env] :as opts}]
+  (let [[cmd {:keys [out err die use-shell no-stdin env replace-env exec-dir] :as opts}]
         (split-with string? args)
         env (as-env-strings (if replace-env
                               env
@@ -103,7 +103,7 @@
         proc (.exec (Runtime/getRuntime)
                     cmd-for-exec
                     ^"[Ljava.lang.String;" env
-                    (fs/file fs/*cwd*))]
+                    (fs/file (or exec-dir fs/*cwd*)))]
     ;; Pass stdin to process unless :no-stdin option is set
     ;; Usually set when async is on
     (let [^Thread stdin  (and (not no-stdin) (Thread. #(copy-stdin proc)))

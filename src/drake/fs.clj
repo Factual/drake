@@ -16,6 +16,19 @@
 (def drake-ignore "Names of files or directories to be ignored by Drake"
   #{"_logs"})
 
+(defn get-directory
+  [path]
+  (loop [f (fs/file path)]
+    (cond
+     (.isDirectory f) f
+     (nil? f) nil
+     :else (recur (.getParentFile f)))))
+
+(defn get-directory-path
+  [path]
+  (when-let [dir (get-directory path)]
+    (.getPath dir)))
+
 (defn split-path
   "Returns a tuple: prefix (possibly empty) and path."
   [path]

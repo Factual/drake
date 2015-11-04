@@ -17,6 +17,10 @@
   [actual-tuple key expected-value]
   (= (get-in (second actual-tuple) [:vars key]) expected-value))
 
+(defn var-pattern?
+  [actual-tuple key pattern]
+  (re-find pattern (get-in (second actual-tuple) [:vars key])))
+
 (deftest var-def-test
   (let [actual-tuple (d/var-def-line (make-state "MYVAR=myvalue\n"))]
     (is (prod-eq? actual-tuple nil))
@@ -223,26 +227,42 @@
        filename
        "\n"))
 
-(deftest include-test
-  (let [actual-prod (d/call-or-include-line
+(deftest directive-include-test
+  (let [actual-prod (d/inclusion-directive-line
                      (make-state
                       (locally "%include" "nested.d")))]
     (is (var-eq? actual-prod "NESTEDVAR" "/foo"))
     (is (var-eq? actual-prod "BASE" "/base/nest/"))
     (is (contains? (:methods (second actual-prod))
                    "sample_method")))
-  (let [actual-prod (d/call-or-include-line
-                     (make-state
-                      (locally "%call" "nested.d")))]
-    (is (var-eq? actual-prod "NESTEDVAR" nil))
-    (is (var-eq? actual-prod "BASE" "/base"))
-    (is (empty? (:methods (second actual-prod)))))
   (let [actual-prod
         (first
          (d/workflow
           (make-state (str (locally "%include" "nested.d")
                            "sample <- [method:sample_method]\n"))))]
     (is (contains? (:methods actual-prod) "sample_method"))))
+
+(deftest directive-call-test
+  (let [actual-prod (d/inclusion-directive-line
+                     (make-state
+                      (locally "%call" "nested.d")))]
+    (is (var-eq? actual-prod "NESTEDVAR" nil))
+    (is (var-eq? actual-prod "BASE" "/base"))
+    (is (empty? (:methods (second actual-prod))))))
+
+(deftest directive-context-test
+  (let [actual-prod
+         (d/inclusion-directive-line
+          (make-state (locally "%context" "nested.d")))]
+    (is (every? :exec-dir (:steps actual-prod)))
+    (is (every? #(re-find #"test/resources" (:exec-dir %)) (:steps actual-prod)))
+    (is (var-pattern? actual-prod "PWD" #"test/resources$")))
+  (let [actual-prod
+         (d/inclusion-directive-line
+          (make-state (locally "%include" "nested.d")))]
+    (is (not-any? :exec-dir (:steps actual-prod)))
+    (is (not (var-pattern? actual-prod "PWD" #"test/resources$")))))
+
 
 (def INLINE-SHELL-TEST-DATA "$(for DUDE in dude.txt babe.txt belle.txt; do echo \\\"$DUDE <\\\"\\\"-\\\"; echo \\\"  echo $DUDE\\\"; echo; done)\n")
 
