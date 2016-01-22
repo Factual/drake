@@ -13,7 +13,7 @@
 (defn new-workflow
   "Create a new workflow.  Optionally specify vars to overide default
   environmental variables"
-  ([] (new-workflow false))
+  ([] (new-workflow {}))
   ([vars]
      {:steps []
       :methods {}
