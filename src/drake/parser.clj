@@ -671,12 +671,20 @@
                (throw+ {:msg (str "protocol " protocol " not supported with %context")}))))
          steps)))
 
+(defn- set-step-exec-dir
+  "Set exec dir for step if unset. Steps from nested files
+   may already have exec dirs, do not override"
+  [exec-dir step]
+  (assoc step :exec-dir
+         (or (:exec-dir step)
+             exec-dir)))
+
 (defn- postprocess-context
   [prod file-path]
-  (let [exec-dir (dfs/get-directory-path file-path)]
+  (let [exec-dir (dfs/get-directory-path file-path)
+        set-exec-dir (partial set-step-exec-dir exec-dir)]
     (check-context-incompatible-protocols (:steps prod))
-    (update-in prod [:steps]
-               (partial mapv #(assoc % :exec-dir exec-dir)))))
+    (update-in prod [:steps] (partial mapv set-exec-dir))))
 
 (def ^:const ^:private directive-include "include")
 (def ^:const ^:private directive-call "call")
