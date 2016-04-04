@@ -689,6 +689,14 @@
          (when (= directive directive-context)
            {:exec-dir (dfs/get-directory-path file-path)})))
 
+(defn- resolve-include-path
+  "Apply context exec dir to include file path if necessary"
+  [file-name exec-dir]
+  (if (or (dfs/absolute-path? file-name)
+          (nil? exec-dir))
+    file-name
+    (.toString (java.io.File. exec-dir file-name))))
+
 (def inclusion-directive-helper
   "See inclusion-directive-line below"
   (p/complex
@@ -703,9 +711,11 @@
     _ (p/opt inline-comment)
     vars (p/get-info :vars)
     methods (p/get-info :methods)
+    exec-dir (p/get-info :exec-dir)
     _ (p/failpoint line-break (illegal-syntax-error-fn "%call / %include / %context"))]
    (let [raw-base (get vars "BASE" default-base)
          base (add-path-sep-suffix raw-base)
+         file-path (resolve-include-path file-path exec-dir)
          ;; Need to use fs/file here to honor cwd
          ^String tokens (slurp (fs/file file-path))
          state (make-inclusion-directive-state directive tokens vars methods file-path)
