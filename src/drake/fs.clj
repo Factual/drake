@@ -52,6 +52,11 @@
   [path]
   (second (split-path path)))
 
+(defn absolute-path?
+  "Check if given path is absolute"
+  [path]
+  (.isAbsolute (File. (path-filename path))))
+
 (defn should-ignore? [path]
   (drake-ignore (last (split path #"/"))))
 

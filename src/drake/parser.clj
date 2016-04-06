@@ -671,12 +671,20 @@
                (throw+ {:msg (str "protocol " protocol " not supported with %context")}))))
          steps)))
 
+(defn- set-step-exec-dir
+  "Set exec dir for step if unset. Steps from nested files
+   may already have exec dirs, do not override"
+  [exec-dir step]
+  (assoc step :exec-dir
+         (or (:exec-dir step)
+             exec-dir)))
+
 (defn- postprocess-context
   [prod file-path]
-  (let [exec-dir (dfs/get-directory-path file-path)]
+  (let [exec-dir (dfs/get-directory-path file-path)
+        set-exec-dir (partial set-step-exec-dir exec-dir)]
     (check-context-incompatible-protocols (:steps prod))
-    (update-in prod [:steps]
-               (partial mapv #(assoc % :exec-dir exec-dir)))))
+    (update-in prod [:steps] (partial mapv set-exec-dir))))
 
 (def ^:const ^:private directive-include "include")
 (def ^:const ^:private directive-call "call")
@@ -688,6 +696,14 @@
            :file-path file-path)
          (when (= directive directive-context)
            {:exec-dir (dfs/get-directory-path file-path)})))
+
+(defn- resolve-include-path
+  "Apply context exec dir to include file path if necessary"
+  [file-name exec-dir]
+  (if (or (dfs/absolute-path? file-name)
+          (nil? exec-dir))
+    file-name
+    (.toString (java.io.File. exec-dir file-name))))
 
 (def inclusion-directive-helper
   "See inclusion-directive-line below"
@@ -703,9 +719,11 @@
     _ (p/opt inline-comment)
     vars (p/get-info :vars)
     methods (p/get-info :methods)
+    exec-dir (p/get-info :exec-dir)
     _ (p/failpoint line-break (illegal-syntax-error-fn "%call / %include / %context"))]
    (let [raw-base (get vars "BASE" default-base)
          base (add-path-sep-suffix raw-base)
+         file-path (resolve-include-path file-path exec-dir)
          ;; Need to use fs/file here to honor cwd
          ^String tokens (slurp (fs/file file-path))
          state (make-inclusion-directive-state directive tokens vars methods file-path)
