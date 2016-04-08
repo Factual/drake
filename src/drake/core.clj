@@ -35,7 +35,7 @@
 (defn- shutdown [exit-code]
   (throw+ {:exit-code exit-code}))
 
-(def VERSION "1.0.1")
+(def VERSION "1.0.3")
 (def DEFAULT-VARS-SPLIT-REGEX-STR ; matches and consumes a comma; requires that an even number of "
                                   ; characters exist between the comma and end of string
   "(?x)       ## (?x) enables inline formatting and comments

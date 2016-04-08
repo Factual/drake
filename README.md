@@ -52,7 +52,7 @@ You can build Drake from source or run from a prebuilt jar. [Detailed instructio
 You can programmatically use Drake from your Clojure project by using [Drake's Clojure front end](https://github.com/Factual/drake/wiki/A-Clojure-Frontend-to-Drake). Your project.clj dependencies should include the latest Drake library, e.g.:
 
 ```clojure
-[factual/drake "1.0.1"]
+[factual/drake "1.0.3"]
 ```
 
 ### Faster startup time
