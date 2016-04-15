@@ -1,11 +1,10 @@
-(defproject factual/drake "0.1.7"
+(defproject factual/drake "1.0.3"
   :description "Drake: the data processing workflow tool (a.k.a. 'make for data')"
   :url "https://github.com/Factual/drake"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :scm {:name "git"
         :url "https://github.com/Factual/drake"}
-  :signing {:gpg-key "1402451C"}
   :deploy-repositories [["clojars" {:creds :gpg}]]
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/core.memoize "0.5.6"]
@@ -25,12 +24,12 @@
                  [factual/fnparse "2.3.0"]
                  [commons-codec/commons-codec "1.6"]
                  [factual/sosueme "0.0.15"]
-                 [factual/c4 "0.2.0"]
+                 [factual/c4 "0.2.1"]
                  [hdfs-clj "0.1.3"]    ;; for HDFS support
                  [org.apache.hadoop/hadoop-core "0.20.2"]
-                 [clj-aws-s3 "0.3.10"]    ;; for AWS S3 support
+                 [clj-aws-s3 "0.3.10" :exclusions [joda-time]]    ;; for AWS S3 support
                  ;; for plugins
-                 [com.cemerick/pomegranate "0.2.0"]]
+                 [com.cemerick/pomegranate "0.2.0" :exclusions [org.apache.httpcomponents/httpcore]]]
   :test-selectors {:regression   :regression
                    :default      (complement :regression)
                    :all          (constantly true)}

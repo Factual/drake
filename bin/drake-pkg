@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# This variant of the drake script is meant for downstream packagers.
+# It has all the self-install, self-upgrade and build from source feature stripped out.
+
+
+DRAKE_VERSION=1.0.1
+
+if [ "$1" = "--upgrade" ]; then
+  echo "This version of drake was installed with a package manager, but"
+  echo "the upgrade task is intended for manual installs. Please use your"
+  echo "package manager's built-in upgrade facilities instead."
+  exit 1
+fi
+
+# Tries to include local hadoop library on classpath for HDFS support.
+# If Hadoop client is not installed locally, defaults to built-in hadoop version.
+# If you don't need HDFS support with your Drake workflows, none of this matters.
+if [ -z ${HADOOP_CLASSPATH:+x} ]; then
+  if [[ `which hadoop` ]]; then
+    HADOOP_CLASSPATH=`hadoop classpath 2>/dev/null`
+    HADOOP_VERSION=`hadoop version | head -1`
+  fi
+fi
+
+if [ "$1" = "--hadoop-version" ]; then
+  if [ ! -z ${HADOOP_VERSION:+x} ]; then
+    echo "Found $HADOOP_VERSION on local"
+  else
+    echo "Warning: Hadoop client not found. HDFS related features will probably not work correctly. Ignore this message if you don't need HDFS support."
+  fi
+  exit 0
+fi
+
+if [ "$1" = "--version" ]; then
+  echo "Drake now is on version: $DRAKE_VERSION"
+  exit 0
+fi
+
+if [[ `which drip` ]]; then
+  echo "Using drip to start up JVM..."
+  drip -cp $HADOOP_CLASSPATH:DRAKE_JAR drake.core "$@"
+else
+  java -cp $HADOOP_CLASSPATH:DRAKE_JAR drake.core "$@"
+fi

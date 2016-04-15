@@ -35,5 +35,5 @@ check_grep() {
 run_d() {
   WORKFLOW_FILE=$1
   shift
-  $(dirname $0)/../../bin/run.sh -w $(dirname $0)/$WORKFLOW_FILE $@
+  $(dirname $0)/../../bin/drake -w $(dirname $0)/$WORKFLOW_FILE $@
 }

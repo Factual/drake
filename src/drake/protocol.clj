@@ -72,8 +72,8 @@
 
    Caches the script file using MD5, and intercepts and stores child process'
    stdout and stderr in the standard location."
-  [{:keys [vars opts] :as step} interpreter args]
-  (let [script-filename (create-cmd-file step)
+  [{:keys [vars opts exec-dir] :as step} interpreter args]
+  (let [script-filename (fs/absolute-path (create-cmd-file step))
         stdout (log-file step "stdout")
         stderr (log-file step "stderr")]
     (apply shell (concat [interpreter]
@@ -83,7 +83,8 @@
                           :die true
                           :no-stdin (:no-stdin opts)
                           :out [System/out (writer stdout)]
-                          :err [System/err (writer stderr)]]))
+                          :err [System/err (writer stderr)]
+                          :exec-dir exec-dir]))
     (debug "run-interpreter: finished running" (relative-path script-filename))
     (debug "run-interpreter: stdout saved to" (relative-path stdout))
     (debug "run-interpreter: stderr saved to" (relative-path stderr))))
