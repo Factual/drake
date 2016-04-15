@@ -1,3 +1,10 @@
+## 1.0.3
+### New Features
+* Added `%context` directive, which allows included scripts to use their native working directories (thanks chenguo)
+
+### Bug Fixes
+* [Fixed default argment to new workflow.](https://github.com/Factual/drake/pull/208) (thanks bahulneel)
+
 ## 1.0.2
 ### New Features
 * If you have no `SHELL` environment variable when running a command, we now default to `/bin/sh`
