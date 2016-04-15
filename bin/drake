@@ -17,7 +17,7 @@ if [ "$HTTP_CLIENT" = "" ]; then
     fi
 fi
 
-DRAKE_VERSION=1.0.1
+DRAKE_VERSION=1.0.3
 
 DRAKE_SCRIPT_URL=https://raw.githubusercontent.com/Factual/drake/master/bin/drake
 DRAKE_URL=https://github.com/Factual/drake/releases/download/$DRAKE_VERSION/drake.jar
