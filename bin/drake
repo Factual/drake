@@ -42,11 +42,9 @@ fi
 # Tries to include local hadoop library on classpath for HDFS support.
 # If Hadoop client is not installed locally, defaults to built-in hadoop version.
 # If you don't need HDFS support with your Drake workflows, none of this matters.
-if [ -z ${HADOOP_CLASSPATH:+x} ]; then
-  if [[ `which hadoop` ]]; then
-    HADOOP_CLASSPATH=`hadoop classpath 2>/dev/null`
-    HADOOP_VERSION=`hadoop version | head -1`
-  fi
+if [[ `which hadoop` ]]; then
+  HADOOP_CLASSPATH=`hadoop classpath 2>/dev/null`
+  HADOOP_VERSION=`hadoop version | head -1`
 fi
 
 if [ "$1" = "--hadoop-version" ]; then
