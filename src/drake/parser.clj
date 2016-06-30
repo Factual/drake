@@ -680,6 +680,7 @@
              exec-dir)))
 
 (defn- postprocess-context
+  "Ensure all steps use context directory"
   [prod file-path]
   (let [exec-dir (dfs/get-directory-path file-path)
         set-exec-dir (partial set-step-exec-dir exec-dir)]
@@ -691,11 +692,15 @@
 (def ^:const ^:private directive-context "context")
 
 (defn- make-inclusion-directive-state
-  [directive tokens vars methods file-path]
+  [directive tokens vars methods file-path exec-dir]
   (merge (assoc (make-state (ensure-final-newline tokens) vars methods 0 0)
-           :file-path file-path)
-         (when (= directive directive-context)
-           {:exec-dir (dfs/get-directory-path file-path)})))
+                :file-path file-path)
+         ;; exec-dir handling:
+         ;; - context: use file-path as new exec-dir
+         ;; - non-context: use existing exec-dir
+         (if (= directive directive-context)
+           {:exec-dir (dfs/get-directory-path file-path)}
+           {:exec-dir exec-dir})))
 
 (defn- resolve-include-path
   "Apply context exec dir to include file path if necessary"
@@ -726,7 +731,7 @@
          file-path (resolve-include-path file-path exec-dir)
          ;; Need to use fs/file here to honor cwd
          ^String tokens (slurp (fs/file file-path))
-         state (make-inclusion-directive-state directive tokens vars methods file-path)
+         state (make-inclusion-directive-state directive tokens vars methods file-path exec-dir)
          prod (parse-state state)]
      (condp = directive
        directive-include prod ;call-or-include line will merge vars+methods from prod into parent's vars
