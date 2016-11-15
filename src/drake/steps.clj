@@ -94,7 +94,7 @@
 
 ;; No way to get to MAX_PATH from Java
 ;; Leave some characters for unique suffixes and for files inside
-(def ^:private MAX_PATH 200)
+(def ^:private MAX_PATH 1024)
 
 (defn calc-step-dirs
   "Given the parse-tree, calculate each step's directory for keeping
