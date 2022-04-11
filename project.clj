@@ -32,7 +32,7 @@
                  [factual/sosueme "0.0.15"]
                  [factual/c4 "0.2.1"]
                  [hdfs-clj "0.1.3"]    ;; for HDFS support
-                 [org.apache.hadoop/hadoop-core "2.6.0-cdh5.4.0"]
+                 [org.apache.hadoop/hadoop-core "2.6.0-mr1-cdh5.4.0"]
                  [clj-aws-s3 "0.3.10" :exclusions [joda-time]]    ;; for AWS S3 support
                  ;; for plugins
                  [com.cemerick/pomegranate "0.2.0" :exclusions [org.apache.httpcomponents/httpcore]]]
