@@ -1,11 +1,17 @@
-(defproject factual/drake "1.0.3"
+(defproject factual/drake "1.0.4-SNAPSHOT"
   :description "Drake: the data processing workflow tool (a.k.a. 'make for data')"
-  :url "https://github.com/Factual/drake"
-  :license {:name "Eclipse Public License"
-            :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :scm {:name "git"
-        :url "https://github.com/Factual/drake"}
-  :deploy-repositories [["clojars" {:creds :gpg}]]
+  :repositories {"cloudera"   "https://repository.cloudera.com/content/groups/cdh-releases-rcs"
+                 "foursquare" {:url      "https://foursquaredev.jfrog.io/foursquaredev/fsnexus"
+                               :username :env/MVN_USERNAME :password :env/MVN_PASSWORD}
+                              }
+  :deploy-repositories {"snapshots" {:id          "foursquare"
+                                     :url         "https://foursquaredev.jfrog.io/foursquaredev/fsfactual-snapshots-local"
+                                     :username :env/MVN_USERNAME :password :env/MVN_PASSWORD
+                                     :sign-releases false}
+                        "releases"  {:id          "foursquare"
+                                     :url         "https://foursquaredev.jfrog.io/foursquaredev/fsfactual-releases-local"
+                                     :username :env/MVN_USERNAME :password :env/MVN_PASSWORD
+                                     :sign-releases false}}
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/core.memoize "0.5.6"]
                  [factual/drake-interface "0.0.1"]
