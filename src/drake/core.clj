@@ -678,12 +678,12 @@
     (let [pairs (str/split vars-str (re-pattern split-regex-str))]
       (reduce
        (fn [acc pair]
-         (let [spl (str/split pair #"=" -1)]
+         (let [spl (str/split pair #"=" 2)]
            (if (not= (count spl) 2)
              (do
                (println "Invalid variable definition in -v or --vars:" pair)
                (shutdown -1)))
-           (conj acc (str/split pair #"="))))
+           (conj acc (str/split pair #"=" 2))))
          {}
        pairs))))
 

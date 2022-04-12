@@ -1,11 +1,17 @@
-(defproject factual/drake "1.0.3"
+(defproject factual/drake "1.0.4-cdh5-SNAPSHOT"
   :description "Drake: the data processing workflow tool (a.k.a. 'make for data')"
-  :url "https://github.com/Factual/drake"
-  :license {:name "Eclipse Public License"
-            :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :scm {:name "git"
-        :url "https://github.com/Factual/drake"}
-  :deploy-repositories [["clojars" {:creds :gpg}]]
+  :repositories {"cloudera"   "https://repository.cloudera.com/content/groups/cdh-releases-rcs"
+                 "foursquare" {:url      "https://foursquaredev.jfrog.io/foursquaredev/fsnexus"
+                               :username :env/MVN_USERNAME :password :env/MVN_PASSWORD}
+                              }
+  :deploy-repositories {"snapshots" {:id          "foursquare"
+                                     :url         "https://foursquaredev.jfrog.io/foursquaredev/fsfactual-snapshots-local"
+                                     :username :env/MVN_USERNAME :password :env/MVN_PASSWORD
+                                     :sign-releases false}
+                        "releases"  {:id          "foursquare"
+                                     :url         "https://foursquaredev.jfrog.io/foursquaredev/fsfactual-releases-local"
+                                     :username :env/MVN_USERNAME :password :env/MVN_PASSWORD
+                                     :sign-releases false}}
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/core.memoize "0.5.6"]
                  [factual/drake-interface "0.0.1"]
@@ -26,7 +32,9 @@
                  [factual/sosueme "0.0.15"]
                  [factual/c4 "0.2.1"]
                  [hdfs-clj "0.1.3"]    ;; for HDFS support
-                 [org.apache.hadoop/hadoop-core "0.20.2"]
+                 [org.apache.hadoop/hadoop-mapreduce-client-core "2.6.0-cdh5.13.0"]
+	         [org.apache.hadoop/hadoop-hdfs "2.6.0-cdh5.13.0"]
+                 [org.apache.hadoop/hadoop-common "2.6.0-cdh5.13.0"]
                  [clj-aws-s3 "0.3.10" :exclusions [joda-time]]    ;; for AWS S3 support
                  ;; for plugins
                  [com.cemerick/pomegranate "0.2.0" :exclusions [org.apache.httpcomponents/httpcore]]]
