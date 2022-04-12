@@ -1,4 +1,4 @@
-(defproject factual/drake "1.0.4-SNAPSHOT"
+(defproject factual/drake "1.0.4-cdh5-SNAPSHOT"
   :description "Drake: the data processing workflow tool (a.k.a. 'make for data')"
   :repositories {"cloudera"   "https://repository.cloudera.com/content/groups/cdh-releases-rcs"
                  "foursquare" {:url      "https://foursquaredev.jfrog.io/foursquaredev/fsnexus"
@@ -32,7 +32,9 @@
                  [factual/sosueme "0.0.15"]
                  [factual/c4 "0.2.1"]
                  [hdfs-clj "0.1.3"]    ;; for HDFS support
-                 [org.apache.hadoop/hadoop-core "2.6.0-cdh5.4.0"]
+                 [org.apache.hadoop/hadoop-mapreduce-client-core "2.6.0-cdh5.13.0"]
+	         [org.apache.hadoop/hadoop-hdfs "2.6.0-cdh5.13.0"]
+                 [org.apache.hadoop/hadoop-common "2.6.0-cdh5.13.0"]
                  [clj-aws-s3 "0.3.10" :exclusions [joda-time]]    ;; for AWS S3 support
                  ;; for plugins
                  [com.cemerick/pomegranate "0.2.0" :exclusions [org.apache.httpcomponents/httpcore]]]
